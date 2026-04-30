@@ -1,65 +1,93 @@
-import Image from "next/image";
+import Link from 'next/link'
+
+const DIMENSIONS = [
+  { icon: '🗄️', label: 'Data',         desc: 'Quality, ownership, accessibility' },
+  { icon: '🏢', label: 'Organisation',  desc: 'Sponsorship, AI ownership, change capacity' },
+  { icon: '⚙️', label: 'Process',       desc: 'Measurement culture, workflow adaptability' },
+  { icon: '💻', label: 'Technology',    desc: 'Stack, APIs, deployment, observability' },
+  { icon: '🛡️', label: 'Risk',          desc: 'Legal, compliance, fallback plans' },
+]
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-zinc-950 text-white flex flex-col">
+      {/* Nav */}
+      <nav className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
+        <span className="font-mono text-sm text-zinc-400 tracking-widest">AI READY</span>
+        <a
+          href="https://issam-resume.vercel.app"
+          target="_blank"
+          className="font-mono text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+        >
+          by Issam Sedki →
+        </a>
+      </nav>
+
+      {/* Hero */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-20 text-center max-w-3xl mx-auto w-full">
+        <div className="inline-block font-mono text-xs text-green-500 border border-green-900/50 px-3 py-1.5 rounded-full mb-8 tracking-widest">
+          NOT A SURVEY
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <h1 className="text-4xl sm:text-5xl font-bold leading-tight mb-6">
+          Is your organisation actually
+          <br />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-green-400">
+            ready for AI in production?
+          </span>
+        </h1>
+
+        <p className="text-zinc-400 text-lg leading-relaxed mb-4 max-w-xl">
+          Most teams think they're ready. Most teams are wrong.
+          This is a structured interview — not a checkbox form — conducted by an AI analyst.
+        </p>
+        <p className="text-zinc-600 text-sm mb-12 font-mono">
+          ~15 minutes · 5 dimensions · anonymous benchmarking · executive brief at the end
+        </p>
+
+        <Link
+          href="/assess"
+          className="px-8 py-4 rounded-xl border border-green-700/60 bg-green-950/20 text-green-400 font-mono text-base hover:bg-green-950/40 hover:border-green-600/70 transition-all"
+        >
+          Begin Assessment →
+        </Link>
+
+        {/* Dimensions */}
+        <div className="mt-20 grid grid-cols-1 sm:grid-cols-5 gap-3 w-full">
+          {DIMENSIONS.map((d, i) => (
+            <div key={i} className="border border-zinc-800 rounded-xl p-4 bg-zinc-900/50 text-center">
+              <div className="text-2xl mb-2">{d.icon}</div>
+              <div className="font-mono text-xs text-zinc-300 mb-1">{d.label}</div>
+              <div className="text-xs text-zinc-600 leading-relaxed">{d.desc}</div>
+            </div>
+          ))}
         </div>
-      </main>
-    </div>
-  );
+
+        {/* How it's different */}
+        <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-4 w-full text-left">
+          {[
+            { icon: '🎤', title: 'Interview, not a form', body: 'The AI analyst asks follow-ups, challenges self-assessments, and probes for evidence.' },
+            { icon: '📎', title: 'Evidence changes the score', body: 'Paste a job description, tech stack, or incident report. It re-evaluates in real time.' },
+            { icon: '📄', title: 'Executive brief at the end', body: 'Not a score. A 1-page narrative written for your CEO, with blockers and a 90-day path.' },
+          ].map((item, i) => (
+            <div key={i} className="border border-zinc-800 rounded-xl p-5 bg-zinc-900/30">
+              <div className="text-2xl mb-3">{item.icon}</div>
+              <div className="font-mono text-sm text-zinc-200 mb-2">{item.title}</div>
+              <div className="text-sm text-zinc-500 leading-relaxed">{item.body}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="border-t border-zinc-900 py-6 text-center">
+        <p className="text-xs text-zinc-700 font-mono">
+          Powered by Claude ·{' '}
+          <a href="https://issam-resume.vercel.app" target="_blank" className="hover:text-zinc-500 transition-colors">
+            Issam Sedki, PhD — Enterprise Architect & AI Researcher
+          </a>
+        </p>
+      </footer>
+    </main>
+  )
 }
