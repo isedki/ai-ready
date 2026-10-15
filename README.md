@@ -34,3 +34,26 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+---
+
+## Meeting Copilot (`/meeting`)
+
+A private meeting assistant for Darija/French meetings. It listens to the meeting, keeps a precise bilingual transcript, and produces action items, decisions, risks, open questions, a candid analysis, project and process suggestions, and a ready-to-send follow-up message.
+
+**How it works**
+
+1. **Capture** (browser): mic for in-room meetings, or mic plus the meeting tab's audio for Meet/Teams calls (Chrome: tick "Share tab audio"). You can also upload a recording. Audio becomes 16 kHz mono WAV chunks of about 45 s, cut at pauses so words aren't split.
+2. **Speech-to-text** (`lib/meeting/stt.ts`): ElevenLabs Scribe or OpenAI, with diarization, language auto-detect and no forced language (forcing one hurts code-switched speech).
+3. **Fidelity pass** (Claude, per chunk): keeps the original wording and script, fixes ASR errors on names, numbers and glossary terms, keeps speaker labels consistent across chunks, adds a faithful translation, and flags uncertain passages instead of guessing.
+4. **Digest** (Claude): every claim is anchored to a verbatim quote and timestamp. It separates said from inferred, rates commitment strength ("inchallah" without a date = soft), and lists what needs clarifying. It runs automatically every 5 min during the meeting, and on demand for the final version.
+
+**Setup**: copy `.env.example` to `.env.local` and fill in the keys. Run `npm run dev` and open `/meeting`.
+
+**Tips for precision**
+- Fill in participants and glossary before you start. That is what lets the agent fix names and jargon.
+- Click a speaker label to rename it everywhere (e.g. "Speaker B" to "Salma").
+- No STT vendor publishes Darija benchmarks. Record one real meeting and compare `STT_PROVIDER`s on it.
+- Tell participants the meeting is recorded (Law 09-08 in Morocco).
+
+Transcript and digest stay in the browser (localStorage). Nothing is stored server-side.
