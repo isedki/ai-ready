@@ -4,11 +4,20 @@ import { useEffect, useRef, useState } from 'react'
 import { ChunkRecorder, chunkFile, SAMPLE_RATE, type CaptureSource } from '@/lib/meeting/audio'
 import { formatTime }  from '@/lib/meeting/prompts'
 import { toMarkdown }  from '@/lib/meeting/export'
-import type { MeetingContext, MeetingDigest, RefinedSegment } from '@/lib/meeting/schema'
-import DigestView      from './DigestView'
+import { api, applyTerm, KEY_STORE } from '@/lib/meeting/client'
+import type {
+  LearningProposal, LexiconEntry, MeetingContext, RefinedSegment, UnknownTerm, VerifiedDigest,
+} from '@/lib/meeting/schema'
+import DigestView   from './DigestView'
+import ConfirmTerms from './ConfirmTerms'
+import AskPanel, { type QA } from './AskPanel'
+import MemoryPanel  from './MemoryPanel'
 
 const LIVE_DIGEST_EVERY = 5 * 60   // seconds of new audio between automatic live digests
-const STORE = { ctx: 'meeting:ctx', key: 'meeting:key', segments: 'meeting:segments', digest: 'meeting:digest' }
+const STORE = {
+  ctx: 'meeting:ctx', segments: 'meeting:segments', digest: 'meeting:digest',
+  id: 'meeting:id', terms: 'meeting:terms', qa: 'meeting:qa',
+}
 
 const EMPTY_CTX: MeetingContext = { title: '', participants: '', project: '', glossary: '', myRole: '', language: 'fr' }
 
@@ -21,15 +30,24 @@ function load<T>(key: string, fallback: T): T {
 function save(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* storage full or blocked */ }
 }
+function newMeetingId() {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`
+}
 
-type Digest = { data: MeetingDigest; mode: 'live' | 'final' }
+type Digest = { data: VerifiedDigest; mode: 'live' | 'final' }
 type FailedChunk = { wav: Blob; offset: number; error: string }
+type Tab = 'digest' | 'ask' | 'memory'
 
 export default function MeetingApp() {
+  const [meetingId, setMeetingId] = useState<string>(() => load(STORE.id, '') || newMeetingId())
   const [ctx, setCtx]             = useState<MeetingContext>(() => load(STORE.ctx, EMPTY_CTX))
-  const [accessKey, setAccessKey] = useState<string>(() => load(STORE.key, ''))
+  const [accessKey, setAccessKey] = useState<string>(() => load(KEY_STORE, ''))
   const [segments, setSegments]   = useState<RefinedSegment[]>(() => load(STORE.segments, []))
   const [digest, setDigest]       = useState<Digest | null>(() => load(STORE.digest, null))
+  const [terms, setTerms]         = useState<UnknownTerm[]>(() => load(STORE.terms, []))
+  const [qa, setQa]               = useState<QA[]>(() => load(STORE.qa, []))
   const [recording, setRecording] = useState<CaptureSource | null>(null)
   const [pending, setPending]     = useState(0)
   const [failed, setFailed]       = useState<FailedChunk[]>([])
@@ -39,12 +57,14 @@ export default function MeetingApp() {
   const [autoLive, setAutoLive]   = useState(true)
   const [level, setLevel]         = useState(0)
   const [showSetup, setShowSetup] = useState(true)
+  const [tab, setTab]             = useState<Tab>('digest')
 
   const recorderRef   = useRef<ChunkRecorder | null>(null)
   const queueRef      = useRef<Promise<void>>(Promise.resolve())
   const segmentsRef   = useRef(segments)
+  const termsRef      = useRef(terms)
   const ctxRef        = useRef(ctx)
-  const keyRef        = useRef(accessKey)
+  const idRef         = useRef(meetingId)
   const audioEndRef   = useRef(segments.length ? segments[segments.length - 1].start + 30 : 0)
   const lastDigestRef = useRef(0)
   const digestBusyRef = useRef(false)
@@ -52,9 +72,12 @@ export default function MeetingApp() {
   const recordingRef  = useRef(recording)
 
   useEffect(() => { ctxRef.current = ctx; save(STORE.ctx, ctx) }, [ctx])
-  useEffect(() => { keyRef.current = accessKey; save(STORE.key, accessKey) }, [accessKey])
+  useEffect(() => { save(KEY_STORE, accessKey) }, [accessKey])
+  useEffect(() => { idRef.current = meetingId; save(STORE.id, meetingId) }, [meetingId])
   useEffect(() => { save(STORE.segments, segments) }, [segments])
+  useEffect(() => { termsRef.current = terms; save(STORE.terms, terms) }, [terms])
   useEffect(() => { save(STORE.digest, digest) }, [digest])
+  useEffect(() => { save(STORE.qa, qa) }, [qa])
   useEffect(() => { autoLiveRef.current = autoLive }, [autoLive])
   useEffect(() => { recordingRef.current = recording }, [recording])
 
@@ -65,7 +88,10 @@ export default function MeetingApp() {
     return () => clearInterval(id)
   }, [recording])
 
-  const headers = () => (keyRef.current ? { 'x-meeting-key': keyRef.current } : undefined)
+  function updateSegments(next: RefinedSegment[]) {
+    segmentsRef.current = next
+    setSegments(next)
+  }
 
   // ── Digest ──────────────────────────────────────────────────────────────
 
@@ -75,13 +101,13 @@ export default function MeetingApp() {
     setDigestBusy(true)
     setError(null)
     try {
-      const res = await fetch('/api/meeting/digest', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', ...headers() },
-        body:    JSON.stringify({ segments: segmentsRef.current, context: ctxRef.current, mode }),
+      const data = await api<VerifiedDigest>('/api/meeting/digest', {
+        method: 'POST',
+        body: JSON.stringify({
+          meetingId: idRef.current, segments: segmentsRef.current, context: ctxRef.current, mode,
+          pendingTerms: termsRef.current.map(t => t.heard),
+        }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? `Digest failed (${res.status})`)
       setDigest({ data, mode })
       lastDigestRef.current = audioEndRef.current
     } catch (e) {
@@ -104,12 +130,13 @@ export default function MeetingApp() {
     let lastErr = ''
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const res  = await fetch('/api/meeting/chunk', { method: 'POST', headers: headers(), body: form })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
-        const next = [...segmentsRef.current, ...(data.segments as RefinedSegment[])].sort((a, b) => a.start - b.start)
-        segmentsRef.current = next
-        setSegments(next)
+        const data = await api<{ segments: RefinedSegment[]; unknown_terms: UnknownTerm[] }>(
+          '/api/meeting/chunk', { method: 'POST', body: form })
+        updateSegments([...segmentsRef.current, ...data.segments].sort((a, b) => a.start - b.start))
+
+        const seen = new Set(termsRef.current.map(t => t.heard.toLowerCase()))
+        const fresh = data.unknown_terms.filter(t => !seen.has(t.heard.toLowerCase()))
+        if (fresh.length) setTerms(ts => [...ts, ...fresh])
 
         const audioSeconds = (wav.size - 44) / 2 / SAMPLE_RATE
         audioEndRef.current = Math.max(audioEndRef.current, offset + audioSeconds)
@@ -174,34 +201,78 @@ export default function MeetingApp() {
     }
   }
 
+  // ── Names & jargon ──────────────────────────────────────────────────────
+
+  async function confirmTerm(term: UnknownTerm, entry: LexiconEntry) {
+    try {
+      await api('/api/meeting/memory', { method: 'POST', body: JSON.stringify({ op: 'lexicon', entry }) })
+      updateSegments(applyTerm(segmentsRef.current, term.heard, entry))
+      setTerms(ts => ts.filter(t => t.heard.toLowerCase() !== term.heard.toLowerCase()))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  async function ignoreTerm(term: UnknownTerm) {
+    const entry: LexiconEntry = { canonical: term.heard, arabic: null, kind: 'ignore', meaning: null, variants: [term.heard] }
+    await confirmTerm(term, entry)
+  }
+
   function renameSpeaker(from: string) {
     const to = window.prompt(`Rename "${from}" to:`, from)?.trim()
     if (!to || to === from) return
-    const next = segmentsRef.current.map(s => s.speaker === from ? { ...s, speaker: to } : s)
-    segmentsRef.current = next
-    setSegments(next)
+    updateSegments(segmentsRef.current.map(s => s.speaker === from ? { ...s, speaker: to } : s))
   }
+
+  // ── Q&A and learning ────────────────────────────────────────────────────
+
+  async function ask(question: string) {
+    setError(null)
+    try {
+      const { answer } = await api<{ answer: string }>('/api/meeting/ask', {
+        method: 'POST',
+        body: JSON.stringify({ meetingId: idRef.current, question, segments: segmentsRef.current, context: ctxRef.current }),
+      })
+      setQa(h => [...h, { question, answer }])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  async function proposeLearnings() {
+    const out = await api<LearningProposal>('/api/meeting/learn', {
+      method: 'POST',
+      body: JSON.stringify({ meetingId: idRef.current, segments: segmentsRef.current, digest: digest?.data ?? null, context: ctxRef.current }),
+    })
+    return out.proposals
+  }
+
+  // ── Misc ────────────────────────────────────────────────────────────────
 
   function exportMarkdown() {
     if (!digest) return
     const md = toMarkdown(digest.data, segments, ctx)
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([md], { type: 'text/markdown' }))
-    a.download = `${(ctx.title || 'meeting').replace(/[^\w-]+/g, '_')}.md`
+    a.download = `${meetingId}-${(ctx.title || 'meeting').replace(/[^\w-]+/g, '_')}.md`
     a.click()
     URL.revokeObjectURL(a.href)
   }
 
   function newMeeting() {
     if (recording || pending) return
-    if (segments.length && !window.confirm('Clear the current transcript and digest?')) return
-    segmentsRef.current = []
+    if (segments.length && !window.confirm('Start a new meeting? The current one stays saved in the workspace if you ran the final digest.')) return
+    updateSegments([])
     audioEndRef.current = 0
     lastDigestRef.current = 0
-    setSegments([])
     setDigest(null)
     setFailed([])
+    setTerms([])
+    setQa([])
+    setMeetingId(newMeetingId())
+    setCtx(c => ({ ...c, title: '' }))
     setShowSetup(true)
+    setTab('digest')
   }
 
   const transcriptEnd = useRef<HTMLDivElement>(null)
@@ -213,7 +284,7 @@ export default function MeetingApp() {
   return (
     <main className="min-h-screen flex flex-col">
       <nav className="border-b border-zinc-800 px-4 sm:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
-        <span className="font-mono text-sm text-zinc-400 tracking-widest">MEETING COPILOT</span>
+        <span className="font-mono text-sm text-zinc-400 tracking-widest">MEETING COPILOT <span className="text-zinc-600 text-xs">{meetingId}</span></span>
         <div className="flex items-center gap-2 flex-wrap">
           {recording ? (
             <>
@@ -248,7 +319,7 @@ export default function MeetingApp() {
       )}
 
       <div className="flex-1 grid lg:grid-cols-2 gap-4 p-4 sm:p-6 min-h-0">
-        {/* ── Left: setup + transcript ── */}
+        {/* ── Left: setup + names to confirm + transcript ── */}
         <div className="flex flex-col gap-4 min-w-0">
           <section className="border border-zinc-800 rounded-xl bg-zinc-900/40">
             <button onClick={() => setShowSetup(s => !s)} className="w-full text-left px-5 py-3 font-mono text-xs tracking-widest text-zinc-400 flex justify-between">
@@ -258,13 +329,13 @@ export default function MeetingApp() {
             {showSetup && (
               <div className="px-5 pb-5 grid gap-3">
                 <p className="text-xs text-zinc-500">
-                  Better context gives more precise output. Names and jargon let the agent fix transcription errors; your role tailors the advice.
+                  Confirmed names, your knowledge base and past meetings are used automatically. Add anything specific to this meeting here.
                 </p>
                 <input className={field} placeholder="Meeting title" value={ctx.title} onChange={e => setCtx({ ...ctx, title: e.target.value })} />
                 <input className={field} placeholder="Participants & roles — e.g. Karim (PM), Salma (DSI client), moi (architecte)" value={ctx.participants} onChange={e => setCtx({ ...ctx, participants: e.target.value })} />
                 <input className={field} placeholder="My role / what I want from this meeting" value={ctx.myRole} onChange={e => setCtx({ ...ctx, myRole: e.target.value })} />
                 <textarea className={field} rows={3} placeholder="Project background: goals, stakeholders, deadlines, known issues…" value={ctx.project} onChange={e => setCtx({ ...ctx, project: e.target.value })} />
-                <textarea className={field} rows={2} placeholder="Glossary: product names, acronyms, client names, tools (comma-separated)" value={ctx.glossary} onChange={e => setCtx({ ...ctx, glossary: e.target.value })} />
+                <textarea className={field} rows={2} placeholder="Extra glossary for this meeting (comma-separated)" value={ctx.glossary} onChange={e => setCtx({ ...ctx, glossary: e.target.value })} />
                 <div className="flex flex-wrap gap-3 items-center">
                   <label className="text-xs text-zinc-500 font-mono">Output
                     <select className="ml-2 bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-zinc-200" value={ctx.language}
@@ -273,12 +344,14 @@ export default function MeetingApp() {
                       <option value="en">English</option>
                     </select>
                   </label>
-                  <input type="password" className={`${field} flex-1 min-w-40`} placeholder="Access key (if the server requires one)" value={accessKey} onChange={e => setAccessKey(e.target.value)} />
+                  <input type="password" className={`${field} flex-1 min-w-40`} placeholder="Access key (if MEETING_ACCESS_KEY is set)" value={accessKey} onChange={e => setAccessKey(e.target.value)} />
                 </div>
                 <p className="text-xs text-zinc-600">⚖️ Tell participants the meeting is being recorded and transcribed.</p>
               </div>
             )}
           </section>
+
+          <ConfirmTerms terms={terms} onConfirm={confirmTerm} onIgnore={ignoreTerm} />
 
           <section className="border border-zinc-800 rounded-xl bg-zinc-900/40 flex flex-col min-h-[320px] lg:max-h-[calc(100vh-11rem)]">
             <div className="px-5 py-3 border-b border-zinc-800 flex items-center justify-between gap-2 flex-wrap">
@@ -324,28 +397,50 @@ export default function MeetingApp() {
           </section>
         </div>
 
-        {/* ── Right: digest ── */}
+        {/* ── Right: digest / ask / memory ── */}
         <div className="flex flex-col gap-4 min-w-0 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
-          <div className="flex flex-wrap gap-2 items-center">
-            <button onClick={() => runDigest('live')} disabled={digestBusy || segments.length === 0}
-              className={`${btn} border-cyan-800 text-cyan-400 hover:bg-cyan-950/40`}>⟳ Digest so far</button>
-            <button onClick={() => runDigest('final')} disabled={digestBusy || segments.length === 0 || pending > 0}
-              className={`${btn} border-green-800 text-green-400 hover:bg-green-950/40`}>✓ Final digest</button>
-            <button onClick={exportMarkdown} disabled={!digest}
-              className={`${btn} border-zinc-700 text-zinc-300 hover:border-zinc-500`}>↓ Markdown</button>
-            <label className="font-mono text-xs text-zinc-500 flex items-center gap-1.5 ml-auto">
-              <input type="checkbox" checked={autoLive} onChange={e => setAutoLive(e.target.checked)} />
-              auto every 5 min
-            </label>
+          <div className="flex gap-1 font-mono text-xs border-b border-zinc-800">
+            {([['digest', 'Digest'], ['ask', `Ask${qa.length ? ` · ${qa.length}` : ''}`], ['memory', 'Memory & tracker']] as const).map(([k, label]) => (
+              <button key={k} onClick={() => setTab(k)}
+                className={`px-3 py-2 -mb-px border-b-2 ${tab === k ? 'border-cyan-500 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}>{label}</button>
+            ))}
           </div>
-          {digestBusy && <div className="font-mono text-xs text-cyan-400 animate-pulse">Analysing the meeting… (a final digest can take a minute or two)</div>}
-          {digest
-            ? <DigestView digest={digest.data} live={digest.mode === 'live'} />
-            : !digestBusy && (
-              <div className="border border-dashed border-zinc-800 rounded-xl p-10 text-center text-sm text-zinc-600">
-                Action items, decisions, risks, analysis and suggestions will appear here.
+
+          {tab === 'digest' && (
+            <>
+              <div className="flex flex-wrap gap-2 items-center">
+                <button onClick={() => runDigest('live')} disabled={digestBusy || segments.length === 0}
+                  className={`${btn} border-cyan-800 text-cyan-400 hover:bg-cyan-950/40`}>⟳ Digest so far</button>
+                <button onClick={() => runDigest('final')} disabled={digestBusy || segments.length === 0 || pending > 0}
+                  className={`${btn} border-green-800 text-green-400 hover:bg-green-950/40`}>✓ Final digest</button>
+                <button onClick={exportMarkdown} disabled={!digest}
+                  className={`${btn} border-zinc-700 text-zinc-300 hover:border-zinc-500`}>↓ Markdown</button>
+                <label className="font-mono text-xs text-zinc-500 flex items-center gap-1.5 ml-auto">
+                  <input type="checkbox" checked={autoLive} onChange={e => setAutoLive(e.target.checked)} />
+                  auto every 5 min
+                </label>
               </div>
-            )}
+              {terms.length > 0 && (
+                <div className="text-xs text-yellow-500">
+                  {terms.length} name(s)/term(s) not confirmed yet — they will appear with “(?)”. Confirm them on the left for a clean final digest.
+                </div>
+              )}
+              {digestBusy && <div className="font-mono text-xs text-cyan-400 animate-pulse">Analysing the meeting… (the final digest searches your knowledge base and can take 2–4 minutes)</div>}
+              {digest
+                ? <DigestView digest={digest.data} live={digest.mode === 'live'} />
+                : !digestBusy && (
+                  <div className="border border-dashed border-zinc-800 rounded-xl p-10 text-center text-sm text-zinc-600">
+                    Action items, decisions, risks, execution plan and management report will appear here.
+                  </div>
+                )}
+            </>
+          )}
+
+          {tab === 'ask' && <AskPanel history={qa} onAsk={ask} />}
+
+          {tab === 'memory' && (
+            <MemoryPanel meetingId={meetingId} digest={digest?.data ?? null} isFinal={digest?.mode === 'final'} propose={proposeLearnings} />
+          )}
         </div>
       </div>
     </main>

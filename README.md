@@ -39,21 +39,35 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Meeting Copilot (`/meeting`)
 
-A private meeting assistant for Darija/French meetings. It listens to the meeting, keeps a precise bilingual transcript, and produces action items, decisions, risks, open questions, a candid analysis, project and process suggestions, and a ready-to-send follow-up message.
+A private meeting assistant for Darija/French meetings that runs **on your own computer** and uses **your Claude subscription** (no Anthropic API billing).
 
-**How it works**
+### What it does
+- **Precise bilingual transcript**: keeps what was said in the original language and script, with a faithful translation. Unclear passages are flagged, not guessed.
+- **Asks you before naming anything**: unfamiliar names, companies and jargon go to a *To confirm* queue (Latin + Arabic spelling, role/meaning). Confirm once and it is used in every future meeting. Unconfirmed names appear with "(?)".
+- **No filler**: every action, decision, risk and key point carries a verbatim quote and timestamp. Code checks each quote against the transcript and removes anything it can't find (listed under *Removed by evidence check*). Generic advice is banned by the prompt, and suggestions must point to a moment or a known fact.
+- **How to run the work**: an ordered next-step sequence, a tracking method fitted to your team's tools, checkpoints, RAID/decision-log entries ready to paste, and a management report (RAG status, blockers, asks, ready-to-send note).
+- **Learns over time**: a knowledge base you hand over, names you confirmed, learnings you approved, an action tracker carried across meetings (each digest reports progress on earlier actions), and the questions you ask. Nothing is remembered without your approval.
 
-1. **Capture** (browser): mic for in-room meetings, or mic plus the meeting tab's audio for Meet/Teams calls (Chrome: tick "Share tab audio"). You can also upload a recording. Audio becomes 16 kHz mono WAV chunks of about 45 s, cut at pauses so words aren't split.
-2. **Speech-to-text** (`lib/meeting/stt.ts`): ElevenLabs Scribe or OpenAI, with diarization, language auto-detect and no forced language (forcing one hurts code-switched speech).
-3. **Fidelity pass** (Claude, per chunk): keeps the original wording and script, fixes ASR errors on names, numbers and glossary terms, keeps speaker labels consistent across chunks, adds a faithful translation, and flags uncertain passages instead of guessing.
-4. **Digest** (Claude): every claim is anchored to a verbatim quote and timestamp. It separates said from inferred, rates commitment strength ("inchallah" without a date = soft), and lists what needs clarifying. It runs automatically every 5 min during the meeting, and on demand for the final version.
+### Setup (on your machine)
+1. Install Claude Code and sign in with your subscription: `claude auth login`. The *Memory & tracker* tab shows a green tick when this is right.
+2. `cp .env.example .env.local` and add a speech-to-text key (ElevenLabs or OpenAI). This is a separate, small cost; Claude itself isn't billed per call.
+3. `npm install && npm run dev`, then open http://localhost:3000/meeting.
+4. Hand over your knowledge base: drop files (md, txt, pdf, csv, json; convert Word to PDF) into `workspace/knowledge/` or use *Add documents*.
 
-**Setup**: copy `.env.example` to `.env.local` and fill in the keys. Run `npm run dev` and open `/meeting`.
+The app can't run on Vercel or another server: subscription use goes through the Claude Code CLI on your machine.
 
-**Tips for precision**
-- Fill in participants and glossary before you start. That is what lets the agent fix names and jargon.
-- Click a speaker label to rename it everywhere (e.g. "Speaker B" to "Salma").
-- No STT vendor publishes Darija benchmarks. Record one real meeting and compare `STT_PROVIDER`s on it.
+### The workspace (`./workspace`, git-ignored)
+```
+knowledge/           documents you hand over
+memory/lexicon.json  confirmed names & jargon (Arabic + Latin)
+memory/notes.md      learnings you approved; edit freely
+memory/actions.json  action tracker across meetings
+meetings/<id>/       transcript.md, meeting.json, qa.md
+```
+It is plain files: back it up, edit it, or open it in Claude Code (`cd workspace && claude`) to talk to the agent directly with all its memory.
+
+### Usage notes
+- Claude calls count against your plan's usage limits. The per-chunk pass uses Sonnet; digests, Q&A and learning use Opus (`MEETING_MODEL_CHUNK`, `MEETING_MODEL`).
+- The final digest searches your knowledge base and takes 2–4 minutes.
+- No STT vendor publishes Darija benchmarks. Record one real meeting and compare providers.
 - Tell participants the meeting is recorded (Law 09-08 in Morocco).
-
-Transcript and digest stay in the browser (localStorage). Nothing is stored server-side.

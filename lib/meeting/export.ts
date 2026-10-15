@@ -7,12 +7,14 @@ const L = {
     disagreements: 'Désaccords', analysis: 'Analyse', suggestions: 'Recommandations', project: 'Projet', process: 'Processus',
     clarify: 'À clarifier', followup: 'Message de suivi', transcript: 'Transcription', owner: 'Responsable', due: 'Échéance',
     unassigned: 'non assigné', none: 'non fixée', effectiveness: 'Efficacité de la réunion',
+    next: 'Prochaines étapes', tracking: 'Suivi', log: 'Journal (RAID / décisions)', mgmt: 'Reporting management',
   },
   en: {
     summary: 'Summary', decisions: 'Decisions', actions: 'Action items', risks: 'Risks', questions: 'Open questions',
     disagreements: 'Disagreements', analysis: 'Analysis', suggestions: 'Suggestions', project: 'Project', process: 'Process',
     clarify: 'To clarify', followup: 'Follow-up message', transcript: 'Transcript', owner: 'Owner', due: 'Due',
     unassigned: 'unassigned', none: 'not set', effectiveness: 'Meeting effectiveness',
+    next: 'Next steps', tracking: 'Tracking', log: 'Log (RAID / decisions)', mgmt: 'Management report',
   },
 }
 
@@ -55,6 +57,16 @@ export function toMarkdown(d: MeetingDigest, segments: RefinedSegment[], ctx: Me
   d.suggestions.project.forEach(s => out.push(`- **${s.suggestion}** — ${s.rationale}`))
   out.push(`### ${t.process}`)
   d.suggestions.process.forEach(s => out.push(`- **${s.suggestion}** — ${s.rationale}`))
+  const ex = d.execution
+  out.push('', `## ${t.next}`)
+  ex.next_steps.forEach((s, i) => out.push(`${i + 1}. **${s.step}** — ${s.owner ?? '—'}, ${s.when}. _${s.why_first}_`))
+  out.push('', `## ${t.tracking}`, ex.tracking.method, '', ex.tracking.cadence, '')
+  ex.tracking.checkpoints.forEach(c => out.push(`- ${c.when}: ${c.check} (${c.with_whom})`))
+  if (ex.log_entries.length) {
+    out.push('', `## ${t.log}`, '| Date | Type | Entry | Owner |', '|---|---|---|---|')
+    ex.log_entries.forEach(l => out.push(`| ${l.date} | ${l.type} | ${l.entry} | ${l.owner ?? ''} |`))
+  }
+  out.push('', `## ${t.mgmt} — ${ex.management_report.status.toUpperCase()}`, ex.management_report.message)
   out.push('', `## ${t.effectiveness}: ${d.meeting_effectiveness.score}/10`, d.meeting_effectiveness.time_use, '')
   if (d.clarifications_needed.length) {
     out.push(`## ${t.clarify}`)
