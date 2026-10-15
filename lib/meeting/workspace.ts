@@ -149,3 +149,29 @@ export async function memoryStats() {
     meetings:    meetings.length,
   }
 }
+
+// ── Settings (set from the UI, so no .env editing is needed) ──────────────
+
+export interface Settings {
+  sttProvider:   'elevenlabs' | 'openai'
+  elevenlabsKey: string
+  openaiKey:     string
+}
+
+const settingsFile = () => path.join(WORKSPACE, 'settings.json')
+
+/** UI-saved settings win; environment variables remain a fallback for people who prefer .env. */
+export async function getSettings(): Promise<Settings> {
+  const saved = await readJson<Partial<Settings>>(settingsFile(), {})
+  return {
+    sttProvider:   saved.sttProvider ?? (process.env.STT_PROVIDER === 'openai' ? 'openai' : 'elevenlabs'),
+    elevenlabsKey: saved.elevenlabsKey || process.env.ELEVENLABS_API_KEY || '',
+    openaiKey:     saved.openaiKey || process.env.OPENAI_API_KEY || '',
+  }
+}
+
+export async function saveSettings(patch: Partial<Settings>) {
+  const current = await readJson<Partial<Settings>>(settingsFile(), {})
+  const next = { ...current, ...Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined && v !== '')) }
+  await fs.writeFile(settingsFile(), JSON.stringify(next, null, 2), { mode: 0o600 })
+}

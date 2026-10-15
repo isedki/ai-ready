@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       readFiles: true,
       timeoutMs: 280_000,
       prompt: [
-        segments?.length ? `<current_meeting_transcript>\n${transcriptBlock(segments)}\n</current_meeting_transcript>` : '(no meeting transcript yet)',
+        segments?.length ? `<current_meeting_transcript>\n${transcriptBlock(segments, { meetingOnly: true })}\n</current_meeting_transcript>` : '(no meeting transcript yet)',
         previousQa ? `<earlier_questions_this_meeting>\n${previousQa.slice(-8000)}\n</earlier_questions_this_meeting>` : '',
         `<question>\n${question}\n</question>`,
       ].filter(Boolean).join('\n\n'),

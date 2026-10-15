@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '@/lib/meeting/client'
+import SetupBanner from './SetupBanner'
 import type { LearningProposal, LexiconEntry, TrackedAction, VerifiedDigest } from '@/lib/meeting/schema'
 
 type Status = {
-  auth:    { ok: boolean; method: string; detail: string }
   stats:   { workspace: string; terms: number; notes: number; openActions: number; knowledge: { name: string; size: number }[]; meetings: number }
   lexicon: LexiconEntry[]
   actions: TrackedAction[]
@@ -87,19 +87,12 @@ export default function MemoryPanel({ meetingId, digest, isFinal, propose }: Pro
     <div className="space-y-4">
       {error && <div className="text-sm text-red-300 border border-red-900 bg-red-950/30 rounded-lg px-3 py-2">{error}</div>}
 
-      <section className={box}>
-        <div className={title}>CLAUDE</div>
-        {status ? (
-          <div className={`text-sm ${status.auth.ok ? 'text-green-400' : 'text-red-400'}`}>
-            {status.auth.ok ? '✓' : '✕'} {status.auth.detail}
-          </div>
-        ) : <div className="text-sm text-zinc-500">Checking…</div>}
-        {status && (
-          <div className="mt-2 text-xs text-zinc-500 font-mono break-all">
-            Workspace: {status.stats.workspace} · {status.stats.meetings} meetings · {status.stats.terms} confirmed terms · {status.stats.notes} notes · {status.stats.openActions} open actions
-          </div>
-        )}
-      </section>
+      <SetupBanner settings />
+      {status && (
+        <div className="text-xs text-zinc-500 font-mono break-all">
+          Workspace: {status.stats.workspace} · {status.stats.meetings} meetings · {status.stats.terms} confirmed terms · {status.stats.notes} notes · {status.stats.openActions} open actions
+        </div>
+      )}
 
       <section className={box}>
         <div className={title}>AFTER THE MEETING</div>

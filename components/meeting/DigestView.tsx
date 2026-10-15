@@ -43,6 +43,20 @@ export default function DigestView({ digest: d, live }: { digest: VerifiedDigest
 
   return (
     <div className="space-y-4">
+      {live && (d.ask_now ?? []).length > 0 && (
+        <section className="border-2 border-yellow-600/70 rounded-xl p-5 bg-yellow-950/20">
+          <h3 className="font-mono text-xs tracking-widest text-yellow-400 mb-3">SAY THIS NOW · before the meeting ends</h3>
+          <ul className="space-y-3">
+            {d.ask_now.map((a, i) => (
+              <li key={i}>
+                <div className="text-base text-white" dir="auto">“{a.say}”</div>
+                <div className="text-xs text-zinc-400 mt-0.5">{a.why}</div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <div className="border border-cyan-900/50 rounded-xl p-5 bg-cyan-950/10">
         <div className="font-mono text-xs tracking-widest text-cyan-400 mb-2">
           {live ? 'LIVE DIGEST · SO FAR' : 'FINAL DIGEST'}

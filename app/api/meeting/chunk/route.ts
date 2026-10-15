@@ -3,6 +3,7 @@ import { structured, MODELS }            from '@/lib/meeting/claude'
 import { refineSystemPrompt, transcriptBlock, formatTime } from '@/lib/meeting/prompts'
 import { unauthorized, errorResponse }   from '@/lib/meeting/auth'
 import { getLexicon }                    from '@/lib/meeting/workspace'
+import { dropHallucinations }            from '@/lib/meeting/noise'
 import { RefinedChunk, type MeetingContext, type RefinedSegment } from '@/lib/meeting/schema'
 
 export const maxDuration = 180
@@ -22,10 +23,15 @@ export async function POST(req: Request) {
     const offset   = Number(form.get('offset') ?? 0)
     const context  = JSON.parse(String(form.get('context') ?? '{}')) as MeetingContext
     const previous = JSON.parse(String(form.get('previous') ?? '[]')) as RefinedSegment[]
+    const audioInfo = {
+      snrDb:       Number(form.get('snrDb') ?? 20),
+      speechRatio: Number(form.get('speechRatio') ?? 1),
+    }
 
     if (!(audio instanceof Blob)) return Response.json({ error: 'Missing audio' }, { status: 400 })
 
-    const raw = await transcribe(audio, offset)
+    const { kept: raw, dropped } = dropHallucinations(await transcribe(audio, offset))
+    if (dropped) console.info(`[meeting/chunk] dropped ${dropped} noise/silence artefact(s)`)
     if (raw.length === 0) return Response.json({ segments: [], unknown_terms: [], refined: true })
 
     try {
@@ -35,7 +41,7 @@ export async function POST(req: Request) {
         .join('\n')
 
       const out = await structured(RefinedChunk, {
-        system:    refineSystemPrompt(context, lexicon),
+        system:    refineSystemPrompt(context, lexicon, audioInfo),
         model:     MODELS.chunk,
         effort:    'medium',
         readFiles: false,
@@ -58,7 +64,7 @@ export async function POST(req: Request) {
       console.error('[meeting/chunk] refine failed, returning raw ASR', err)
       const segments: RefinedSegment[] = raw.map(s => ({
         speaker: s.speaker, start: s.start, original: s.text, translation: '',
-        uncertain: true, note: `Unrefined ASR output (${err instanceof Error ? err.message.slice(0, 120) : 'error'})`,
+        uncertain: true, background: false, note: `Unrefined ASR output (${err instanceof Error ? err.message.slice(0, 120) : 'error'})`,
       }))
       return Response.json({ segments, unknown_terms: [], refined: false })
     }

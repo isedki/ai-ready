@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ChunkRecorder, chunkFile, SAMPLE_RATE, type CaptureSource } from '@/lib/meeting/audio'
+import { ChunkRecorder, chunkFile, MIN_SPEECH_RATIO, type AudioStats, type CaptureSource } from '@/lib/meeting/audio'
 import { formatTime }  from '@/lib/meeting/prompts'
 import { toMarkdown }  from '@/lib/meeting/export'
 import { api, applyTerm, KEY_STORE } from '@/lib/meeting/client'
@@ -12,6 +12,8 @@ import DigestView   from './DigestView'
 import ConfirmTerms from './ConfirmTerms'
 import AskPanel, { type QA } from './AskPanel'
 import MemoryPanel  from './MemoryPanel'
+import BriefPanel   from './BriefPanel'
+import SetupBanner  from './SetupBanner'
 
 const LIVE_DIGEST_EVERY = 5 * 60   // seconds of new audio between automatic live digests
 const STORE = {
@@ -37,8 +39,8 @@ function newMeetingId() {
 }
 
 type Digest = { data: VerifiedDigest; mode: 'live' | 'final' }
-type FailedChunk = { wav: Blob; offset: number; error: string }
-type Tab = 'digest' | 'ask' | 'memory'
+type FailedChunk = { wav: Blob; offset: number; stats: AudioStats; error: string }
+type Tab = 'today' | 'digest' | 'ask' | 'memory'
 
 export default function MeetingApp() {
   const [meetingId, setMeetingId] = useState<string>(() => load(STORE.id, '') || newMeetingId())
@@ -57,7 +59,11 @@ export default function MeetingApp() {
   const [autoLive, setAutoLive]   = useState(true)
   const [level, setLevel]         = useState(0)
   const [showSetup, setShowSetup] = useState(true)
-  const [tab, setTab]             = useState<Tab>('digest')
+  const [tab, setTab]             = useState<Tab>(() => (load<RefinedSegment[]>(STORE.segments, []).length ? 'digest' : 'today'))
+  const [skipped, setSkipped]     = useState(0)         // seconds of silence not sent for transcription
+  const [noisy, setNoisy]         = useState(false)     // last chunk had poor speech/noise contrast
+  const [showBackground, setShowBackground] = useState(false)
+  const [needKey, setNeedKey]     = useState(() => load(KEY_STORE, '') !== '')
 
   const recorderRef   = useRef<ChunkRecorder | null>(null)
   const queueRef      = useRef<Promise<void>>(Promise.resolve())
@@ -120,8 +126,10 @@ export default function MeetingApp() {
 
   // ── Chunk pipeline (sequential, so each chunk sees the previous one for speaker continuity) ──
 
-  async function processChunk(wav: Blob, offset: number) {
+  async function processChunk(wav: Blob, offset: number, stats: AudioStats) {
     const form = new FormData()
+    form.append('snrDb', String(stats.snrDb))
+    form.append('speechRatio', String(stats.speechRatio))
     form.append('audio', wav, 'chunk.wav')
     form.append('offset', String(offset))
     form.append('context', JSON.stringify(ctxRef.current))
@@ -138,8 +146,7 @@ export default function MeetingApp() {
         const fresh = data.unknown_terms.filter(t => !seen.has(t.heard.toLowerCase()))
         if (fresh.length) setTerms(ts => [...ts, ...fresh])
 
-        const audioSeconds = (wav.size - 44) / 2 / SAMPLE_RATE
-        audioEndRef.current = Math.max(audioEndRef.current, offset + audioSeconds)
+        audioEndRef.current = Math.max(audioEndRef.current, offset + stats.seconds)
         if (recordingRef.current && autoLiveRef.current
             && audioEndRef.current - lastDigestRef.current >= LIVE_DIGEST_EVERY) {
           void runDigest('live')
@@ -147,24 +154,33 @@ export default function MeetingApp() {
         return
       } catch (e) {
         lastErr = e instanceof Error ? e.message : String(e)
-        if (lastErr.includes('access key')) break
+        if (lastErr.includes('access key')) { setNeedKey(true); break }
+        if (lastErr.includes('key yet')) break
         await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
       }
     }
-    setFailed(f => [...f, { wav, offset, error: lastErr }])
+    setFailed(f => [...f, { wav, offset, stats, error: lastErr }])
   }
 
-  function enqueue(wav: Blob, offset: number) {
+  function enqueue(wav: Blob, offset: number, stats: AudioStats) {
+    // Silence (or only constant open-space hum) isn't worth transcribing: speech-to-text
+    // invents words from it, and it costs money. Skip it and leave a visible gap.
+    if (stats.speechRatio < MIN_SPEECH_RATIO) {
+      audioEndRef.current = Math.max(audioEndRef.current, offset + stats.seconds)
+      setSkipped(s => s + stats.seconds)
+      return
+    }
+    setNoisy(stats.snrDb < 12)
     setPending(p => p + 1)
     queueRef.current = queueRef.current
-      .then(() => processChunk(wav, offset))
+      .then(() => processChunk(wav, offset, stats))
       .finally(() => setPending(p => p - 1))
   }
 
   function retryFailed() {
     const items = failed
     setFailed([])
-    items.forEach(f => enqueue(f.wav, f.offset))
+    items.forEach(f => enqueue(f.wav, f.offset, f.stats))
   }
 
   // ── Capture ─────────────────────────────────────────────────────────────
@@ -195,7 +211,7 @@ export default function MeetingApp() {
     // Append after anything already transcribed; captured once so offsets don't drift as chunks land
     const base = audioEndRef.current
     try {
-      await chunkFile(file, (wav, offset) => enqueue(wav, base + offset))
+      await chunkFile(file, (wav, offset, stats) => enqueue(wav, base + offset, stats))
     } catch (e) {
       setError(`Could not decode this file: ${e instanceof Error ? e.message : String(e)}`)
     }
@@ -269,6 +285,7 @@ export default function MeetingApp() {
     setFailed([])
     setTerms([])
     setQa([])
+    setSkipped(0)
     setMeetingId(newMeetingId())
     setCtx(c => ({ ...c, title: '' }))
     setShowSetup(true)
@@ -295,6 +312,7 @@ export default function MeetingApp() {
                   <span className="block h-full bg-green-500" style={{ width: `${Math.min(100, level * 400)}%` }} />
                 </span>
               </span>
+              {noisy && <span className="font-mono text-xs text-yellow-500" title="Background noise is high: move the mic closer to the speakers">NOISY</span>}
               <button onClick={stop} className={`${btn} border-red-800 text-red-400 hover:bg-red-950/40`}>■ Stop</button>
             </>
           ) : (
@@ -321,6 +339,7 @@ export default function MeetingApp() {
       <div className="flex-1 grid lg:grid-cols-2 gap-4 p-4 sm:p-6 min-h-0">
         {/* ── Left: setup + names to confirm + transcript ── */}
         <div className="flex flex-col gap-4 min-w-0">
+          <SetupBanner />
           <section className="border border-zinc-800 rounded-xl bg-zinc-900/40">
             <button onClick={() => setShowSetup(s => !s)} className="w-full text-left px-5 py-3 font-mono text-xs tracking-widest text-zinc-400 flex justify-between">
               <span>CONTEXT {ctx.title && <span className="text-zinc-200 normal-case tracking-normal">· {ctx.title}</span>}</span>
@@ -344,7 +363,7 @@ export default function MeetingApp() {
                       <option value="en">English</option>
                     </select>
                   </label>
-                  <input type="password" className={`${field} flex-1 min-w-40`} placeholder="Access key (if MEETING_ACCESS_KEY is set)" value={accessKey} onChange={e => setAccessKey(e.target.value)} />
+                  {needKey && <input type="password" className={`${field} flex-1 min-w-40`} placeholder="Access key (MEETING_ACCESS_KEY)" value={accessKey} onChange={e => setAccessKey(e.target.value)} />}
                 </div>
                 <p className="text-xs text-zinc-600">⚖️ Tell participants the meeting is being recorded and transcribed.</p>
               </div>
@@ -358,7 +377,13 @@ export default function MeetingApp() {
               <span className="font-mono text-xs tracking-widest text-zinc-400">
                 TRANSCRIPT <span className="text-zinc-600">· {segments.length}</span>
                 {pending > 0 && <span className="text-cyan-400 ml-2">processing {pending}…</span>}
+                {skipped > 0 && <span className="text-zinc-600 ml-2" title="Chunks with no speech are not transcribed">· {formatTime(skipped)} silence skipped</span>}
               </span>
+              {segments.some(s => s.background) && (
+                <label className="font-mono text-xs text-zinc-500 flex items-center gap-1">
+                  <input type="checkbox" checked={showBackground} onChange={e => setShowBackground(e.target.checked)} /> background
+                </label>
+              )}
               <div className="flex gap-1 font-mono text-xs">
                 {(['both', 'original', 'translation'] as const).map(v => (
                   <button key={v} onClick={() => setView(v)}
@@ -378,8 +403,9 @@ export default function MeetingApp() {
                   Start recording or upload a recording. Text appears about every 45 seconds.
                 </p>
               )}
-              {segments.map((s, i) => (
-                <div key={i} className={`text-sm ${s.uncertain ? 'border-l-2 border-yellow-700/70 pl-2' : ''}`}>
+              {segments.map((s, i) => (s.background && !showBackground) ? null : (
+                <div key={i} className={`text-sm ${s.uncertain ? 'border-l-2 border-yellow-700/70 pl-2' : ''} ${s.background ? 'opacity-40' : ''}`}
+                  title={s.background ? 'Background speech (not part of the meeting) — excluded from the analysis' : undefined}>
                   <div className="flex gap-2 items-baseline">
                     <span className="font-mono text-xs text-zinc-600">{formatTime(s.start)}</span>
                     <button onClick={() => renameSpeaker(s.speaker)} title="Click to rename this speaker everywhere"
@@ -400,7 +426,7 @@ export default function MeetingApp() {
         {/* ── Right: digest / ask / memory ── */}
         <div className="flex flex-col gap-4 min-w-0 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
           <div className="flex gap-1 font-mono text-xs border-b border-zinc-800">
-            {([['digest', 'Digest'], ['ask', `Ask${qa.length ? ` · ${qa.length}` : ''}`], ['memory', 'Memory & tracker']] as const).map(([k, label]) => (
+            {([['today', 'Today'], ['digest', 'Digest'], ['ask', `Ask${qa.length ? ` · ${qa.length}` : ''}`], ['memory', 'Memory & settings']] as const).map(([k, label]) => (
               <button key={k} onClick={() => setTab(k)}
                 className={`px-3 py-2 -mb-px border-b-2 ${tab === k ? 'border-cyan-500 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}>{label}</button>
             ))}
@@ -437,6 +463,8 @@ export default function MeetingApp() {
           )}
 
           {tab === 'ask' && <AskPanel history={qa} onAsk={ask} />}
+
+          {tab === 'today' && <BriefPanel language={ctx.language} auto={segments.length === 0} />}
 
           {tab === 'memory' && (
             <MemoryPanel meetingId={meetingId} digest={digest?.data ?? null} isFinal={digest?.mode === 'final'} propose={proposeLearnings} />

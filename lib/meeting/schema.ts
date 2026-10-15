@@ -18,6 +18,7 @@ export const RefinedSegment = z.object({
   translation: z.string().describe('Faithful translation into the output language'),
   uncertain:   z.boolean().describe('True if the audio/ASR is unclear and the wording may be wrong'),
   note:        z.string().nullable().describe('Short note on what is uncertain or what an ambiguous term means; null if none'),
+  background:  z.boolean().describe('True for speech that is NOT part of the meeting: neighbours in the open space, someone on the phone nearby, faint off-topic chatter'),
 })
 
 export const TermKind = z.enum(['person', 'company', 'product', 'technical', 'acronym', 'place', 'other'])
@@ -136,6 +137,10 @@ export const Execution = z.object({
 
 export const MeetingDigest = z.object({
   title:              z.string(),
+  ask_now: z.array(z.object({
+    say: z.string().describe('What the user should say or ask right now, ready to speak (in the meeting language register)'),
+    why: z.string().describe('One line: the gap it closes (no owner, no date, contradiction, unspoken objection)'),
+  })).describe('LIVE mode only: at most 3 interventions worth making before the meeting ends. Empty in final mode or if nothing is worth it.'),
   executive_summary:  z.string().describe('3-6 lines, only what matters'),
   transcript_quality: z.object({
     level:  Level,
@@ -193,6 +198,23 @@ export const MeetingDigest = z.object({
   follow_up_message: z.string().describe('Ready-to-send recap (email/WhatsApp) for participants in the output language'),
 })
 
+/** Between meetings: what the user should chase and prepare, generated from the tracker, notes and past meetings. */
+export const Brief = z.object({
+  headline: z.string().describe('One line: the single most important thing today'),
+  chase: z.array(z.object({
+    who:           z.string(),
+    about:         z.string(),
+    action_id:     z.string().nullable(),
+    why_now:       z.string().describe('Overdue, blocking something, deadline approaching…'),
+    draft_message: z.string().describe('Short, polite, ready-to-send message (WhatsApp/email) in the register the user uses with this person'),
+  })),
+  watch: z.array(z.object({
+    item:     z.string().describe('A risk or pattern across meetings (e.g. a date slipping every meeting, a person always deferring)'),
+    evidence: z.string().describe('Which meetings / actions / notes show it'),
+  })),
+  prepare: z.array(z.string()).describe('What to prepare or raise in the next meetings'),
+})
+
 /** Learnings Claude proposes after a meeting; the user approves each one before it is stored. */
 export const LearningProposal = z.object({
   proposals: z.array(z.object({
@@ -210,6 +232,7 @@ export type LexiconEntry     = z.infer<typeof LexiconEntry>
 export type TrackedAction    = z.infer<typeof TrackedAction>
 export type MeetingDigest    = z.infer<typeof MeetingDigest>
 export type LearningProposal = z.infer<typeof LearningProposal>
+export type Brief            = z.infer<typeof Brief>
 
 /** Items removed by the code-level evidence check, shown separately so nothing is silently lost. */
 export type DroppedItem = { section: string; text: string; quote: string }

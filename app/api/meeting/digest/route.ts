@@ -30,10 +30,11 @@ export async function POST(req: Request) {
       effort:    mode === 'final' ? 'high' : 'medium',
       readFiles: mode === 'final',
       timeoutMs: 540_000,
-      prompt:    `<transcript>\n${transcriptBlock(segments)}\n</transcript>\n\nProduce the meeting digest.`,
+      prompt:    `<transcript>\n${transcriptBlock(segments, { meetingOnly: true })}\n</transcript>\n\nProduce the meeting digest.`,
     })
 
-    const verified = verifyDigest(digest, segments)
+    // Quotes must come from meeting speech, never from background chatter
+    const verified = verifyDigest(digest, segments.filter(s => !s.background))
     if (mode === 'final') await saveMeeting(meetingId, { context, segments, digest: verified })
     return Response.json(verified)
   } catch (err) {

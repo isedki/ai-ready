@@ -56,12 +56,32 @@ function memoryBlock(m: Memory): string {
   ].join('\n')
 }
 
-export function transcriptBlock(segments: RefinedSegment[]): string {
-  return segments
-    .map(s => `[${formatTime(s.start)}] ${s.speaker}${s.uncertain ? ' (?)' : ''}: ${s.original}`
+/**
+ * Transcript as Claude sees it. For analysis (meetingOnly), background speech
+ * from the open space is left out and long silences are made explicit, so the
+ * model neither quotes neighbours nor invents what was said during a gap.
+ */
+export function transcriptBlock(segments: RefinedSegment[], opts: { meetingOnly?: boolean } = {}): string {
+  const lines: string[] = []
+  let lastStart: number | null = null
+  for (const s of segments) {
+    if (opts.meetingOnly && s.background) continue
+    if (opts.meetingOnly && lastStart !== null && s.start - lastStart > GAP_SECONDS) {
+      lines.push(`[… ${formatTime(lastStart)} → ${formatTime(s.start)}: no meeting speech captured (silence, noise or skipped audio) …]`)
+    }
+    lastStart = s.start
+    lines.push(`[${formatTime(s.start)}] ${s.speaker}${s.uncertain ? ' (?)' : ''}${s.background ? ' (background)' : ''}: ${s.original}`
       + (s.translation && s.translation !== s.original ? `\n    ↳ ${s.translation}` : ''))
-    .join('\n')
+  }
+  return lines.join('\n')
 }
+
+const GAP_SECONDS = 75
+
+const AUDIO_CONDITIONS = `AUDIO CONDITIONS: the user works in an open space. Expect background voices, phone calls, keyboard and HVAC noise, and long silences.
+- Transcript lines marked "[… no meeting speech captured …]" are gaps: silence or audio skipped as noise. Never guess what was said during a gap. If a discussion seems cut off by a gap (a question with no answer, a decision with no conclusion), list it in clarifications_needed with the timestamps.
+- Lines marked (?) were hard to hear. Treat them as unverified.
+- Background speech from neighbours has already been removed; do not treat any remaining off-topic fragment as part of the meeting.`
 
 const WORKSPACE_TOOLS = `You are running inside the user's workspace folder and can use Grep, Glob and Read on it:
 - knowledge/ — documents the user handed over (authoritative background)
@@ -71,7 +91,10 @@ Search it when a name, number, prior commitment or project fact matters. Do not 
 
 // ── Fidelity pass (per chunk) ─────────────────────────────────────────────
 
-export function refineSystemPrompt(ctx: MeetingContext, lexicon: LexiconEntry[]): string {
+export function refineSystemPrompt(ctx: MeetingContext, lexicon: LexiconEntry[], audio?: { snrDb: number; speechRatio: number }): string {
+  const audioHint = audio
+    ? `This chunk's audio: ${audio.snrDb < 12 ? 'NOISY (low contrast between speech and background) — be conservative, mark more segments uncertain' : 'reasonably clean'}; about ${Math.round(audio.speechRatio * 100)}% of it contains speech.`
+    : ''
   return `You are the transcription-fidelity stage of a meeting assistant used in Moroccan professional meetings. Speech is mostly Moroccan Darija mixed with French (sometimes MSA, English or Amazigh), with code-switching inside sentences.
 
 You receive raw speech-to-text output for one chunk of audio. Make it a precise, trustworthy record — not a nicer one.
@@ -89,6 +112,10 @@ Rules:
 7. note: only for uncertainty or a Darija nuance a non-Moroccan reader would miss. Otherwise null.
 8. Never invent words to fill gaps. Use "[inaudible]" for lost audio.
 9. Keep "start" exactly as given for each segment you keep; if you split one, estimate the second start.
+10. Open-space noise: the user works in an open space. Set background=true for speech that is not part of this meeting — neighbours' conversations, someone on the phone nearby, fragments unrelated to the meeting topic and participants. Keep them (the user can see them greyed out) but never merge them into meeting turns. When unsure, prefer background=false and uncertain=true.
+11. Speech-to-text invents text from noise and silence (subtitle credits, "thanks for watching", repeated loops, random isolated words). Drop such segments entirely instead of "fixing" them.
+
+${audioHint}
 
 ${contextBlock(ctx)}
 
@@ -104,8 +131,10 @@ export function digestSystemPrompt(ctx: MeetingContext, mode: 'live' | 'final', 
 Write every field in ${lang}. Keep quotes in the original language exactly as they appear in the transcript.
 
 ${mode === 'live'
-    ? 'The meeting is STILL IN PROGRESS. Digest what has happened so far. Suggestions should focus on what the user can still ask or lock down before the meeting ends.'
-    : 'The meeting is OVER. Produce the definitive digest.'}
+    ? 'The meeting is STILL IN PROGRESS. Digest what has happened so far. In ask_now give at most 3 things the user should say or ask before the meeting ends (lock an owner, a date, surface a dodged objection), phrased so they can say them as-is. Leave ask_now empty if nothing is worth interrupting for.'
+    : 'The meeting is OVER. Produce the definitive digest. ask_now must be empty.'}
+
+${AUDIO_CONDITIONS}
 
 QUALITY BAR — the user explicitly does not want filler. Violating this is worse than leaving a section empty.
 - Every key point, decision, action item and risk carries a quote copied character-for-character from the transcript, with its timestamp. Quotes are checked automatically; anything whose quote is not in the transcript is discarded.
@@ -175,6 +204,23 @@ Propose only facts that are:
 Do not propose action items (they are tracked separately), opinions about people's character, or anything sensitive and personal unrelated to the work. Zero proposals is a valid answer. At most 12, best first. Write in ${LANG_NAME[ctx.language]}.
 
 ${contextBlock(ctx)}
+
+${memoryBlock(memory)}`
+}
+
+// ── Daily brief (between meetings) ────────────────────────────────────────
+
+export function briefSystemPrompt(language: MeetingContext['language'], memory: Memory, today: string): string {
+  return `You are the user's chief-of-staff. Today is ${today}. Before their day starts, tell them what needs their attention, based on the action tracker, learned notes and past meetings in the workspace.
+
+- chase: open actions that are overdue, due within 3 days, blocking something else, or soft commitments ("inchallah", no date) older than a week. For each, a short ready-to-send message in the register they use with that person (Darija/French as appropriate for a WhatsApp, French for a formal email). Most important first, at most 6.
+- watch: patterns across meetings only when the evidence spans at least two meetings or tracker updates (a date slipping repeatedly, the same blocker returning, a person who keeps deferring). Cite the evidence.
+- prepare: what to raise or prepare for upcoming meetings, concretely.
+- No filler. Empty lists are fine. If the tracker is empty, say so in the headline.
+
+Write in ${LANG_NAME[language]}.
+
+${WORKSPACE_TOOLS}
 
 ${memoryBlock(memory)}`
 }

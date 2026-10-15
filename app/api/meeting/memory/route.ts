@@ -1,7 +1,8 @@
 import { authStatus }                  from '@/lib/meeting/claude'
 import { unauthorized, errorResponse } from '@/lib/meeting/auth'
 import {
-  appendNotes, ensureWorkspace, getActions, getLexicon, memoryStats, saveActions, upsertLexicon,
+  appendNotes, ensureWorkspace, getActions, getLexicon, getSettings, memoryStats, saveActions, saveSettings, upsertLexicon,
+  type Settings,
 } from '@/lib/meeting/workspace'
 import {
   LexiconEntry, type MeetingDigest, type TrackedAction,
@@ -13,8 +14,10 @@ export async function GET(req: Request) {
   if (denied) return denied
   try {
     await ensureWorkspace()
-    const [auth, stats, lexicon, actions] = await Promise.all([authStatus(), memoryStats(), getLexicon(), getActions()])
-    return Response.json({ auth, stats, lexicon, actions })
+    const [auth, stats, lexicon, actions, settings] = await Promise.all([authStatus(), memoryStats(), getLexicon(), getActions(), getSettings()])
+    // Never send keys back to the browser, only whether they are set
+    const stt = { provider: settings.sttProvider, ready: Boolean(settings.sttProvider === 'openai' ? settings.openaiKey : settings.elevenlabsKey) }
+    return Response.json({ auth, stats, lexicon, actions, stt })
   } catch (err) {
     return errorResponse('memory', err)
   }
@@ -25,6 +28,7 @@ type Body =
   | { op: 'notes'; meetingId: string; items: { category: string; content: string }[] }
   | { op: 'track'; meetingId: string; digest: MeetingDigest }
   | { op: 'action-status'; id: string; status: TrackedAction['status']; note: string }
+  | { op: 'settings'; settings: Partial<Settings> }
 
 /** Every write to memory goes through here, and only after the user approved it in the UI. */
 export async function POST(req: Request) {
@@ -66,6 +70,14 @@ export async function POST(req: Request) {
         }
         await saveActions(actions)
         return Response.json({ actions })
+      }
+      case 'settings': {
+        const { sttProvider, elevenlabsKey, openaiKey } = body.settings
+        if (sttProvider && !['elevenlabs', 'openai'].includes(sttProvider)) {
+          return Response.json({ error: 'Unknown provider' }, { status: 400 })
+        }
+        await saveSettings({ sttProvider, elevenlabsKey: elevenlabsKey?.trim(), openaiKey: openaiKey?.trim() })
+        return Response.json({ ok: true })
       }
       case 'action-status': {
         const actions = await getActions()

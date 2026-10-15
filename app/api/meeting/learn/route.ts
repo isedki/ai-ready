@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       readFiles: false,
       timeoutMs: 280_000,
       prompt: [
-        `<transcript>\n${transcriptBlock(segments ?? [])}\n</transcript>`,
+        `<transcript>\n${transcriptBlock(segments ?? [], { meetingOnly: true })}\n</transcript>`,
         digest ? `<digest_summary>\n${digest.executive_summary}\n\n${digest.analysis.overall_read}\n</digest_summary>` : '',
         qa ? `<questions_the_user_asked>\n${qa.slice(-10000)}\n</questions_the_user_asked>` : '',
         'Propose learnings.',

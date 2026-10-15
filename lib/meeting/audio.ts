@@ -12,7 +12,16 @@ const TARGET_SECONDS = 45
 const SEARCH_WINDOW  = 8      // look for a pause in the last N seconds of a chunk
 const QUIET_WINDOW   = 0.3    // length of the "pause" we look for
 
-export type ChunkHandler = (wav: Blob, offsetSeconds: number) => void
+/** Signal measurements for one chunk, used to skip silence and to warn Claude about noise. */
+export interface AudioStats {
+  speechRatio: number   // share of 30 ms frames clearly above the noise floor
+  snrDb:       number   // rough loud-vs-quiet contrast; low in noisy open spaces
+  seconds:     number
+}
+export type ChunkHandler = (wav: Blob, offsetSeconds: number, stats: AudioStats) => void
+
+/** Below this share of speech frames a chunk is treated as silence and not transcribed. */
+export const MIN_SPEECH_RATIO = 0.03
 export type CaptureSource = 'mic' | 'mic+tab'
 
 const WORKLET = `
@@ -71,8 +80,11 @@ export class ChunkRecorder {
     URL.revokeObjectURL(url)
 
     const tap = new AudioWorkletNode(this.ctx, 'tap', { channelCount: 1, channelCountMode: 'explicit' })
+    // Cut low-frequency rumble (HVAC, desk knocks, traffic) that open spaces are full of
+    const highpass = new BiquadFilterNode(this.ctx, { type: 'highpass', frequency: 90 })
+    highpass.connect(tap)
     for (const s of this.streams) {
-      if (s.getAudioTracks().length) this.ctx.createMediaStreamSource(s).connect(tap)
+      if (s.getAudioTracks().length) this.ctx.createMediaStreamSource(s).connect(highpass)
     }
     tap.port.onmessage = (e: MessageEvent<Float32Array>) => this.push(e.data)
   }
@@ -124,7 +136,7 @@ export class ChunkRecorder {
 
   private emit(samples: Float32Array) {
     if (samples.length < SAMPLE_RATE / 2) return  // ignore < 0.5 s tails
-    this.onChunk(encodeWav(samples), this.emitted / SAMPLE_RATE)
+    this.onChunk(encodeWav(samples), this.emitted / SAMPLE_RATE, analyze(samples))
     this.emitted += samples.length
   }
 }
@@ -145,7 +157,8 @@ export async function chunkFile(file: File, onChunk: ChunkHandler) {
       const cut = remaining.length <= TARGET_SECONDS * SAMPLE_RATE * 1.2
         ? remaining.length
         : findCut(remaining.subarray(0, TARGET_SECONDS * SAMPLE_RATE))
-      onChunk(encodeWav(remaining.subarray(0, cut)), start / SAMPLE_RATE)
+      const piece = remaining.subarray(0, cut)
+      onChunk(encodeWav(piece), start / SAMPLE_RATE, analyze(piece))
       start += cut
     }
   } finally {
@@ -154,6 +167,32 @@ export async function chunkFile(file: File, onChunk: ChunkHandler) {
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────
+
+/**
+ * Adaptive voice-activity estimate: the noise floor is the quiet end of this
+ * chunk's own energy distribution, so constant open-space hum doesn't count as
+ * speech, but a quiet room doesn't make whispers vanish either.
+ */
+export function analyze(samples: Float32Array): AudioStats {
+  const frame = Math.round(0.03 * SAMPLE_RATE)
+  const energies: number[] = []
+  for (let s = 0; s + frame <= samples.length; s += frame) {
+    let e = 0
+    for (let i = s; i < s + frame; i++) e += samples[i] * samples[i]
+    energies.push(Math.sqrt(e / frame))
+  }
+  const seconds = samples.length / SAMPLE_RATE
+  if (energies.length === 0) return { speechRatio: 0, snrDb: 0, seconds }
+  const sorted = [...energies].sort((a, b) => a - b)
+  const pct = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))]
+  const floor = Math.max(pct(0.2), 1e-5)
+  const threshold = Math.max(floor * 3, 0.008)
+  return {
+    speechRatio: energies.filter(e => e > threshold).length / energies.length,
+    snrDb:       20 * Math.log10(Math.max(pct(0.9), 1e-5) / floor),
+    seconds,
+  }
+}
 
 function concat(parts: Float32Array[], total: number) {
   const out = new Float32Array(total)

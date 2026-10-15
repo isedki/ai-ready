@@ -1,10 +1,12 @@
 import type { RawSegment } from './schema'
+import { getSettings }     from './workspace'
 
 /**
  * Speech-to-text providers. No vendor publishes reliable benchmarks for Moroccan
  * Darija + French code-switching, so the provider is swappable via STT_PROVIDER:
  * record one real meeting, run it through each, and keep the best.
  *
+ * Provider and key are set in the app (Memory & settings tab), or via env:
  *   STT_PROVIDER=elevenlabs  (default) ELEVENLABS_API_KEY, STT_MODEL (default scribe_v2)
  *   STT_PROVIDER=openai      OPENAI_API_KEY, STT_MODEL (default gpt-4o-transcribe-diarize)
  *
@@ -12,11 +14,10 @@ import type { RawSegment } from './schema'
  * code-switched speech. Claude's fidelity pass fixes names and terms afterwards.
  */
 export async function transcribe(audio: Blob, offsetSeconds: number): Promise<RawSegment[]> {
-  const provider = process.env.STT_PROVIDER ?? 'elevenlabs'
-  const segments =
-    provider === 'openai'     ? await openai(audio) :
-    provider === 'elevenlabs' ? await elevenlabs(audio) :
-    (() => { throw new Error(`Unknown STT_PROVIDER "${provider}"`) })()
+  const settings = await getSettings()
+  const segments = settings.sttProvider === 'openai'
+    ? await openai(audio, settings.openaiKey)
+    : await elevenlabs(audio, settings.elevenlabsKey)
 
   return segments
     .filter(s => s.text.trim())
@@ -27,9 +28,8 @@ export async function transcribe(audio: Blob, offsetSeconds: number): Promise<Ra
 
 type ElevenWord = { text: string; start: number; end: number; type: string; speaker_id?: string }
 
-async function elevenlabs(audio: Blob): Promise<RawSegment[]> {
-  const key = process.env.ELEVENLABS_API_KEY
-  if (!key) throw new Error('ELEVENLABS_API_KEY is not set')
+async function elevenlabs(audio: Blob, key: string): Promise<RawSegment[]> {
+  if (!key) throw new Error('No ElevenLabs key yet: add it in the "Memory & settings" tab')
 
   const form = new FormData()
   form.append('file', audio, 'chunk.wav')
@@ -68,9 +68,8 @@ async function elevenlabs(audio: Blob): Promise<RawSegment[]> {
 
 // ── OpenAI ────────────────────────────────────────────────────────────────
 
-async function openai(audio: Blob): Promise<RawSegment[]> {
-  const key = process.env.OPENAI_API_KEY
-  if (!key) throw new Error('OPENAI_API_KEY is not set')
+async function openai(audio: Blob, key: string): Promise<RawSegment[]> {
+  if (!key) throw new Error('No OpenAI key yet: add it in the "Memory & settings" tab')
   const model = process.env.STT_MODEL ?? 'gpt-4o-transcribe-diarize'
   const diarize = model.includes('diarize')
 
