@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# email knowledge base (mailbox content, never commit)
+/data/
+/kb-out/
+*.pst

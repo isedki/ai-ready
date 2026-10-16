@@ -6,25 +6,31 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "kb": "tsx scripts/kb.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.72",
     "@ai-sdk/react": "^3.0.172",
+    "@anthropic-ai/sdk": "^0.135.0",
     "ai": "^6.0.169",
+    "mailparser": "^3.9.40",
     "next": "16.2.4",
+    "pst-extractor": "^1.12.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/mailparser": "^3.9.0",
+    "@types/node": "^22.20.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
