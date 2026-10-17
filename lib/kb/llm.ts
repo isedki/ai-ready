@@ -6,9 +6,8 @@ import type { DB }         from './db'
 export const MODELS = {
   // Bulk, per-thread reading. Cheap and good at extraction.
   extract: process.env.KB_EXTRACT_MODEL ?? 'claude-haiku-5-5',
-  // Matching items to existing procedures needs more judgment, and sees far fewer tokens.
-  fold:    process.env.KB_FOLD_MODEL    ?? 'claude-sonnet-5-5',
-  summary: process.env.KB_SUMMARY_MODEL ?? 'claude-sonnet-5-5',
+  // Matching items to existing entries; sees only short extracted items. Set to claude-sonnet-5-5 if matching is poor.
+  fold:    process.env.KB_FOLD_MODEL    ?? 'claude-haiku-5-5',
 }
 
 type Effort = 'low' | 'medium' | 'high'

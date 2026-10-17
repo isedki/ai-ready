@@ -1,93 +1,87 @@
-# Email → procedures & RACI knowledge base
+# Email → "who to ask for what" directory
 
-Builds a catalogue of "how things get done" (provision a VM, open a network flow, grant AD access, …)
-from a mailbox dump, with a computed RACI per step, evidence links to the source threads, and a history
-of how each procedure changed over time.
+Reads a mailbox dump and produces a routing directory, clustered by domain and subdomain:
+
+```
+## Infrastructure
+### Virtual machines
+- **Provision a new VM** → email **Infra Ops** `infra.ops@inwi.ma`
+  - Approval: Hamid Director · Via: email: form "Demande VM v3"
+  - Include: sizing (vCPU/RAM/disk); environment
+  - medium confidence · 3 threads · last 2024-07-08 · e.g. "VM PREPROD Atlas 2"
+## Network
+### Firewall flows
+- **Open a network flow** → email **Network Team** `network@inwi.ma`
+  - Approval: Secops (Security)
+  - Tip: Security must validate before Network implements
+```
 
 ## How it works
 
 ```
-PST / .eml ──► clean + redact + thread ──► Pass 1: extract (per thread, cheap model, Batch API)
-                                                   │
-                       month-by-month replay ◄─────┘
-                                │
-                     Pass 2: fold (match each item to existing procedures,
-                             or create a new one; merge near-duplicates)
-                                │
-            code: evidence → recency-weighted RACI, snapshots, change log
-                                │
-                   summarize (only changed procedures) ──► render
+PST / .eml ─► clean, remove secrets, group into threads
+           ─► Pass 1 (every thread, Haiku, Batch API): what was asked, domain/subdomain,
+              who handled / approved it + their department, what the request had to include
+           ─► Pass 2 (month by month): attach each request to an existing entry of its domain, or create one
+           ─► code: "email to" = recency-weighted vote over who handled it; department from signatures
 ```
 
-- **Processes come from the emails.** There is no predefined list; a procedure is created the first time a
-  thread shows a repeatable task, and grows as later threads confirm, extend or change it.
-- **The LLM extracts facts, code builds the knowledge base.** The RACI is a recency-weighted vote over
-  evidence rows (half-life 180 days, `KB_HALF_LIFE_DAYS`), so it shifts gradually and never drifts
-  from rewriting. When the main R or A of a step changes, it is logged in `changes` for review.
-- **Secrets are redacted at ingest** (passwords incl. French "mot de passe"/"mdp", tokens, keys, JWTs),
-  before storage and before any API call.
-- Quoted replies, signatures, disclaimers, newsletters, meeting notices and auto-replies are removed
-  before the LLM sees anything; this is most of the cost saving.
+- **Domains** come from `config/kb-taxonomy.json` (Infrastructure, Network, Security, Portal & Web, …). Edit the
+  names and descriptions to match inwi's organisation before running. **Subdomains are discovered** from the
+  emails and reused across entries.
+- **Who to email** follows the most recent threads (half-life 180 days, `KB_HALF_LIFE_DAYS`). A shared mailbox
+  (e.g. `infra.ops@`) is preferred over an individual when it is used for that request. People not seen for a
+  year while others handle the request are listed as "previously handled by".
+- **Departments** are read from email signatures and context, voted across threads; `teams.json` overrides them.
+- **Secrets are removed when the dump is loaded** (passwords incl. "mot de passe"/"mdp", tokens, keys, JWTs),
+  before storage and before any API call. Quoted replies, signatures, newsletters, invites and auto-replies are
+  stripped too, which is most of the cost saving.
 
 ## Usage
 
 ```bash
 export ANTHROPIC_API_KEY=…
 npm run kb -- ingest /path/to/dump.pst        # or a folder of .eml files; repeatable
-npm run kb -- teams teams.json                # optional, see below
 npm run kb -- estimate                        # cost estimate, no API calls
 
-# Trial on a sample first (sync = immediate, full price; a few cents)
-npm run kb -- extract --sample 150 --sync
-npm run kb -- extract --sample 150 --sync --model claude-sonnet-5-5   # compare on another sample if quality is lacking
-
-# Full run (Batch API, 50% off; batches usually finish within an hour)
-npm run kb -- extract
+npm run kb -- extract --sample 150 --sync     # trial on a sample (immediate, a few cents)
+npm run kb -- extract                         # everything, Batch API (50% off, usually < 1 h)
 npm run kb -- fold                            # --window quarter for fewer, larger rounds
-npm run kb -- summarize
 npm run kb -- render --out kb-out
 npm run kb -- stats                           # progress + spend so far
 ```
 
-Each command is resumable: a crash during a batch is picked up on the next run, failed threads can be
-re-queued with `npm run kb -- retry`, and threads already folded are never re-processed.
+Every command can be re-run: an interrupted batch is resumed, failed threads are re-queued with
+`npm run kb -- retry`, and folded threads are not processed again.
 
-`teams.json` maps addresses or whole domains to teams, so the RACI grid can be read by team:
+Optional `teams.json` to force departments:
 
 ```json
-{ "infra.ops@inwi.ma": "Infra", "network@inwi.ma": "Network", "@vendor.com": "Vendor X" }
+{ "infra.ops@inwi.ma": "Infra Ops / DSI", "@vendor.com": "Vendor X" }
 ```
 
 ## Output (`kb-out/`)
 
 | File | Content |
 |---|---|
-| `README.md` | Index of procedures with confidence, last seen, main Responsible / Accountable |
-| `procedures/<id>.md` | One card per procedure: how-to, steps × RACI, inputs, forms/tools, gotchas, variants, history, source threads |
-| `RACI.md` | Procedures × people/teams grid |
-| `directory.md` | Who does what |
-| `kb.json` | Everything above as JSON, for the web UI |
+| `README.md` | The directory: domain → subdomain → request → who to email, approval, cc, what to include, tips |
+| `directory.csv` | Same, one row per request, for Excel / SharePoint |
+| `contacts.md` | People and shared mailboxes by department, with what they handle |
+| `kb.json` | Everything as JSON, for a web UI or a chat assistant |
 
 ## Models and cost
 
-| Pass | Default model | Env override |
-|---|---|---|
-| Extract (every thread) | `claude-haiku-5-5` | `KB_EXTRACT_MODEL` |
-| Fold / merge (relevant items only) | `claude-sonnet-5-5` | `KB_FOLD_MODEL` |
-| Summary (changed procedures only) | `claude-sonnet-5-5` | `KB_SUMMARY_MODEL` |
-
-For ~4,000 emails the expected first-run cost is roughly $1–3 all-Haiku, ~$15 with a Sonnet fold,
-~$30 all-Sonnet (Batch API prices). `estimate` gives a figure for your actual dump; `stats` reports
-real spend from token usage.
+Both passes default to `claude-haiku-5-5` (`KB_EXTRACT_MODEL`, `KB_FOLD_MODEL`). Pass 2 only sees short
+extracted items, so switching it to `claude-sonnet-5-5` for better matching costs a few dollars at most.
+For ~4,000 emails expect roughly **$1–3** for a full Haiku run with the Batch API; `estimate` gives a figure
+for your dump and `stats` reports actual spend.
 
 ## Data
 
-Everything is in `data/kb.sqlite` (`KB_DB` to change). It contains mailbox content: it is git-ignored
-and should stay on an access-controlled machine. Tables: `messages`, `threads`, `extractions`,
-`procedures`, `steps`, `evidence`, `facts`, `procedure_threads`, `snapshots`, `changes`, `llm_calls`.
+Everything lives in `data/kb.sqlite` (`KB_DB` to change). It holds mailbox content: it is git-ignored and
+should stay on an access-controlled machine.
 
 ## Not built yet
 
-- Live Outlook sync (Microsoft Graph delta queries) feeding the same fold step
-- Web UI over `kb.json` (cards, RACI grid, review queue for `changes`)
-- Chat ("how do I …") over the cards
+- Live Outlook sync (Microsoft Graph delta queries) feeding the same two passes
+- A web page / chat ("who do I ask to …?") over `kb.json`

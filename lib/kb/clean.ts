@@ -77,6 +77,29 @@ export function stripQuotesAndSignature(body: string): string {
 }
 
 /**
+ * The sender's signature block (name, title, department) from the message's own
+ * part, before any quoted history. It is the best source for "which department".
+ */
+export function extractSignature(body: string): string | null {
+  const lines = body.replace(/\r\n?/g, '\n').split('\n').map(l => l.trim())
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (QUOTE_STARTS.some(r => r.test(line)) || HEADER_FROM.test(line)) return null
+    if (CLOSINGS.test(line) || /^--\s*$/.test(line)) {
+      const tail: string[] = []
+      for (const l of lines.slice(i + 1)) {
+        if (QUOTE_STARTS.some(r => r.test(l)) || HEADER_FROM.test(l) || SIGNATURE_STARTS.slice(1).some(r => r.test(l))) break
+        if (l) tail.push(l)
+        if (tail.length === 4) break
+      }
+      const sig = tail.join(' | ').slice(0, 160)
+      return sig || null
+    }
+  }
+  return null
+}
+
+/**
  * Remove secrets before storage or any API call. The KB must say how to get
  * credentials, never contain them. Errs on the side of over-redacting.
  */

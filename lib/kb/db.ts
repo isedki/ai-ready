@@ -6,8 +6,8 @@ import { dirname }       from 'node:path'
  * Knowledge-base store. Everything the pipeline knows lives in one SQLite file
  * (default data/kb.sqlite, git-ignored because it holds mailbox content).
  *
- * The LLM only ever writes `extractions` and `decisions`; procedures, steps,
- * evidence and the RACI are maintained by code from those rows.
+ * The LLM writes `extractions` and decides which entry an item belongs to;
+ * contacts, departments and facts are maintained by code from those rows.
  */
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS messages (
@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS messages (
   refs         TEXT,      -- JSON [message-id]
   body_raw     TEXT,
   body_clean   TEXT,
+  signature    TEXT,
   is_noise     INTEGER DEFAULT 0,
   noise_reason TEXT
 );
@@ -33,7 +34,7 @@ CREATE INDEX IF NOT EXISTS messages_thread ON messages(thread_id);
 CREATE TABLE IF NOT EXISTS people (
   addr TEXT PRIMARY KEY,
   name TEXT,
-  team TEXT
+  team TEXT          -- set from teams.json; overrides the voted department
 );
 
 CREATE TABLE IF NOT EXISTS threads (
@@ -55,78 +56,54 @@ CREATE TABLE IF NOT EXISTS extractions (
   created_at TEXT
 );
 
-CREATE TABLE IF NOT EXISTS procedures (
-  id            TEXT PRIMARY KEY,
-  title         TEXT,
-  action        TEXT,
-  object        TEXT,
-  system        TEXT,
-  environment   TEXT,
-  summary       TEXT,
-  first_seen    TEXT,
-  last_seen     TEXT,
-  thread_count  INTEGER DEFAULT 0,
-  merged_into   TEXT,
-  needs_summary INTEGER DEFAULT 1,
-  created_at    TEXT
-);
-
-CREATE TABLE IF NOT EXISTS steps (
+-- One directory entry = one kind of request ("Provision a new VM") and who handles it.
+CREATE TABLE IF NOT EXISTS entries (
   id           TEXT PRIMARY KEY,
-  procedure_id TEXT,
-  ord          REAL,
-  label        TEXT,
-  seen_count   INTEGER DEFAULT 0
-);
-CREATE INDEX IF NOT EXISTS steps_proc ON steps(procedure_id);
-
-CREATE TABLE IF NOT EXISTS evidence (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  procedure_id TEXT,
-  step_id      TEXT,
-  thread_id    TEXT,
-  actor        TEXT,     -- email address (lowercase)
-  raci         TEXT,     -- R | A | C | I
-  date         TEXT,
-  quote        TEXT
-);
-CREATE INDEX IF NOT EXISTS evidence_proc ON evidence(procedure_id);
-
--- Free-text facts attached to a procedure (artifacts, prerequisites, gotchas, variants)
-CREATE TABLE IF NOT EXISTS facts (
-  procedure_id TEXT,
-  kind         TEXT,
-  text         TEXT,
-  norm         TEXT,
-  count        INTEGER DEFAULT 1,
+  title        TEXT,
+  domain       TEXT,
+  subdomain    TEXT,
+  first_seen   TEXT,
   last_seen    TEXT,
-  PRIMARY KEY (procedure_id, kind, norm)
+  thread_count INTEGER DEFAULT 0,
+  merged_into  TEXT,
+  created_at   TEXT
 );
 
-CREATE TABLE IF NOT EXISTS procedure_threads (
-  procedure_id TEXT,
-  thread_id    TEXT,
-  relation     TEXT,     -- same | variant | new
-  date         TEXT,
-  lead_time    REAL,
-  outcome      TEXT,
-  PRIMARY KEY (procedure_id, thread_id)
+-- Who handled / approved / dispatched the request in each thread. "Who to email" is a recency-weighted vote over these rows.
+CREATE TABLE IF NOT EXISTS contacts (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  entry_id  TEXT,
+  thread_id TEXT,
+  actor     TEXT,
+  role      TEXT,     -- handles | approves | dispatches | cc
+  date      TEXT
+);
+CREATE INDEX IF NOT EXISTS contacts_entry ON contacts(entry_id);
+
+-- Short notes attached to an entry: what to include, how to ask (channel), example subjects.
+CREATE TABLE IF NOT EXISTS facts (
+  entry_id  TEXT,
+  kind      TEXT,     -- include | how | channel | subject
+  text      TEXT,
+  norm      TEXT,
+  count     INTEGER DEFAULT 1,
+  last_seen TEXT,
+  PRIMARY KEY (entry_id, kind, norm)
 );
 
-CREATE TABLE IF NOT EXISTS snapshots (
-  procedure_id TEXT,
-  as_of        TEXT,
-  card         TEXT,
-  PRIMARY KEY (procedure_id, as_of)
+CREATE TABLE IF NOT EXISTS entry_threads (
+  entry_id  TEXT,
+  thread_id TEXT,
+  date      TEXT,
+  PRIMARY KEY (entry_id, thread_id)
 );
 
-CREATE TABLE IF NOT EXISTS changes (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  procedure_id TEXT,
-  as_of        TEXT,
-  kind         TEXT,
-  detail       TEXT,
-  reviewed     INTEGER DEFAULT 0
+-- Department guesses for a person, voted from signatures and thread context.
+CREATE TABLE IF NOT EXISTS departments (
+  addr       TEXT,
+  department TEXT,
+  count      INTEGER DEFAULT 1,
+  PRIMARY KEY (addr, department)
 );
 
 CREATE TABLE IF NOT EXISTS batches (

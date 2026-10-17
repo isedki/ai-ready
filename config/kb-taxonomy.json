@@ -1,0 +1,15 @@
+{
+  "_comment": "Domains used to cluster the directory. Edit freely (names and descriptions); subdomains are discovered from the emails. Re-run `kb fold` after changing domains.",
+  "domains": {
+    "Infrastructure":         "servers, VMs, storage, backup, operating systems, virtualization, datacenter",
+    "Network":                "network flows and firewall rules, VPN, DNS, load balancers, IP addressing, connectivity",
+    "Security":               "Active Directory accounts and groups, access rights, credentials, certificates, security validations, vulnerabilities",
+    "Portal & Web":           "customer and partner portals, websites, CMS, web front ends, mobile app back-office",
+    "Applications":           "business applications (billing, CRM, OSS/BSS, middleware): installation, configuration, incidents",
+    "Data & Databases":       "databases, data extracts and loads, reporting, BI",
+    "DevOps & Release":       "deployments to environments, releases / MEP, CI/CD, change approval (CAB)",
+    "Workplace & IT support": "laptops, mailboxes, licences, software on workstations, helpdesk",
+    "Procurement & Admin":    "purchase requests and orders, contracts, vendor onboarding, budget, invoices",
+    "Other":                  "anything that fits nowhere else"
+  }
+}

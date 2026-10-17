@@ -7,7 +7,7 @@ import type { Address }   from './ingest/store'
 type Row = {
   id: string; subject: string; norm_subject: string; from_addr: string; from_name: string
   to_addrs: string; cc_addrs: string; date: string | null; in_reply_to: string | null; refs: string
-  body_clean: string; is_noise: number
+  body_clean: string; signature: string | null; is_noise: number
 }
 
 const SUBJECT_LINK_GAP_DAYS = 14
@@ -47,7 +47,7 @@ function participantsOf(r: Row): string[] {
 
 /** Group messages into threads (reply headers first, then same subject + shared participant + close in time). */
 export function buildThreads(db: DB): { threads: number; pending: number; skipped: number } {
-  const rows = db.prepare('SELECT id, subject, norm_subject, from_addr, from_name, to_addrs, cc_addrs, date, in_reply_to, refs, body_clean, is_noise FROM messages ORDER BY date').all() as Row[]
+  const rows = db.prepare('SELECT id, subject, norm_subject, from_addr, from_name, to_addrs, cc_addrs, date, in_reply_to, refs, body_clean, signature, is_noise FROM messages ORDER BY date').all() as Row[]
   const parent = new Map<string, string>(rows.map(r => [r.id, r.id]))
   const find = (x: string): string => {
     let p = parent.get(x)!
@@ -93,9 +93,9 @@ export function buildThreads(db: DB): { threads: number; pending: number; skippe
 
   const names = new Map((db.prepare('SELECT addr, name, team FROM people').all() as { addr: string; name: string; team: string | null }[])
     .map(p => [p.addr, p]))
-  const label = (addr: string) => {
+  const label = (addr: string, sig: string | undefined) => {
     const p = names.get(addr)
-    return `${p?.name ? p.name + ' ' : ''}<${addr}>${p?.team ? ` [${p.team}]` : ''}`
+    return `${p?.name ? p.name + ' ' : ''}<${addr}>${p?.team ? ` [team: ${p.team}]` : ''}${sig ? ` — signature: ${sig}` : ''}`
   }
 
   const setThread = db.prepare('UPDATE messages SET thread_id = ? WHERE id = ?')
@@ -117,6 +117,9 @@ export function buildThreads(db: DB): { threads: number; pending: number; skippe
 
       const useful = list.filter(r => !r.is_noise && r.body_clean.trim().length > 0)
       const participants = [...new Set(useful.flatMap(participantsOf))]
+      // Latest signature per sender: the main clue for each person's department.
+      const sigs = new Map<string, string>()
+      for (const r of list) if (r.signature) sigs.set(r.from_addr, r.signature)
       const blocks = useful.map((r, i) => {
         const to = (JSON.parse(r.to_addrs) as Address[]).map(a => a.addr).join(', ')
         const cc = (JSON.parse(r.cc_addrs) as Address[]).map(a => a.addr).join(', ')
@@ -127,7 +130,7 @@ export function buildThreads(db: DB): { threads: number; pending: number; skippe
         const half = MAX_THREAD_CHARS / 2
         body = body.slice(0, half) + `\n\n[… ${body.length - MAX_THREAD_CHARS} characters from the middle of this thread not included …]\n\n` + body.slice(-half)
       }
-      const text = `Subject: ${list[0].subject}\nParticipants:\n${participants.map(p => '- ' + label(p)).join('\n')}\n\n${body}`
+      const text = `Subject: ${list[0].subject}\nParticipants:\n${participants.map(p => '- ' + label(p, sigs.get(p))).join('\n')}\n\n${body}`
 
       const prev = getThread.get(id) as { text: string; status: string } | undefined
       let status = useful.length === 0 || body.trim().length < 80 ? 'skipped' : 'pending'

@@ -1,67 +1,55 @@
 import { z } from 'zod'
 
-/* ── Pass 1: what one email thread shows about how work gets done ───────── */
+/* ── Pass 1: what kind of request a thread shows, and who handled it ──── */
 
-export const ExtractedStep = z.object({
-  what:   z.string().describe('What was done in this step, short, e.g. "approve VM request", "create firewall rule"'),
-  actor:  z.string().nullable().describe('Email address of who did it, copied exactly from the participant list; null if unknown'),
-  raci:   z.enum(['R', 'A', 'C', 'I']).describe('R = did the work, A = approved / owns the decision, C = was consulted, I = only informed'),
-  date:   z.string().nullable().describe('ISO date of the message showing this step'),
-  quote:  z.string().describe('Short verbatim quote (max 200 chars) from the thread that shows this step'),
+const Contact = z.object({
+  email:      z.string().describe('Email address copied exactly from the participant list'),
+  role:       z.enum(['handles', 'approves', 'dispatches']).describe('handles = did the work; approves = had to say yes first; dispatches = shared mailbox / manager who routed it to someone'),
+  department: z.string().nullable().describe('Department or team of this person if visible (signature, mailbox name, context), e.g. "Infra Ops / DSI"; null if unknown'),
 })
 
-export const ExtractedProcess = z.object({
-  title:          z.string().describe('Short imperative name of the task, in English, e.g. "Provision a new VM", "Open a network flow", "Grant AD group access"'),
-  action:         z.string().describe('Main verb, lowercase English, e.g. provision, install, open, grant, reset, deploy'),
-  object:         z.string().describe('What is acted on, e.g. VM, firewall flow, AD account, database'),
-  system:         z.string().nullable().describe('Tool or platform involved, e.g. vCenter, Active Directory, ServiceNow, Fortigate'),
-  environment:    z.string().nullable().describe('Environment if stated: DEV, UAT, PREPROD, PROD, …'),
-  summary:        z.string().describe('One or two sentences: how it was done in this thread'),
-  requester:      z.string().nullable().describe('Email address of who asked for it'),
-  steps:          z.array(ExtractedStep),
-  artifacts:      z.array(z.string()).describe('Forms, templates, ticket categories, portals or files that had to be used'),
-  prerequisites:  z.array(z.string()).describe('Information or approvals that had to exist before it could be done'),
-  gotchas:        z.array(z.string()).describe('Pitfalls, rejections and their reasons, rules learned the hard way'),
-  outcome:        z.enum(['done', 'pending', 'rejected', 'unknown']),
-  lead_time_days: z.number().nullable().describe('Days from request to completion if both are visible'),
-})
+function requestItem(domain: z.ZodType<string>) {
+  return z.object({
+    title:          z.string().describe('Generic imperative name of the kind of request, in English: "Provision a new VM", "Open a network flow", "Create an AD account"'),
+    domain,
+    subdomain:      z.string().describe('Short area within the domain, in English, e.g. "Virtual machines", "Firewall flows", "AD accounts & groups"'),
+    contacts:       z.array(Contact).describe('Who you would email next time to get this done; exclude the requester'),
+    cc:             z.array(z.string()).describe('Addresses usually kept in copy (managers, shared mailboxes), from the participant list'),
+    requester:      z.string().nullable().describe('Email address of who asked'),
+    channel:        z.enum(['email', 'ticket', 'portal', 'phone', 'other']).describe('How the request was made'),
+    channel_detail: z.string().nullable().describe('Ticket tool and category, portal name, form name; null if plain email'),
+    include:        z.array(z.string()).describe('Information the request had to contain (max 5, short), e.g. "sizing vCPU/RAM/disk", "source/destination IP and port"'),
+    tip:            z.string().nullable().describe('One practical tip learned from this thread (rejection reason, needed approval, delay), or null'),
+  })
+}
 
-export const ThreadExtraction = z.object({
-  relevant:  z.boolean().describe('True only if the thread shows how an operational or IT task is requested, approved or carried out'),
-  processes: z.array(ExtractedProcess).describe('Usually 0 or 1, at most 3'),
-})
-export type ThreadExtraction = z.infer<typeof ThreadExtraction>
-export type ExtractedProcess = z.infer<typeof ExtractedProcess>
+export const RequestItem = requestItem(z.string())
+export type RequestItem  = z.infer<typeof RequestItem>
 
-/* ── Pass 2: attach extracted items to the evolving set of procedures ──── */
+export function threadExtractionSchema(domains: string[]) {
+  return z.object({
+    relevant: z.boolean().describe('True only if the thread shows someone asking another person/team to get an operational or IT task done'),
+    items:    z.array(requestItem(z.enum(domains as [string, ...string[]]))).describe('Usually 0 or 1, at most 3'),
+  })
+}
+export type ThreadExtraction = { relevant: boolean; items: RequestItem[] }
 
-export const FoldDecision = z.object({
-  item_id:       z.string(),
-  decision:      z.enum(['same', 'variant', 'new', 'not_a_process']),
-  procedure_id:  z.string().nullable().describe('Existing procedure id for same/variant; null otherwise'),
-  new_group:     z.string().nullable().describe('For decision "new": a short key; items in this request that describe the same new procedure share the key'),
-  new_title:     z.string().nullable().describe('For decision "new": canonical title for the new procedure'),
-  variant_note:  z.string().nullable().describe('For "variant": what differs, e.g. "PROD requires CAB approval"'),
-  step_map: z.array(z.object({
-    item_step:   z.number().int().describe('Index of the step in the item (0-based)'),
-    step_id:     z.string().nullable().describe('Existing step id it corresponds to, or null if it is a new step'),
-    new_label:   z.string().nullable().describe('Canonical label for a new step (generic, no names or dates)'),
-    after_step:  z.string().nullable().describe('For a new step: id of the existing step it comes after, or null if unknown (appended at the end)'),
-  })),
-})
+/* ── Pass 2: attach items to directory entries ─────────────────────────── */
 
 export const FoldResult = z.object({
-  decisions: z.array(FoldDecision),
+  decisions: z.array(z.object({
+    item_id:   z.string(),
+    decision:  z.enum(['same', 'new', 'not_a_request']),
+    entry_id:  z.string().nullable().describe('Existing entry id for "same"; null otherwise'),
+    new_group: z.string().nullable().describe('For "new": items in this request that are the same new kind of request share this key'),
+    title:     z.string().nullable().describe('For "new": generic canonical title'),
+    subdomain: z.string().nullable().describe('For "new": reuse an existing subdomain of the domain when it fits, else a short new one'),
+  })),
 })
-export type FoldResult   = z.infer<typeof FoldResult>
-export type FoldDecision = z.infer<typeof FoldDecision>
+export type FoldResult = z.infer<typeof FoldResult>
 
 export const MergeCheck = z.object({
-  same_procedure: z.boolean(),
-  keep_title:     z.string().describe('Best canonical title if merged'),
-  reason:         z.string(),
-})
-
-export const ProcedureSummary = z.object({
-  summary: z.string().describe('3-6 sentence "how to" for someone who needs to get this done, naming roles/teams to contact'),
+  same_request: z.boolean(),
+  keep_title:   z.string().describe('Best canonical title if merged'),
+  reason:       z.string(),
 })

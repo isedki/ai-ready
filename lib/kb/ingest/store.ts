@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import type { DB }    from '../db'
-import { normalizeSubject, noiseReason, stripQuotesAndSignature, redactSecrets } from '../clean'
+import { normalizeSubject, noiseReason, stripQuotesAndSignature, extractSignature, redactSecrets } from '../clean'
 
 export type Address = { addr: string; name: string }
 
@@ -34,8 +34,8 @@ export function insertMessage(db: DB, m: RawMessage): boolean {
   const clean = redactSecrets(stripQuotesAndSignature(m.body))
   const res = db.prepare(`
     INSERT OR IGNORE INTO messages
-      (id, folder, subject, norm_subject, from_addr, from_name, to_addrs, cc_addrs, date, in_reply_to, refs, body_raw, body_clean, is_noise, noise_reason)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, folder, subject, norm_subject, from_addr, from_name, to_addrs, cc_addrs, date, in_reply_to, refs, body_raw, body_clean, signature, is_noise, noise_reason)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, m.folder, m.subject, normalizeSubject(m.subject),
     normalizeAddr(m.from.addr), m.from.name,
@@ -45,7 +45,7 @@ export function insertMessage(db: DB, m: RawMessage): boolean {
     cleanId(m.inReplyTo),
     JSON.stringify(m.references.map(cleanId).filter(Boolean)),
     // Raw bodies are kept redacted too, so the DB never holds a plaintext secret.
-    redactSecrets(m.body), clean,
+    redactSecrets(m.body), clean, redactSecrets(extractSignature(m.body) ?? '') || null,
     noise ? 1 : 0, noise,
   )
 
