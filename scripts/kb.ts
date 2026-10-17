@@ -143,7 +143,8 @@ async function main() {
       await fold()
       render()
       log(`total spend so far ≈ ${usd(spend().total)}`)
-      log(`\nDone. Start the assistant with:  npm run ask`)
+      log(`\nDone. On the phone: open the "Qui contacter" page in the Claude app → Sources → Importer kb.json (file: kb-out/kb.json).`)
+      log(`On this laptop: npm run ask`)
       break
     }
 

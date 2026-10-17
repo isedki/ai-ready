@@ -29,6 +29,17 @@ billing"); you get who to contact, the approval needed, what to include, and a *
 if needed, then **Ouvrir dans Outlook** opens a new message with To / Cc / Objet / body filled in.
 Each question costs about one cent.
 
+**On the phone** (main way to use it): the private page *Qui contacter* in your Claude account
+(source: `phone/qui-contacter.html`, published at https://claude.ai/artifact/ULSMj55EzN3r3XvFWykfou). Open it
+in the Claude app, then Sources → *Importer kb.json* once after each build. On the page you can also:
+- add architecture / scope documents (PDF, Word, PowerPoint, photos of diagrams): Claude extracts components,
+  flows, owning teams and scope, used to guess the technical path of an incident;
+- paste an email or describe a call (optionally with a screenshot) and get ranked contacts with a confidence
+  level, the recommended channel (email, WhatsApp, visit, call), and French drafts (Outlook link, WhatsApp link);
+- note people's WhatsApp number and location, log each contact (channel, result, 1–5 rating) and set a
+  follow-up; the Suivis tab lists what to chase, with a ready-made French reminder.
+Questions on the page use your Claude subscription, not the API key.
+
 **Update it** every month or two: export a new PST and run the same `npm run kb -- run new.pst`. Only new
 threads are analysed.
 
