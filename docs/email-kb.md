@@ -1,5 +1,39 @@
 # Email → "who to ask for what" directory
 
+## Quick start (laptop, ~15 minutes of your time)
+
+**Once:**
+1. Install [Node.js 22 or newer](https://nodejs.org) (LTS).
+2. In this folder: `npm install`
+3. Create a file named `.env.local` in this folder with one line: `ANTHROPIC_API_KEY=sk-ant-…`
+   (key from console.anthropic.com → API keys).
+4. Optional: edit `config/kb-taxonomy.json` so the domains match inwi's organisation.
+
+**Build the directory** (Outlook → File → Open & Export → Import/Export → Export to a file → .pst):
+
+```bash
+npm run kb -- run "C:\path\to\dump.pst"
+```
+
+It shows the estimated cost and asks before spending (expect $1–3 for ~4,000 emails), then runs on its own
+(usually under an hour; leave the window open).
+
+**Use it, every day:**
+
+```bash
+npm run ask
+```
+
+Opens `http://localhost:3210/ask` in your browser. Type what you need ("ouvrir un flux en UAT vers la base
+billing"); you get who to contact, the approval needed, what to include, and a **French draft email**: edit it
+if needed, then **Ouvrir dans Outlook** opens a new message with To / Cc / Objet / body filled in.
+Each question costs about one cent.
+
+**Update it** every month or two: export a new PST and run the same `npm run kb -- run new.pst`. Only new
+threads are analysed.
+
+---
+
 Reads a mailbox dump and produces a routing directory, clustered by domain and subdomain:
 
 ```
@@ -81,7 +115,13 @@ for your dump and `stats` reports actual spend.
 Everything lives in `data/kb.sqlite` (`KB_DB` to change). It holds mailbox content: it is git-ignored and
 should stay on an access-controlled machine.
 
+## The assistant (`npm run ask`)
+
+`app/ask` + `app/api/ask` + `lib/kb/ask.ts`. The whole directory (`kb-out/kb.json`) is placed in a cached
+system prompt, so the model sees every entry and follow-up questions only pay for the cached read
+(`KB_ASK_MODEL`, default `claude-opus-5-5`). Answers are in the language of the question; drafts are in French.
+It runs only on your laptop (localhost).
+
 ## Not built yet
 
-- Live Outlook sync (Microsoft Graph delta queries) feeding the same two passes
-- A web page / chat ("who do I ask to …?") over `kb.json`
+- Live Outlook sync (Microsoft Graph delta queries) instead of periodic PST exports

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "kb": "tsx scripts/kb.ts"
+    "kb": "tsx scripts/kb.ts",
+    "ask": "tsx scripts/ask.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.72",
