@@ -34,8 +34,14 @@ Each question costs about one cent.
 in the Claude app, then Sources → *Importer kb.json* once after each build. On the page you can also:
 - add architecture / scope documents (PDF, Word, PowerPoint, photos of diagrams): Claude extracts components,
   flows, owning teams and scope, used to guess the technical path of an incident;
-- paste an email or describe a call (optionally with a screenshot) and get ranked contacts with a confidence
-  level, the recommended channel (email, WhatsApp, visit, call), and French drafts (Outlook link, WhatsApp link);
+- paste an email or describe a call (optionally with a screenshot and who reported it) and get a **triage** first:
+  the problem restated (what, where, since when, impact, who), a verdict *réel / à confirmer / fausse alerte
+  probable* with evidence for and against, the evidence the next team will need (provided / missing / unclear),
+  quick checks you can do yourself, and a gate *prêt à escalader* or the next step (ask the reporter, with a French
+  message ready, or verify yourself). Add the reporter's answer or your findings and the analysis updates;
+- then ranked contacts with a confidence level, the recommended channel (email, WhatsApp, visit, call), and
+  French drafts (Outlook link, WhatsApp link);
+- close each case as réel / fausse alerte / doublon: past outcomes are used to spot false alarms and duplicates;
 - note people's WhatsApp number and location, log each contact (channel, result, 1–5 rating) and set a
   follow-up; the Suivis tab lists what to chase, with a ready-made French reminder.
 Questions on the page use your Claude subscription, not the API key.

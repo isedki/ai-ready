@@ -85,6 +85,20 @@ details > summary::-webkit-details-marker { display: none; }
 .item:first-child { border-top: 0; padding-top: 0; }
 .due { color: var(--bad); font-weight: 600; }
 
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px 14px; }
+.fact { display: grid; gap: 2px; min-width: 0; font-size: 14px; }
+.proscons { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.proscons ul, .evidence { margin: 4px 0 0; padding-left: 18px; }
+.good-ink { color: var(--good); font-weight: 600; } .bad-ink { color: var(--bad); font-weight: 600; }
+.evidence { list-style: none; padding-left: 0; display: grid; gap: 6px; }
+.evidence li { display: flex; gap: 8px; align-items: baseline; }
+.evidence .mark { font-family: var(--f-mono); font-weight: 600; width: 1.2em; flex: none; text-align: center; }
+.ev-fourni .mark { color: var(--good); } .ev-manquant .mark { color: var(--bad); } .ev-incertain .mark { color: var(--warn); }
+.gate { border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; border: 1px solid; }
+.gate.ok { background: var(--good-soft); border-color: var(--good); } .gate.hold { background: var(--warn-soft); border-color: var(--warn); }
+.checks { display: grid; gap: 6px; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; cursor: pointer; }
+.check input { width: 20px; height: 20px; padding: 0; flex: none; margin-top: 1px; accent-color: var(--accent); }
 nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
 nav.tabs .in { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); height: var(--nav-h); }
@@ -111,7 +125,8 @@ nav.tabs .count { position: absolute; top: 6px; left: calc(50% + 8px); backgroun
   <section id="tab-ask" class="stack">
     <form class="panel" id="ask-form">
       <label class="label" for="q">Que se passe-t-il ?</label>
-      <textarea id="q" placeholder="Collez l'email reçu ou décrivez l'appel. Ex : « Le portail client renvoie une erreur 500 en PREPROD depuis ce matin, l'équipe recette est bloquée »"></textarea>
+      <textarea id="q" placeholder="Collez l'email reçu ou décrivez l'appel : ce qui se passe, où, depuis quand, qui est touché. Ex : « Le portail client renvoie une erreur 500 en PREPROD depuis ce matin, l'équipe recette est bloquée »"></textarea>
+      <input id="reporter" placeholder="Signalé par (nom, équipe), facultatif" aria-label="Signalé par">
       <div class="chips" id="src-chips" role="group" aria-label="Origine">
         <button type="button" class="chip" data-src="email" aria-pressed="true">Email reçu</button>
         <button type="button" class="chip" data-src="appel" aria-pressed="false">Appel</button>
@@ -407,32 +422,87 @@ function archBlock(maxBytes) {
   return out
 }
 
-const ASK_RULES = `Tu assistes un chef de projet IT d'un opérateur télécom au Maroc. Il reçoit un email, un appel ou une demande, et veut savoir QUI contacter, PAR QUEL CANAL, et avec quel niveau de CONFIANCE.
+const ASK_RULES = `Tu assistes un chef de projet IT d'un opérateur télécom au Maroc. Il reçoit un email, un appel ou une demande. Avant de déranger l'équipe suivante, il doit (1) comprendre précisément le problème, (2) juger s'il est réel ou si c'est une fausse alerte, (3) vérifier qu'il a assez d'éléments pour que l'équipe suivante puisse agir sans revenir vers lui, puis (4) savoir QUI contacter, PAR QUEL CANAL, avec quelle CONFIANCE.
 
 Tu disposes de :
-- ANNUAIRE : qui a traité quel type de demande, appris des emails de son prédécesseur (nombre de fois vu, date).
-- PERSONNES : ce qu'il a noté (lieu, WhatsApp, notes) et ses évaluations des canaux par personne.
-- ARCHITECTURE & PÉRIMÈTRE : composants, flux, équipes, environnements, issus des documents du projet.
+- ANNUAIRE : qui a traité quel type de demande, appris des emails de son prédécesseur, avec les éléments que ces équipes demandent ("inclure").
+- PERSONNES : ses notes (lieu, WhatsApp, notes) et ses évaluations des canaux par personne.
+- ARCHITECTURE & PÉRIMÈTRE : composants, flux, équipes, environnements.
+- CAS PRÉCÉDENTS : cas ouverts (doublons possibles) et cas clos avec leur issue (réel, fausse alerte, doublon).
 
-Méthode :
-1. Comprends la situation (incident ou demande, composant, environnement, urgence).
-2. Si c'est un problème, déduis le chemin technique probable (composants traversés) à partir de l'architecture ; dis-le si c'est une supposition.
-3. Propose 1 à 3 contacts, du plus probable au moins probable. Pour chacun : pourquoi, la confiance (0-100) et sur quoi elle repose.
-   Confiance : 80-100 seulement si l'annuaire l'a vu plusieurs fois ET qu'une autre source confirme (architecture ou bonnes évaluations) ; 50-79 une source solide ; 20-49 déduction depuis l'architecture ou un seul email ; moins de 20 pure supposition. Ne gonfle pas.
-4. Canal conseillé par contact : utilise d'abord les évaluations de l'utilisateur pour cette personne. Sinon : incident urgent → appel, WhatsApp ou visite (si le lieu est connu) ; demande formelle (accès, flux, création, approbation) → email (avec éventuellement un WhatsApp de prévenance).
-5. Rédige pour chaque contact un email en français (Bonjour…, contexte, demande précise, éléments à fournir en liste avec [à compléter] pour l'inconnu, Cordialement) et un message WhatsApp court en français (2 à 4 phrases, vouvoiement, sans formule longue).
-6. Liste les questions à poser à l'émetteur s'il manque une information importante.
+1. DIAGNOSTIC
+- Reformule le problème en une phrase précise et remplis : quoi, où (composant + environnement), depuis quand, impact, qui est touché. "?" si inconnu.
+- Juge la réalité : "reel", "a_confirmer" ou "fausse_alerte_probable", avec une confiance 0-100, les indices pour et les indices contre. Indices de fausse alerte typiques : un seul utilisateur, pas de message d'erreur précis, poste ou navigateur de l'utilisateur (cache, VPN, mot de passe expiré, droits), maintenance ou mise en production en cours, données de test en PREPROD/UAT, comportement normal mal compris, doublon d'un cas ouvert, émetteur ou composant ayant déjà eu des fausses alertes. Indices de réalité : plusieurs utilisateurs ou un flux automatique en échec, message d'erreur et heure précis, reproductible, alerte de supervision, impact métier constaté, changement récent sur le chemin.
+- Liste les preuves que l'équipe suivante attendra (utilise "inclure" de l'annuaire pour cette équipe, plus : heure exacte, environnement, identifiant de transaction ou utilisateur concerné, message d'erreur ou capture, étendue, reproductibilité, changement récent). Pour chacune : "fourni", "manquant" ou "incertain", et pourquoi elle compte.
+- Propose 2 à 5 vérifications rapides que le chef de projet peut faire lui-même pour confirmer (reproduire, tester avec un autre compte, regarder la supervision, vérifier le calendrier des mises en production, demander à un collègue sur place).
+- Décide : "pret_a_escalader" vrai seulement si le problème est réel ou très probable ET que les preuves indispensables sont fournies. "prochaine_etape" : "demander_details" (il manque des éléments à l'émetteur), "verifier_moi_meme" (doute sur la réalité, vérifiable vite), ou "escalader". Si l'urgence est haute et l'impact large, on peut escalader en parallèle de la demande de détails : dis-le dans "raison".
+- Si des éléments manquent, rédige "message_emetteur" : un message en français à l'émetteur, court, poli, qui liste précisément ce qui manque (en puces) et, si utile, 1 ou 2 vérifications simples qu'il peut faire de son côté.
+
+2. CONTACTS (l'équipe suivante)
+- 1 à 3 contacts, du plus probable au moins probable : pourquoi, confiance 0-100 et sur quoi elle repose. 80-100 seulement si l'annuaire l'a vu plusieurs fois ET une autre source confirme ; 50-79 une source solide ; 20-49 déduction depuis l'architecture ou un seul email ; moins de 20 pure supposition. Ne gonfle pas.
+- Canal conseillé par contact : d'abord les évaluations de l'utilisateur pour cette personne ; sinon incident urgent → appel, WhatsApp ou visite (si le lieu est connu), demande formelle → email.
+- Pour chaque contact : un email en français (Bonjour…, contexte, constat avec les preuves disponibles, demande précise, Cordialement ; [à compléter] pour l'inconnu) et un message WhatsApp de 2 à 4 phrases (vouvoiement).
+- Si le cas a des NOUVEAUX ÉLÉMENTS, réévalue tout en en tenant compte.
+
 N'invente jamais d'adresse email : "email" vaut null si elle n'apparaît pas dans les données. "cle" reprend exactement la clé de PERSONNES ou l'adresse de l'ANNUAIRE, sinon null. Les entrées marquées EXEMPLE FICTIF sont des données de démonstration.
 
 Réponds uniquement avec un objet JSON de cette forme :
-{"comprehension":"une phrase","urgence":"haute|normale|basse","chemin":[{"composant":"nom","role":"ce qu'il fait ici"}],"chemin_confiance":0,"suggestions":[{"qui":"nom ou équipe","cle":null,"email":null,"equipe":"département","pourquoi":"...","confiance":0,"sources":["emails","architecture","evaluations","notes","deduction"],"canal":"email|whatsapp|visite|appel","canal_pourquoi":"...","objet":"objet de l'email","message_email":"...","message_whatsapp":"..."}],"questions":["..."]}`
+{"comprehension":"une phrase","urgence":"haute|normale|basse",
+"diagnostic":{"probleme":"","quoi":"","ou":"","depuis":"","impact":"","qui_est_touche":"",
+ "realite":{"verdict":"reel|a_confirmer|fausse_alerte_probable","confiance":0,"pour":[""],"contre":[""]},
+ "preuves":[{"element":"","statut":"fourni|manquant|incertain","pourquoi":""}],
+ "verifications":[""],"pret_a_escalader":false,"prochaine_etape":"demander_details|verifier_moi_meme|escalader","raison":""},
+"message_emetteur":{"objet":"","texte":""},
+"chemin":[{"composant":"","role":""}],"chemin_confiance":0,
+"suggestions":[{"qui":"","cle":null,"email":null,"equipe":"","pourquoi":"","confiance":0,"sources":["emails","architecture","evaluations","notes","deduction"],"canal":"email|whatsapp|visite|appel","canal_pourquoi":"","objet":"","message_email":"","message_whatsapp":""}],
+"questions":[""]}
+"message_emetteur" vaut null si rien ne manque.`
+
+const RESOLUTIONS = { reel_resolu: 'Réel, résolu', fausse_alerte: 'Fausse alerte', doublon: 'Doublon', abandonne: 'Abandonné' }
+const VERDICTS = { reel: ['Problème réel', 'bad'], a_confirmer: ['À confirmer', 'warn'], fausse_alerte_probable: ['Fausse alerte probable', ''] }
+const NEXT = { demander_details: 'Demander des détails à l’émetteur', verifier_moi_meme: 'Vérifier moi-même', escalader: 'Contacter l’équipe suivante' }
+
+function casesBlock(maxBytes, exceptId) {
+  const lines = S.cases.filter(c => c.id !== exceptId).slice(0, 60).map(c => [
+    String(c.at || '').slice(0, 10), c.status === 'closed' ? `clos : ${RESOLUTIONS[c.resolution?.kind] || 'sans issue notée'}` : 'OUVERT',
+    c.result?.diagnostic?.probleme || c.result?.comprehension || c.text.slice(0, 120),
+    c.reporter ? `signalé par ${c.reporter}` : '', c.resolution?.note || '',
+  ].filter(Boolean).join(' | '))
+  let out = '', used = 0
+  for (const l of lines) { const b = bytes(l) + 1; if (used + b > maxBytes) break; out += l + '\n'; used += b }
+  return out
+}
 
 async function ask() {
   const text = $('#q').value.trim()
   if (!text || !sample) return
+  const c = { text, source: askSrc, reporter: $('#reporter').value.trim(), updates: [], checks: [], at: new Date().toISOString(), status: 'open' }
   const img = $('#img').files[0]
-  // Keep the whole prompt under the 256 KiB input cap: directory first, then people, then architecture.
-  const dir = directoryBlock(120000), ppl = peopleBlock(50000), arch = archBlock(60000)
+  const result = await analyse(c, img)
+  if (!result) return
+  c.result = result
+  current = c
+  renderResult(c)
+  if (db) {
+    try { const ref = await db.collection('cases').add(c); c.id = ref.id; renderResult(c) }
+    catch (e) { console.warn(e) }
+  }
+}
+
+async function addInfo(c, info) {
+  if (!info.trim() || !sample) return
+  const updates = [...(c.updates || []), { at: new Date().toISOString(), text: info.trim() }]
+  const result = await analyse({ ...c, updates }, null)
+  if (!result) return
+  Object.assign(c, { updates, result, updated_at: new Date().toISOString() })
+  renderResult(c)
+  if (db && c.id) await db.doc('cases/' + c.id).update({ updates, result, updated_at: c.updated_at }).catch(e => console.warn(e))
+}
+
+async function analyse(c, img) {
+  // Keep the whole prompt under the 256 KiB input cap: directory first, then people, architecture, past cases.
+  const dir = directoryBlock(110000), ppl = peopleBlock(45000), arch = archBlock(55000), past = casesBlock(15000, c.id)
+  const prev = c.result?.diagnostic
   const prompt = `${ASK_RULES}
 
 === ANNUAIRE (${S.entries.length} types de demande) ===
@@ -441,53 +511,150 @@ ${dir || '(vide : pas encore importé)'}
 ${ppl || '(aucune)'}
 === ARCHITECTURE & PÉRIMÈTRE ===
 ${arch || '(aucun document)'}
+=== CAS PRÉCÉDENTS (date | statut | problème | émetteur | note) ===
+${past || '(aucun)'}
 === SITUATION ===
-Origine : ${askSrc} · Date : ${new Date().toLocaleString('fr-FR')}
-${img ? 'Une capture d’écran est jointe : lis-la comme faisant partie de la situation.\n' : ''}${text}`
+Origine : ${c.source} · Signalé par : ${c.reporter || 'non précisé'} · Reçu le : ${new Date(c.at).toLocaleString('fr-FR')}
+${img ? 'Une capture d’écran est jointe : lis-la comme faisant partie de la situation.\n' : ''}${c.text}
+${c.updates?.length ? `\n=== NOUVEAUX ÉLÉMENTS (réponses de l'émetteur, vérifications faites) ===\n${c.updates.map(u => `[${new Date(u.at).toLocaleString('fr-FR')}] ${u.text}`).join('\n')}` : ''}
+${prev ? `\n=== ANALYSE PRÉCÉDENTE ===\nVerdict : ${prev.realite?.verdict} (${prev.realite?.confiance}) · Manquait : ${(prev.preuves || []).filter(p => p.statut !== 'fourni').map(p => p.element).join(', ') || 'rien'}` : ''}
+${c.checks?.length && prev?.verifications ? `Vérifications cochées comme faites : ${c.checks.map(i => prev.verifications[i]).filter(Boolean).join(' ; ')}` : ''}`
 
   ctl = new AbortController()
-  $('#ask-btn').disabled = true; $('#stop-btn').hidden = false
-  $('#ask-note').textContent = 'Claude réfléchit… (20 à 60 s)'
-  $('#result').replaceChildren()
+  const note = $('#ask-note')
+  for (const b of document.querySelectorAll('#ask-btn, .update-btn')) b.disabled = true
+  $('#stop-btn').hidden = false
+  note.textContent = 'Claude analyse… (20 à 60 s)'
   try {
     const result = await sample.json(prompt, { signal: ctl.signal, cache: false, ...(img ? { images: [img] } : {}) })
     if (!result || !Array.isArray(result.suggestions)) throw { code: 'invalid_json' }
-    current = { text, source: askSrc, result, at: new Date().toISOString(), status: 'open' }
-    renderResult(current)
-    $('#ask-note').textContent = ''
-    if (db) {
-      try { const ref = await db.collection('cases').add(current); current.id = ref.id }
-      catch (e) { console.warn(e) }
-    }
+    note.textContent = ''
+    return result
   } catch (e) {
-    const msg = {
-      cancelled: '', not_granted: 'Autorisez la page à utiliser Claude pour obtenir des suggestions.', rate_limited: 'Trop de demandes pour le moment : réessayez dans quelques minutes.',
+    note.textContent = {
+      cancelled: '', not_granted: 'Autorisez la page à utiliser Claude pour obtenir une analyse.', rate_limited: 'Trop de demandes pour le moment : réessayez dans quelques minutes.',
       prompt_too_large: 'Trop de données : raccourcissez le texte collé.', invalid_json: 'Réponse illisible : relancez l’analyse.', refused: 'Claude a refusé cette demande : reformulez-la.',
       image_rejected: 'Image refusée : essayez une autre capture.', session_expired: 'Reconnectez-vous à Claude.',
     }[e?.code] ?? 'La connexion à Claude a échoué : relancez l’analyse.'
-    $('#ask-note').textContent = msg
+    if (tab !== 'ask') toast(note.textContent || 'Analyse arrêtée')
+    return null
   } finally {
-    $('#ask-btn').disabled = false; $('#stop-btn').hidden = true; ctl = null
+    for (const b of document.querySelectorAll('#ask-btn, .update-btn')) b.disabled = false
+    $('#stop-btn').hidden = true; ctl = null
   }
+}
+
+function field(label, value) {
+  return h('div', { class: 'fact' }, h('span', { class: 'label', text: label }), h('span', { class: value && value !== '?' ? '' : 'muted', text: value || '?' }))
+}
+
+function diagnosticView(c) {
+  const r = c.result, d = r.diagnostic || {}
+  const real = d.realite || {}
+  const [vLabel, vTone] = VERDICTS[real.verdict] || ['Non évalué', '']
+  const ready = !!d.pret_a_escalader
+  const missing = (d.preuves || []).filter(p => p.statut !== 'fourni')
+  const panel = h('div', { class: 'panel' },
+    h('div', { class: 'row' }, h('span', { class: 'label', text: 'Diagnostic' }),
+      r.urgence ? h('span', { class: 'pill ' + ({ haute: 'bad', normale: 'warn', basse: '' }[r.urgence] || ''), text: 'Urgence ' + r.urgence }) : null,
+      c.updates?.length ? h('span', { class: 'pill', text: `mis à jour ×${c.updates.length}` }) : null),
+    h('h2', { text: d.probleme || r.comprehension || '' }),
+    h('div', { class: 'facts' }, field('Quoi', d.quoi), field('Où', d.ou), field('Depuis', d.depuis), field('Impact', d.impact), field('Qui est touché', d.qui_est_touche)),
+    h('div', { class: 'stack' },
+      h('div', { class: 'row' }, h('span', { class: 'label', text: 'Le problème est-il réel ?' }), h('span', { class: 'pill ' + vTone, text: vLabel }), signal(real.confiance || 0)),
+      h('div', { class: 'proscons' },
+        h('div', {}, h('span', { class: 'small good-ink', text: 'Indices pour' }), h('ul', { class: 'small' }, (real.pour || []).filter(Boolean).map(x => h('li', { text: x })))),
+        h('div', {}, h('span', { class: 'small bad-ink', text: 'Indices contre' }), h('ul', { class: 'small' }, (real.contre || []).filter(Boolean).map(x => h('li', { text: x })))))),
+    d.preuves?.length ? h('div', { class: 'stack' },
+      h('span', { class: 'label', text: 'Éléments pour l’équipe suivante' }),
+      h('ul', { class: 'evidence' }, d.preuves.map(p => h('li', { class: 'ev-' + (p.statut || 'incertain') },
+        h('span', { class: 'mark', 'aria-label': p.statut, text: p.statut === 'fourni' ? '✓' : p.statut === 'manquant' ? '✗' : '?' }),
+        h('span', {}, h('strong', { text: p.element }), p.pourquoi ? h('span', { class: 'small muted', text: ' · ' + p.pourquoi }) : null))))) : null,
+    h('div', { class: 'gate ' + (ready ? 'ok' : 'hold') },
+      h('strong', { text: ready ? 'Prêt à escalader' : `Pas encore : ${missing.length ? `${missing.length} élément${missing.length > 1 ? 's' : ''} à obtenir` : 'réalité à confirmer'}` }),
+      h('p', { class: 'small', text: `Prochaine étape : ${NEXT[d.prochaine_etape] || d.prochaine_etape || '?'}${d.raison ? '. ' + d.raison : ''}` })))
+
+  if (d.verifications?.length) {
+    const checks = new Set(c.checks || [])
+    panel.append(h('div', { class: 'stack' }, h('span', { class: 'label', text: 'Vérifications rapides (par vous)' }),
+      h('div', { class: 'checks' }, d.verifications.map((v, i) => {
+        const box = h('input', { type: 'checkbox', id: `chk-${i}` }); box.checked = checks.has(i)
+        box.addEventListener('change', async () => {
+          box.checked ? checks.add(i) : checks.delete(i)
+          c.checks = [...checks].sort((a, b) => a - b)
+          if (db && c.id) await db.doc('cases/' + c.id).update({ checks: c.checks }).catch(e => console.warn(e))
+        })
+        return h('label', { class: 'check', for: `chk-${i}` }, box, h('span', { text: v }))
+      }))))
+  }
+
+  if (r.message_emetteur?.texte) {
+    const composer = h('div', { class: 'composer', hidden: true })
+    const reporter = { key: 'p-' + slug(c.reporter || 'emetteur'), name: c.reporter || '', addr: '', handles: [] }
+    const known = [...people().values()].find(p => c.reporter && norm(`${p.name} ${p.addr}`).includes(norm(c.reporter)))
+    const who = known || reporter
+    panel.append(h('div', { class: 'stack' },
+      h('span', { class: 'label', text: 'Demander les éléments manquants à l’émetteur' }),
+      h('div', { class: 'row' },
+        h('button', { type: 'button', class: d.prochaine_etape === 'demander_details' ? 'primary' : '', text: 'WhatsApp', onclick: () => { composer.hidden = false; composer.replaceChildren(waComposer(r.message_emetteur.texte, who)) } }),
+        h('button', { type: 'button', text: 'Email', onclick: () => { composer.hidden = false; composer.replaceChildren(emailComposer({ objet: r.message_emetteur.objet || `Précisions : ${r.comprehension || ''}`, message_email: r.message_emetteur.texte }, who)) } }),
+        h('button', { type: 'button', text: 'Copier', onclick: () => copy(r.message_emetteur.texte) })),
+      composer))
+  }
+
+  const info = h('textarea', { rows: 3, placeholder: 'Réponse de l’émetteur, résultat de vos vérifications, nouvelle capture décrite…', 'aria-label': 'Nouveaux éléments' })
+  panel.append(h('div', { class: 'stack' },
+    h('span', { class: 'label', text: 'Ajouter des éléments' }), info,
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'update-btn', text: 'Mettre à jour l’analyse', onclick: () => addInfo(c, info.value) }),
+      c.id ? h('button', { type: 'button', class: 'ghost', text: c.status === 'closed' ? `Clos : ${RESOLUTIONS[c.resolution?.kind] || ''}` : 'Clore le cas…', onclick: () => resolveSheet(c) }) : null)))
+  if (c.updates?.length) panel.append(h('details', {}, h('summary', {}, h('span', { class: 'small', text: `Historique du cas (${c.updates.length})` })),
+    h('ul', { class: 'small' }, h('li', {}, h('span', { class: 'muted', text: fmtWhen(c.at) + ' · ' }), c.text.slice(0, 300)), c.updates.map(u => h('li', {}, h('span', { class: 'muted', text: fmtWhen(u.at) + ' · ' }), u.text)))))
+  return panel
 }
 
 function renderResult(c) {
   const r = c.result, box = $('#result')
-  box.replaceChildren()
-  const head = h('div', { class: 'panel' },
-    h('div', { class: 'row' }, h('span', { class: 'label', text: 'Compréhension' }), r.urgence ? h('span', { class: 'pill ' + ({ haute: 'bad', normale: 'warn', basse: '' }[r.urgence] || ''), text: 'Urgence ' + r.urgence }) : null),
-    h('p', { text: r.comprehension || '' }),
+  box.replaceChildren(diagnosticView(c))
+  const d = r.diagnostic || {}
+  const list = h('div', { class: 'panel' },
+    h('h2', { text: 'Qui contacter ensuite' }),
+    d.pret_a_escalader ? null : h('p', { class: 'small muted', text: 'À contacter une fois les éléments réunis (ou en parallèle si c’est urgent).' }),
     r.chemin?.length ? h('div', { class: 'stack' },
       h('div', { class: 'row' }, h('span', { class: 'label', text: 'Chemin probable' }), signal(r.chemin_confiance || 0)),
       h('div', { class: 'path' }, r.chemin.flatMap((n, i) => [i ? h('span', { class: 'muted', text: '→' }) : null, h('span', { class: 'node', title: n.role || '', text: n.composant })])),
-      h('p', { class: 'small muted', text: r.chemin.map(n => n.role ? `${n.composant} : ${n.role}` : '').filter(Boolean).join(' · ') })) : null,
-    r.questions?.length ? h('div', { class: 'stack' }, h('span', { class: 'label', text: 'À demander à l’émetteur' }), h('ul', { class: 'small' }, r.questions.map(q => h('li', { text: q })))) : null)
-  box.append(head)
-  const list = h('div', { class: 'panel' }, h('h2', { text: 'Qui contacter' }))
+      h('p', { class: 'small muted', text: r.chemin.map(n => n.role ? `${n.composant} : ${n.role}` : '').filter(Boolean).join(' · ') })) : null)
   for (const s of r.suggestions) list.append(suggestionView(s, c))
   if (!r.suggestions.length) list.append(h('p', { class: 'muted', text: 'Aucun contact trouvé dans les données.' }))
-  if (c.id) list.append(h('div', { class: 'row' }, h('button', { type: 'button', class: 'ghost', text: 'Clore ce cas', onclick: () => closeCase(c) })))
   box.append(list)
+}
+
+function resolveSheet(c) {
+  let kind = c.resolution?.kind || 'reel_resolu'
+  const note = h('textarea', { rows: 3, placeholder: 'Ex : cache navigateur de l’utilisateur ; corrigé par l’équipe Run en redémarrant le service' }); note.value = c.resolution?.note || ''
+  sheet(
+    h('h2', { text: 'Clore le cas' }),
+    h('p', { class: 'small muted', text: c.result?.diagnostic?.probleme || c.result?.comprehension || c.text.slice(0, 120) }),
+    h('span', { class: 'label', text: 'Issue' }), chipGroup(RESOLUTIONS, kind, v => kind = v),
+    h('p', { class: 'small muted', text: 'Les issues notées aident à repérer les fausses alertes et les doublons dans les prochaines analyses.' }),
+    note,
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'primary', text: 'Clore', onclick: async () => {
+        const resolution = { kind, note: note.value.trim(), at: new Date().toISOString() }
+        try {
+          await db.doc('cases/' + c.id).update({ status: 'closed', resolution, closed_at: resolution.at })
+          Object.assign(c, { status: 'closed', resolution })
+          closeSheet(); toast('Cas clos'); if (current === c) renderResult(c)
+        } catch (e) { toast('Impossible de clore : ' + (e?.message || 'réessayez')) }
+      } }),
+      h('button', { type: 'button', text: 'Annuler', onclick: closeSheet })))
+}
+
+function caseBadge(c) {
+  if (c.status === 'closed') return h('span', { class: 'pill', text: RESOLUTIONS[c.resolution?.kind] || 'clos' })
+  const d = c.result?.diagnostic
+  if (!d) return h('span', { class: 'pill warn', text: 'ouvert' })
+  return d.pret_a_escalader ? h('span', { class: 'pill good', text: 'prêt à escalader' }) : h('span', { class: 'pill warn', text: NEXT[d.prochaine_etape] ? NEXT[d.prochaine_etape].toLowerCase() : 'à compléter' })
 }
 
 function resolvePerson(s) {
@@ -609,19 +776,13 @@ function logSheet({ person, channel = 'email', caseRef = null, topic = '', follo
       h('button', { type: 'button', text: 'Annuler', onclick: closeSheet })))
 }
 
-async function closeCase(c) {
-  if (!db || !c.id) return
-  await db.doc('cases/' + c.id).update({ status: 'closed', closed_at: new Date().toISOString() })
-  toast('Cas clos')
-}
-
 /* ── recent cases (ask tab) ──────────────────────────────── */
 function renderRecent() {
   const list = S.cases.slice(0, 5)
   $('#recent-panel').hidden = !list.length
   $('#recent').replaceChildren(...list.map(c => h('div', { class: 'item' },
-    h('div', { class: 'top' }, h('strong', { text: c.result?.comprehension || c.text.slice(0, 80) }), h('span', { class: 'small muted', text: fmtDate(c.at) })),
-    h('div', { class: 'row' }, c.status === 'closed' ? h('span', { class: 'pill', text: 'clos' }) : h('span', { class: 'pill warn', text: 'ouvert' }),
+    h('div', { class: 'top' }, h('strong', { text: c.result?.diagnostic?.probleme || c.result?.comprehension || c.text.slice(0, 80) }), h('span', { class: 'small muted', text: fmtDate(c.at) })),
+    h('div', { class: 'row' }, caseBadge(c),
       h('button', { type: 'button', class: 'ghost', text: 'Revoir', onclick: () => { current = c; renderResult(c); window.scrollTo(0, 0) } })))))
 }
 
@@ -650,10 +811,10 @@ function renderFollow() {
 
   const open = S.cases.filter(c => c.status !== 'closed')
   $('#open-cases').replaceChildren(...(open.length ? open.map(c => h('div', { class: 'item' },
-    h('div', { class: 'top' }, h('strong', { text: c.result?.comprehension || c.text.slice(0, 80) }), h('span', { class: 'small muted', text: fmtDate(c.at) })),
-    h('div', { class: 'row' },
-      h('button', { type: 'button', text: 'Voir les suggestions', onclick: () => { current = c; goTab('ask'); renderResult(c) } }),
-      h('button', { type: 'button', class: 'ghost', text: 'Clore', onclick: () => closeCase(c) })))) : [h('p', { class: 'muted small', text: 'Aucun cas ouvert.' })]))
+    h('div', { class: 'top' }, h('strong', { text: c.result?.diagnostic?.probleme || c.result?.comprehension || c.text.slice(0, 80) }), h('span', { class: 'small muted', text: fmtDate(c.at) })),
+    h('div', { class: 'row' }, caseBadge(c),
+      h('button', { type: 'button', text: 'Ouvrir', onclick: () => { current = c; goTab('ask'); renderResult(c) } }),
+      h('button', { type: 'button', class: 'ghost', text: 'Clore…', onclick: () => resolveSheet(c) })))) : [h('p', { class: 'muted small', text: 'Aucun cas ouvert.' })]))
 
   $('#history').replaceChildren(...(S.log.length ? S.log.slice(0, 15).map(l => h('div', { class: 'item' },
     h('div', { class: 'top' }, h('span', {}, h('strong', { text: l.name || l.addr || l.person }), ` · ${CHANNELS[l.channel]}`), h('span', { class: 'small muted', text: fmtDate(l.at) })),
