@@ -104,6 +104,14 @@ details > summary::-webkit-details-marker { display: none; }
 .tbl table { border-collapse: collapse; font-size: 12.5px; min-width: 100%; }
 .tbl th, .tbl td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .tbl th { font-family: var(--f-head); font-weight: 500; color: var(--muted); white-space: nowrap; }
+.chat { display: grid; gap: 10px; }
+.msg { display: grid; gap: 4px; min-width: 0; }
+.msg.me { justify-items: end; }
+.bubble { padding: 8px 11px; border-radius: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; max-width: 92%; }
+.bubble.me { background: var(--accent-soft); border-bottom-right-radius: 4px; }
+.bubble.ai { background: var(--sunk); border-bottom-left-radius: 4px; }
+.bubble.err { color: var(--bad); }
+button.tiny { min-height: 28px; padding: 3px 6px; font-size: 13px; }
 nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
 nav.tabs .in { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); height: var(--nav-h); }
@@ -620,15 +628,18 @@ function diagnosticView(c) {
       h('span', { class: 'label', text: 'Impacts probables' }),
       h('ul', { class: 'evidence' }, r.impacts.map(x => h('li', {},
         h('span', { class: 'pill ' + ({ confirme: 'bad', probable: 'warn' }[x.certitude] || ''), text: x.certitude || '?' }),
-        h('span', {}, h('strong', { text: x.composant }), x.effet ? ` : ${x.effet}` : '', x.equipe ? h('span', { class: 'small muted', text: ` · prévenir ${x.equipe}` }) : null))))) : null,
+        h('span', {}, h('strong', { text: x.composant }), x.effet ? ` : ${x.effet}` : '', x.equipe ? h('span', { class: 'small muted', text: ` · prévenir ${x.equipe}` }) : null,
+          h('button', { type: 'button', class: 'ghost tiny', text: 'Approfondir', onclick: () => openChat({ label: `impact sur ${x.composant}`, kind: 'impact' }) })))))) : null,
     d.preuves?.length ? h('div', { class: 'stack' },
       h('span', { class: 'label', text: 'Éléments pour l’équipe suivante' }),
       h('ul', { class: 'evidence' }, d.preuves.map(p => h('li', { class: 'ev-' + (p.statut || 'incertain') },
         h('span', { class: 'mark', 'aria-label': p.statut, text: p.statut === 'fourni' ? '✓' : p.statut === 'manquant' ? '✗' : '?' }),
-        h('span', {}, h('strong', { text: p.element }), p.pourquoi ? h('span', { class: 'small muted', text: ' · ' + p.pourquoi }) : null))))) : null,
+        h('span', {}, h('strong', { text: p.element }), p.pourquoi ? h('span', { class: 'small muted', text: ' · ' + p.pourquoi }) : null,
+          p.statut !== 'fourni' ? h('button', { type: 'button', class: 'ghost tiny', text: 'Approfondir', onclick: () => openChat({ label: `élément « ${p.element} »`, kind: 'evidence' }) }) : null))))) : null,
     h('div', { class: 'gate ' + (ready ? 'ok' : 'hold') },
       h('strong', { text: ready ? 'Prêt à escalader' : `Pas encore : ${missing.length ? `${missing.length} élément${missing.length > 1 ? 's' : ''} à obtenir` : 'réalité à confirmer'}` }),
-      h('p', { class: 'small', text: `Prochaine étape : ${NEXT[d.prochaine_etape] || d.prochaine_etape || '?'}${d.raison ? '. ' + d.raison : ''}` })))
+      h('p', { class: 'small', text: `Prochaine étape : ${NEXT[d.prochaine_etape] || d.prochaine_etape || '?'}${d.raison ? '. ' + d.raison : ''}` }),
+      h('div', { class: 'row' }, h('button', { type: 'button', class: 'ghost tiny', text: 'Discuter du diagnostic', onclick: () => openChat(null) }))))
 
   if (d.verifications?.length) {
     const checks = new Set(c.checks || [])
@@ -683,6 +694,8 @@ function renderResult(c) {
   for (const s of r.suggestions) list.append(suggestionView(s, c))
   if (!r.suggestions.length) list.append(h('p', { class: 'muted', text: 'Aucun contact trouvé dans les données.' }))
   box.append(list)
+  chatAbout = null
+  box.append(chatPanel(c))
 }
 
 function resolveSheet(c) {
@@ -713,6 +726,134 @@ function caseBadge(c) {
   return d.pret_a_escalader ? h('span', { class: 'pill good', text: 'prêt à escalader' }) : h('span', { class: 'pill warn', text: NEXT[d.prochaine_etape] ? NEXT[d.prochaine_etape].toLowerCase() : 'à compléter' })
 }
 
+/* ── follow-up conversation on a case ────────────────────── */
+const CHAT_RULES = `Tu es l'assistant qui a produit l'analyse ci-dessous pour un chef de projet IT d'un opérateur télécom au Maroc. Il pose une question de suivi sur un point de l'analyse, ou il apporte des précisions.
+- Réponds en français, court (5 à 10 lignes), concret, en texte simple (puces avec « - » autorisées, pas de JSON).
+- Explique ton raisonnement en citant tes sources : annuaire (combien de fils, quand), document d'architecture (nom), évaluations, cas précédents. Dis clairement ce qui est supposé.
+- S'il apporte des précisions, dis ce qu'elles changent (verdict, éléments manquants, contacts, impacts, canal) et propose de cliquer « Intégrer à l'analyse ». Si la précision concerne une personne (absence, changement de poste, préférence de canal), propose aussi « Noter sur la personne ».
+- N'invente jamais d'adresse ni de personne.`
+
+const CHIPS = {
+  case: ['Pourquoi ce verdict ?', 'Explique le chemin technique et les impacts', 'Que manque-t-il vraiment pour escalader ?', 'Et si c’était en PROD ?'],
+  person: ['Pourquoi cette personne ?', 'Qui d’autre si elle ne répond pas ?', 'Que dois-je préparer avant de la contacter ?'],
+  impact: ['Pourquoi cet impact ?', 'Comment le vérifier ?', 'Qui prévenir et comment ?'],
+  evidence: ['Pourquoi est-ce nécessaire ?', 'Où trouver cette information ?', 'Peut-on escalader sans ?'],
+}
+let chatAbout = null   // { label, kind, key? } — what the next question is about
+let chatBusy = false
+
+function compactResult(r) {
+  return { ...r, message_emetteur: r.message_emetteur ? { objet: r.message_emetteur.objet } : null,
+    suggestions: (r.suggestions || []).map(({ message_email: _e, message_whatsapp: _w, ...s }) => s) }
+}
+
+function chatTurns(c) {
+  const query = [c.text, c.reporter, ...(c.updates || []).map(u => u.text), ...(c.chat || []).filter(m => m.role === 'user').map(m => `${m.about || ''} ${m.text}`)].join(' ')
+  const context = `${CHAT_RULES}
+
+=== ANNUAIRE ===
+${directoryBlock(70000) || '(vide)'}
+=== PERSONNES ===
+${peopleBlock(30000) || '(aucune)'}
+=== ARCHITECTURE & PÉRIMÈTRE ===
+${archBlock(45000, query) || '(aucun document)'}
+=== CAS PRÉCÉDENTS ===
+${casesBlock(8000, c.id) || '(aucun)'}
+=== SITUATION ===
+Origine : ${c.source} · Signalé par : ${c.reporter || 'non précisé'} · Reçu le : ${new Date(c.at).toLocaleString('fr-FR')}
+${c.text}
+${c.updates?.length ? '\nNouveaux éléments :\n' + c.updates.map(u => `- ${u.text}`).join('\n') : ''}
+=== ANALYSE ACTUELLE (JSON) ===
+${JSON.stringify(compactResult(c.result)).slice(0, 20000)}
+
+=== CONVERSATION ===`
+  // Keep the last exchanges; drop failed answers so the turns stay a real conversation.
+  const msgs = (c.chat || []).filter(m => !m.error).slice(-12)
+  while (msgs.length && msgs[0].role !== 'user') msgs.shift()
+  const turns = msgs.map(m => ({ role: m.role, content: m.role === 'user' ? `${m.about ? `[À propos de : ${m.about}] ` : ''}${m.text}` : m.text }))
+  turns[0] = { role: 'user', content: `${context}\n${turns[0].content}` }
+  return turns
+}
+
+function openChat(about) {
+  chatAbout = about
+  const panel = $('#chat-panel')
+  if (!panel) return
+  panel.dispatchEvent(new CustomEvent('about'))
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  setTimeout(() => panel.querySelector('textarea')?.focus({ preventScroll: true }), 350)
+}
+
+function chatPanel(c) {
+  const list = h('div', { class: 'chat' })
+  const aboutRow = h('div', { class: 'row' })
+  const chips = h('div', { class: 'chips' })
+  const input = h('textarea', { rows: 2, placeholder: 'Votre question, ou une précision (« il est en congé », « seulement en PROD »…)', 'aria-label': 'Question ou précision' })
+  const send = h('button', { type: 'button', class: 'primary', text: 'Envoyer' })
+  const panel = h('div', { class: 'panel', id: 'chat-panel' },
+    h('h2', { text: 'Questions et précisions' }),
+    h('p', { class: 'small muted', text: 'Demandez pourquoi, une alternative, ou apportez ce que vous savez. Vous pourrez ensuite l’intégrer à l’analyse.' }),
+    list, aboutRow, chips, input, h('div', { class: 'row' }, send))
+
+  const renderAbout = () => {
+    aboutRow.replaceChildren(...(chatAbout ? [h('span', { class: 'pill ex', text: `À propos de : ${chatAbout.label}` }),
+      h('button', { type: 'button', class: 'ghost', text: 'Tout le cas', onclick: () => { chatAbout = null; renderAbout() } })] : []))
+    chips.replaceChildren(...CHIPS[chatAbout?.kind || 'case'].map(q => h('button', { type: 'button', class: 'chip', 'aria-pressed': 'false', text: q, onclick: () => askChat(q) })))
+  }
+  const renderList = () => {
+    // Questions get an answer; statements are details you may want to keep.
+    const isQuestion = m => /\?\s*$/.test(m.text)
+    list.replaceChildren(...(c.chat || []).map(m => m.role === 'user'
+      ? h('div', { class: 'msg me' },
+          m.about ? h('span', { class: 'small muted', text: `À propos de : ${m.about}` }) : null,
+          h('div', { class: 'bubble me', text: m.text }),
+          isQuestion(m) ? null : h('div', { class: 'row' },
+            m.integrated ? h('span', { class: 'small muted', text: '✓ intégré à l’analyse' })
+              : h('button', { type: 'button', class: 'ghost update-btn', text: 'Intégrer à l’analyse', onclick: async () => {
+                  // Mark first: the re-analysis rebuilds this panel from c.chat.
+                  m.integrated = true; save()
+                  const before = c.updates?.length || 0
+                  await addInfo(c, `${m.about ? `À propos de ${m.about} : ` : ''}${m.text}`)
+                  if ((c.updates?.length || 0) === before) { m.integrated = false; save(); renderList() }
+                } }),
+            m.personKey && !m.noted ? h('button', { type: 'button', class: 'ghost', text: `Noter sur ${m.about}`, onclick: async () => {
+                const p = people().get(m.personKey) || { key: m.personKey, addr: '', name: m.about, transient: true }
+                const prev = S.overlay.get(m.personKey)?.notes || p.notes || ''
+                await savePerson(p, { notes: `${prev ? prev + '\n' : ''}${new Date().toLocaleDateString('fr-FR')} : ${m.text}` })
+                m.noted = true; save(); renderList(); toast('Noté sur la fiche')
+              } }) : m.noted ? h('span', { class: 'small muted', text: '✓ noté sur la fiche' }) : null))
+      : h('div', { class: 'msg ai' }, h('div', { class: 'bubble ai' + (m.error ? ' err' : ''), text: m.text }))))
+  }
+  const save = () => { if (db && c.id) db.doc('cases/' + c.id).update({ chat: (c.chat || []).slice(-40) }).catch(e => console.warn(e)) }
+
+  async function askChat(text) {
+    text = String(text || '').trim()
+    if (!text || chatBusy) return
+    if (!sample) { toast('Claude n’est pas disponible dans cette vue'); return }
+    chatBusy = true; send.disabled = true
+    c.chat = [...(c.chat || []), { role: 'user', text, about: chatAbout?.label || null, personKey: chatAbout?.kind === 'person' ? chatAbout.key : null, at: new Date().toISOString() }]
+    input.value = ''
+    renderList()
+    const bubble = h('div', { class: 'bubble ai', text: 'Claude réfléchit…' })
+    list.append(h('div', { class: 'msg ai' }, bubble))
+    ctl = new AbortController(); $('#stop-btn').hidden = false
+    try {
+      const { text: answer } = await sample(chatTurns(c), { cache: false, signal: ctl.signal, onText: ({ text: t }) => { bubble.textContent = t } })
+      c.chat.push({ role: 'assistant', text: answer, at: new Date().toISOString() })
+    } catch (e) {
+      const msg = { not_granted: 'Autorisez la page à utiliser Claude.', rate_limited: 'Trop de demandes : réessayez dans quelques minutes.', cancelled: 'Arrêté.' }[e?.code] || 'Pas de réponse : réessayez.'
+      c.chat.push({ role: 'assistant', text: e?.text ? `${e.text}\n\n(${msg})` : msg, error: true, at: new Date().toISOString() })
+    } finally {
+      chatBusy = false; send.disabled = false; $('#stop-btn').hidden = true; ctl = null
+      save(); renderList()
+    }
+  }
+  send.addEventListener('click', () => askChat(input.value))
+  panel.addEventListener('about', renderAbout)
+  renderAbout(); renderList()
+  return panel
+}
+
 function resolvePerson(s) {
   const all = people()
   const k = personKey(s.cle || s.email || '')
@@ -736,7 +877,8 @@ function suggestionView(s, c) {
     h('p', { class: 'small' }, h('strong', { text: `Canal conseillé : ${CHANNELS[s.canal] || s.canal}` }), s.canal_pourquoi ? ` (${s.canal_pourquoi})` : ''),
     h('div', { class: 'row' },
       chBtn('whatsapp', 'WhatsApp'), chBtn('email', 'Email'), chBtn('visite', p.location ? 'Y aller' : 'Visite'),
-      h('button', { type: 'button', class: 'ghost', text: 'J’ai contacté…', onclick: () => logSheet({ person: p, channel: s.canal, caseRef: c, topic: c.result?.comprehension }) })),
+      h('button', { type: 'button', class: 'ghost', text: 'J’ai contacté…', onclick: () => logSheet({ person: p, channel: s.canal, caseRef: c, topic: c.result?.comprehension }) }),
+      h('button', { type: 'button', class: 'ghost', text: 'Approfondir', onclick: () => openChat({ label: p.name || s.qui, kind: 'person', key: p.key }) })),
     composer)
 }
 

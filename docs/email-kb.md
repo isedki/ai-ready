@@ -46,6 +46,10 @@ in the Claude app, then Sources → *Importer kb.json* once after each build. On
   message ready, or verify yourself). Add the reporter's answer or your findings and the analysis updates;
 - then ranked contacts with a confidence level, the recommended channel (email, WhatsApp, visit, call), and
   French drafts (Outlook link, WhatsApp link);
+- follow up on any part of the analysis ("Approfondir" on a contact, an impact or a missing element, or
+  "Discuter du diagnostic"): ask why, who else, what to prepare, or give extra details; a detail can then be
+  folded into the analysis ("Intégrer à l'analyse") or saved on the person's card ("Noter sur …"). The
+  conversation is kept with the case;
 - close each case as réel / fausse alerte / doublon: past outcomes are used to spot false alarms and duplicates;
 - note people's WhatsApp number and location, log each contact (channel, result, 1–5 rating) and set a
   follow-up; the Suivis tab lists what to chase, with a ready-made French reminder.
