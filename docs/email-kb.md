@@ -32,8 +32,13 @@ Each question costs about one cent.
 **On the phone** (main way to use it): the private page *Qui contacter* in your Claude account
 (source: `phone/qui-contacter.html`, published at https://claude.ai/artifact/ULSMj55EzN3r3XvFWykfou). Open it
 in the Claude app, then Sources → *Importer kb.json* once after each build. On the page you can also:
-- add architecture / scope documents (PDF, Word, PowerPoint, photos of diagrams): Claude extracts components,
-  flows, owning teams and scope, used to guess the technical path of an incident;
+- add architecture documents (HLD, DAT, LLD, scope, operations; PDF, Word, PowerPoint, photos of diagrams).
+  Text and tables are read on the device (passwords removed), diagram pages inside PDFs are read as images
+  (up to 8 per document), and Claude extracts components with their owning team and support level, servers,
+  flows, escalation levels and scope; the extracted lists can be checked under each document. For each
+  situation the page sends the components it names, what depends on them, and the related servers, flows
+  and support: the analysis uses them for the owning team to contact and for the **impacts** (what else is
+  or will be affected downstream, and which teams to warn);
 - paste an email or describe a call (optionally with a screenshot and who reported it) and get a **triage** first:
   the problem restated (what, where, since when, impact, who), a verdict *réel / à confirmer / fausse alerte
   probable* with evidence for and against, the evidence the next team will need (provided / missing / unclear),

@@ -99,6 +99,11 @@ details > summary::-webkit-details-marker { display: none; }
 .checks { display: grid; gap: 6px; }
 .check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; cursor: pointer; }
 .check input { width: 20px; height: 20px; padding: 0; flex: none; margin-top: 1px; accent-color: var(--accent); }
+.panel > *, .stack > *, .item > *, details { min-width: 0; }
+.tbl { overflow-x: auto; margin-top: 8px; max-width: 100%; }
+.tbl table { border-collapse: collapse; font-size: 12.5px; min-width: 100%; }
+.tbl th, .tbl td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl th { font-family: var(--f-head); font-weight: 500; color: var(--muted); white-space: nowrap; }
 nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
 nav.tabs .in { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); height: var(--nav-h); }
@@ -178,7 +183,7 @@ nav.tabs .count { position: absolute; top: 6px; left: calc(50% + 8px); backgroun
     </div>
     <div class="panel">
       <h2>Architecture et périmètre</h2>
-      <p class="small muted">PDF, Word, PowerPoint, texte, ou photos de schémas. Le texte est lu sur l'appareil, puis Claude en extrait les composants, les flux, les équipes et le périmètre.</p>
+      <p class="small muted">HLD, DAT, LLD, périmètre, exploitation : PDF, Word, PowerPoint, texte, ou photos de schémas. Le texte et les tableaux sont lus sur l'appareil (les mots de passe sont retirés), les schémas des PDF sont lus comme images (jusqu'à 8 par document). Claude en extrait les composants et leurs équipes, les serveurs, les flux, le support et le périmètre. Un gros DAT prend quelques minutes : gardez la page ouverte, de préférence sur ordinateur.</p>
       <div class="row"><label class="btn primary" for="doc-file">Ajouter des documents</label><input id="doc-file" type="file" multiple accept=".pdf,.docx,.pptx,.txt,.md,image/*" hidden><span class="small muted" id="doc-progress"></span></div>
       <div id="docs"></div>
       <label class="label" for="arch-notes">Notes libres</label>
@@ -403,22 +408,65 @@ function peopleBlock(maxBytes) {
   for (const r of rows) { const b = bytes(r.line) + 1; if (used + b > maxBytes) break; out += r.line + '\n'; used += b }
   return out
 }
-function archBlock(maxBytes) {
-  const parts = []
-  if (S.settings.arch_notes) parts.push('Notes de l’utilisateur :\n' + S.settings.arch_notes)
-  for (const d of S.docs) {
-    const n = d.notes || {}
-    parts.push([`Document « ${d.name} » : ${n.summary || ''}`,
-      n.components?.length ? 'Composants : ' + n.components.map(c => `${c.name}${c.type ? ` (${c.type})` : ''}${c.environment ? ` [${c.environment}]` : ''}${c.owner ? ` équipe: ${c.owner}` : ''}${c.depends_on?.length ? ` → dépend de ${c.depends_on.join(', ')}` : ''}${c.notes ? ` – ${c.notes}` : ''}`).join(' ; ') : '',
-      n.flows?.length ? 'Flux : ' + n.flows.map(f => `${f.from} → ${f.to}${f.purpose ? ` (${f.purpose})` : ''}`).join(' ; ') : '',
-      n.environments?.length ? 'Environnements : ' + n.environments.join(', ') : '',
-      n.scope_in?.length ? 'Dans le périmètre : ' + n.scope_in.join(' ; ') : '',
-      n.scope_out?.length ? 'Hors périmètre : ' + n.scope_out.join(' ; ') : '',
-      n.contacts?.length ? 'Contacts cités : ' + n.contacts.map(c => `${c.name}${c.role ? ` (${c.role})` : ''}`).join(' ; ') : '',
+const STOP_FR = new Set('les des une pour avec dans sur par est sont pas que qui aux the and for with from this that depuis plus tout tous erreur probleme bonjour merci matin soir depuis nous vous sont etre avoir fait cette'.split(' '))
+function tokensOf(s) { return new Set(norm(s).split(/[^a-z0-9._-]+/).filter(t => t.length >= 3 && !STOP_FR.has(t))) }
+function overlap(text, q) { let n = 0; for (const t of tokensOf(text)) if (q.has(t)) n++; return n }
+
+/**
+ * Architecture context for one situation: every document's header, the components the situation
+ * points at (in full), what depends on them (for impacts) and the servers / flows / support around them.
+ * Newest documents first, so a newer DAT wins over an older HLD when they disagree.
+ */
+function archBlock(maxBytes, query) {
+  const q = tokensOf(query)
+  const docs = S.docs.slice().sort((a, b) => String(b.notes?.doc?.date || b.at || '').localeCompare(String(a.notes?.doc?.date || a.at || '')))
+  const heads = [], comps = [], servers = [], flows = [], support = []
+  for (const d of docs) {
+    const n = d.notes || {}, m = n.doc || {}
+    heads.push([`Document « ${d.name} »${m.type ? ` [${m.type}]` : ''}${m.version ? ` v${m.version}` : ''}${m.date ? ` du ${m.date}` : ''} : ${n.summary || ''}`,
+      n.environments?.length ? `  Environnements : ${n.environments.join(', ')}` : '',
+      n.scope_in?.length ? `  Dans le périmètre : ${n.scope_in.join(' ; ')}` : '',
+      n.scope_out?.length ? `  Hors périmètre : ${n.scope_out.join(' ; ')}` : '',
     ].filter(Boolean).join('\n'))
+    for (const c of n.components || []) comps.push({ c, doc: d.name, score: overlap(c.name, q) * 3 + overlap(`${c.notes || ''} ${c.type || ''} ${c.environment || ''}`, q) })
+    for (const s of n.servers || []) servers.push({ s, score: overlap(`${s.host} ${s.ip} ${s.component} ${s.role}`, q) * 2 + overlap(s.environment || '', q) })
+    for (const f of n.flows || []) flows.push({ f, score: overlap(`${f.from} ${f.to}`, q) * 2 + overlap(`${f.purpose || ''} ${f.port || ''} ${f.protocol || ''}`, q) })
+    for (const s of n.support || []) support.push(s)
   }
-  let out = parts.join('\n\n')
-  while (bytes(out) > maxBytes) out = out.slice(0, Math.floor(out.length * 0.9))
+  // Components named by the situation, plus those reached through a matching server or flow.
+  const hit = new Set(comps.filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 25).map(x => norm(x.c.name)))
+  for (const x of servers) if (x.score > 1 && x.s.component) hit.add(norm(x.s.component))
+  // A flow only names the end the situation mentions; the other end is a downstream candidate below.
+  for (const x of flows) for (const end of [x.f.from, x.f.to]) if (overlap(end, q) > 0) hit.add(norm(end))
+  // Downstream: whatever depends on, or receives flows from, a hit component is a potential impact.
+  const impacted = new Set()
+  for (const x of comps) if ((x.c.depends_on || []).some(dep => hit.has(norm(dep)))) impacted.add(norm(x.c.name))
+  for (const x of flows) if (hit.has(norm(x.f.to)) || hit.has(norm(x.f.from))) { impacted.add(norm(x.f.from)); impacted.add(norm(x.f.to)) }
+  for (const k of hit) impacted.delete(k)
+
+  const line = c => `${c.name}${c.type ? ` (${c.type})` : ''}${c.environment ? ` [${c.environment}]` : ''}${c.owner ? ` · équipe : ${c.owner}` : ''}${c.support ? ` · support : ${c.support}` : ''}${c.depends_on?.length ? ` · dépend de : ${c.depends_on.join(', ')}` : ''}${c.notes ? ` · ${c.notes}` : ''}`
+  const byKey = new Map(); for (const x of comps) if (!byKey.has(norm(x.c.name))) byKey.set(norm(x.c.name), x.c)
+  const sections = [
+    ['Documents (du plus récent au plus ancien ; en cas de contradiction, le plus récent prime)', heads.join('\n')],
+    ['Composants visés par la situation', [...hit].map(k => byKey.get(k)).filter(Boolean).map(line).join('\n')],
+    ['Composants en aval ou connectés (impacts possibles)', [...impacted].map(k => byKey.get(k)).filter(Boolean).slice(0, 40).map(line).join('\n')],
+    ['Serveurs concernés', servers.filter(x => x.score > 0 || hit.has(norm(x.s.component))).sort((a, b) => b.score - a.score).slice(0, 60)
+      .map(({ s }) => `${s.host || '?'}${s.ip ? ` (${s.ip})` : ''}${s.environment ? ` [${s.environment}]` : ''}${s.role ? ` · ${s.role}` : ''}${s.component ? ` · ${s.component}` : ''}`).join('\n')],
+    ['Flux concernés', flows.filter(x => x.score > 0 || hit.has(norm(x.f.from)) || hit.has(norm(x.f.to))).sort((a, b) => b.score - a.score).slice(0, 80)
+      .map(({ f }) => `${f.from} → ${f.to}${f.protocol || f.port ? ` (${[f.protocol, f.port].filter(Boolean).join(' ')})` : ''}${f.environment ? ` [${f.environment}]` : ''}${f.purpose ? ` · ${f.purpose}` : ''}`).join('\n')],
+    ['Support et escalade', support.slice(0, 40).map(s => `${s.level || '?'} : ${s.who}${s.contact ? ` (${s.contact})` : ''}${s.for ? ` · pour ${s.for}` : ''}`).join('\n')],
+    ['Autres composants connus (noms et équipes)', comps.filter(x => !hit.has(norm(x.c.name)) && !impacted.has(norm(x.c.name))).map(x => `${x.c.name}${x.c.owner ? ` (${x.c.owner})` : ''}`).join(' ; ')],
+  ]
+  if (S.settings.arch_notes) sections.unshift(['Notes de l’utilisateur', S.settings.arch_notes])
+  let out = ''
+  for (const [title, body] of sections) {
+    if (!body) continue
+    let chunk = `-- ${title} --\n${body}\n`
+    const room = maxBytes - bytes(out)
+    if (room < 200) break
+    while (bytes(chunk) > room) chunk = chunk.slice(0, Math.floor(chunk.length * 0.85))
+    out += chunk
+  }
   return out
 }
 
@@ -427,7 +475,7 @@ const ASK_RULES = `Tu assistes un chef de projet IT d'un opérateur télécom au
 Tu disposes de :
 - ANNUAIRE : qui a traité quel type de demande, appris des emails de son prédécesseur, avec les éléments que ces équipes demandent ("inclure").
 - PERSONNES : ses notes (lieu, WhatsApp, notes) et ses évaluations des canaux par personne.
-- ARCHITECTURE & PÉRIMÈTRE : composants, flux, équipes, environnements.
+- ARCHITECTURE & PÉRIMÈTRE (HLD, DAT…) : composants visés par la situation avec leur équipe propriétaire et leur support, composants en aval, serveurs, flux, niveaux de support et d'escalade.
 - CAS PRÉCÉDENTS : cas ouverts (doublons possibles) et cas clos avec leur issue (réel, fausse alerte, doublon).
 
 1. DIAGNOSTIC
@@ -436,9 +484,11 @@ Tu disposes de :
 - Liste les preuves que l'équipe suivante attendra (utilise "inclure" de l'annuaire pour cette équipe, plus : heure exacte, environnement, identifiant de transaction ou utilisateur concerné, message d'erreur ou capture, étendue, reproductibilité, changement récent). Pour chacune : "fourni", "manquant" ou "incertain", et pourquoi elle compte.
 - Propose 2 à 5 vérifications rapides que le chef de projet peut faire lui-même pour confirmer (reproduire, tester avec un autre compte, regarder la supervision, vérifier le calendrier des mises en production, demander à un collègue sur place).
 - Décide : "pret_a_escalader" vrai seulement si le problème est réel ou très probable ET que les preuves indispensables sont fournies. "prochaine_etape" : "demander_details" (il manque des éléments à l'émetteur), "verifier_moi_meme" (doute sur la réalité, vérifiable vite), ou "escalader". Si l'urgence est haute et l'impact large, on peut escalader en parallèle de la demande de détails : dis-le dans "raison".
+- Impacts : à partir des dépendances et des flux de l'architecture, liste ce qui est ou sera touché en aval (autres applications, flux, clients, traitements), l'effet attendu, l'équipe responsable à prévenir, et la certitude ("confirme" si la situation le dit, "probable" si l'architecture l'implique directement, "possible" sinon). Un impact large augmente l'urgence.
 - Si des éléments manquent, rédige "message_emetteur" : un message en français à l'émetteur, court, poli, qui liste précisément ce qui manque (en puces) et, si utile, 1 ou 2 vérifications simples qu'il peut faire de son côté.
 
 2. CONTACTS (l'équipe suivante)
+- L'équipe propriétaire ou le support du composant en défaut, d'après l'architecture (et le niveau d'escalade N1/N2/N3 ou éditeur indiqué), est un candidat fort ; croise-la avec l'annuaire pour trouver la bonne personne ou boîte mail. Si l'architecture et l'annuaire divergent, dis-le.
 - 1 à 3 contacts, du plus probable au moins probable : pourquoi, confiance 0-100 et sur quoi elle repose. 80-100 seulement si l'annuaire l'a vu plusieurs fois ET une autre source confirme ; 50-79 une source solide ; 20-49 déduction depuis l'architecture ou un seul email ; moins de 20 pure supposition. Ne gonfle pas.
 - Canal conseillé par contact : d'abord les évaluations de l'utilisateur pour cette personne ; sinon incident urgent → appel, WhatsApp ou visite (si le lieu est connu), demande formelle → email.
 - Pour chaque contact : un email en français (Bonjour…, contexte, constat avec les preuves disponibles, demande précise, Cordialement ; [à compléter] pour l'inconnu) et un message WhatsApp de 2 à 4 phrases (vouvoiement).
@@ -452,6 +502,7 @@ Réponds uniquement avec un objet JSON de cette forme :
  "realite":{"verdict":"reel|a_confirmer|fausse_alerte_probable","confiance":0,"pour":[""],"contre":[""]},
  "preuves":[{"element":"","statut":"fourni|manquant|incertain","pourquoi":""}],
  "verifications":[""],"pret_a_escalader":false,"prochaine_etape":"demander_details|verifier_moi_meme|escalader","raison":""},
+"impacts":[{"composant":"","effet":"","equipe":"","certitude":"confirme|probable|possible"}],
 "message_emetteur":{"objet":"","texte":""},
 "chemin":[{"composant":"","role":""}],"chemin_confiance":0,
 "suggestions":[{"qui":"","cle":null,"email":null,"equipe":"","pourquoi":"","confiance":0,"sources":["emails","architecture","evaluations","notes","deduction"],"canal":"email|whatsapp|visite|appel","canal_pourquoi":"","objet":"","message_email":"","message_whatsapp":""}],
@@ -501,7 +552,7 @@ async function addInfo(c, info) {
 
 async function analyse(c, img) {
   // Keep the whole prompt under the 256 KiB input cap: directory first, then people, architecture, past cases.
-  const dir = directoryBlock(110000), ppl = peopleBlock(45000), arch = archBlock(55000), past = casesBlock(15000, c.id)
+  const dir = directoryBlock(110000), ppl = peopleBlock(45000), arch = archBlock(60000, [c.text, c.reporter, ...(c.updates || []).map(u => u.text)].join(' ')), past = casesBlock(15000, c.id)
   const prev = c.result?.diagnostic
   const prompt = `${ASK_RULES}
 
@@ -565,6 +616,11 @@ function diagnosticView(c) {
       h('div', { class: 'proscons' },
         h('div', {}, h('span', { class: 'small good-ink', text: 'Indices pour' }), h('ul', { class: 'small' }, (real.pour || []).filter(Boolean).map(x => h('li', { text: x })))),
         h('div', {}, h('span', { class: 'small bad-ink', text: 'Indices contre' }), h('ul', { class: 'small' }, (real.contre || []).filter(Boolean).map(x => h('li', { text: x })))))),
+    r.impacts?.length ? h('div', { class: 'stack' },
+      h('span', { class: 'label', text: 'Impacts probables' }),
+      h('ul', { class: 'evidence' }, r.impacts.map(x => h('li', {},
+        h('span', { class: 'pill ' + ({ confirme: 'bad', probable: 'warn' }[x.certitude] || ''), text: x.certitude || '?' }),
+        h('span', {}, h('strong', { text: x.composant }), x.effet ? ` : ${x.effet}` : '', x.equipe ? h('span', { class: 'small muted', text: ` · prévenir ${x.equipe}` }) : null))))) : null,
     d.preuves?.length ? h('div', { class: 'stack' },
       h('span', { class: 'label', text: 'Éléments pour l’équipe suivante' }),
       h('ul', { class: 'evidence' }, d.preuves.map(p => h('li', { class: 'ev-' + (p.statut || 'incertain') },
@@ -901,17 +957,32 @@ function renderSources() {
   $('#kb-info').textContent = S.examples ? 'Exemples fictifs seulement : importez votre kb.json.'
     : S.entries.length ? `${S.entries.length} demandes, importé le ${fmtDate(s.imported_at)} (annuaire généré le ${fmtDate(s.kb_generated_at)}).` : 'Pas encore importé.'
   $('#examples-panel').hidden = !S.examples
-  $('#docs').replaceChildren(...S.docs.sort((a, b) => (b.at || '').localeCompare(a.at || '')).map(d => {
-    const del = h('button', { type: 'button', class: 'ghost danger', text: 'Retirer' })
-    del.addEventListener('click', async () => {
-      if (del.dataset.armed) { await db.doc('docs/' + d.id).delete(); toast('Document retiré') }
-      else { del.dataset.armed = '1'; del.textContent = 'Confirmer ?'; setTimeout(() => { del.textContent = 'Retirer'; delete del.dataset.armed }, 4000) }
-    })
-    return h('div', { class: 'item' },
-      h('div', { class: 'top' }, h('strong', { text: d.name }), del),
-      h('p', { class: 'small muted', text: `${d.notes?.components?.length || 0} composants · ${d.notes?.flows?.length || 0} flux · ajouté le ${fmtDate(d.at)}` }),
-      d.notes?.summary ? h('p', { class: 'small', text: d.notes.summary }) : null)
-  }))
+  $('#docs').replaceChildren(...S.docs.sort((a, b) => (b.at || '').localeCompare(a.at || '')).map(docView))
+}
+function table(head, rows) {
+  if (!rows.length) return null
+  return h('div', { class: 'tbl' }, h('table', {}, h('thead', {}, h('tr', {}, head.map(x => h('th', { text: x })))),
+    h('tbody', {}, rows.slice(0, 150).map(r => h('tr', {}, r.map(x => h('td', { text: x || '' })))))))
+}
+function docView(d) {
+  const n = d.notes || {}, m = n.doc || {}
+  const del = h('button', { type: 'button', class: 'ghost danger', text: 'Retirer' })
+  del.addEventListener('click', async () => {
+    if (del.dataset.armed) { await db.doc('docs/' + d.id).delete(); toast('Document retiré') }
+    else { del.dataset.armed = '1'; del.textContent = 'Confirmer ?'; setTimeout(() => { del.textContent = 'Retirer'; delete del.dataset.armed }, 4000) }
+  })
+  const counts = [[n.components, 'composants'], [n.servers, 'serveurs'], [n.flows, 'flux'], [n.support, 'niveaux de support']].map(([l, w]) => `${l?.length || 0} ${w}`).join(' · ')
+  return h('div', { class: 'item' },
+    h('div', { class: 'top' }, h('strong', { text: d.name }), del),
+    h('div', { class: 'row' }, m.type ? h('span', { class: 'pill', text: m.type }) : null, m.version ? h('span', { class: 'pill', text: 'v' + m.version }) : null,
+      h('span', { class: 'small muted', text: `${m.date ? m.date + ' · ' : ''}${d.pages ? d.pages + ' p. · ' : ''}${d.diagram_pages?.length ? d.diagram_pages.length + ' schémas lus · ' : ''}ajouté le ${fmtDate(d.at)}` })),
+    h('p', { class: 'small muted', text: counts + (d.trimmed ? ' (listes raccourcies)' : '') }),
+    n.summary ? h('p', { class: 'small', text: n.summary }) : null,
+    h('details', {}, h('summary', {}, h('span', { class: 'small', text: 'Voir ce qui a été extrait (à vérifier)' })),
+      table(['Composant', 'Env.', 'Équipe', 'Support'], (n.components || []).map(c => [c.name, c.environment, c.owner, c.support])),
+      table(['Serveur', 'IP', 'Env.', 'Rôle'], (n.servers || []).map(x => [x.host, x.ip, x.environment, x.role || x.component])),
+      table(['De', 'Vers', 'Port', 'Objet'], (n.flows || []).map(f => [f.from, f.to, [f.protocol, f.port].filter(Boolean).join(' '), f.purpose])),
+      table(['Niveau', 'Qui', 'Contact', 'Pour'], (n.support || []).map(x => [x.level, x.who, x.contact, x.for]))))
 }
 $('#kb-file').addEventListener('change', async e => {
   const file = e.target.files[0]; e.target.value = ''
@@ -965,25 +1036,62 @@ const LIBS = {
 }
 const loaded = {}
 function loadScript(src) {
-  return loaded[src] || (loaded[src] = new Promise((res, rej) => document.head.append(h('script', { src, onload: res, onerror: () => rej(new Error('bibliothèque non chargée')) }))))
+  return loaded[src] || (loaded[src] = new Promise((res, rej) => document.head.append(h('script', { src, onload: res, onerror: () => rej(new Error('bibliothèque non chargée (connexion ?)')) }))))
 }
-async function extractText(file) {
+
+// Secrets never leave the device: DATs sometimes carry service-account passwords or keys.
+function redact(t) {
+  return t
+    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[CLÉ PRIVÉE RETIRÉE]')
+    .replace(/\b(password|passwd|pwd|mot de passe|mdp|passphrase|secret|token|api[ _-]?key)(\s*[:=]\s*)(\S+)/gi, (_m, l, s) => `${l}${s}[RETIRÉ]`)
+    .replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, '[JWT RETIRÉ]')
+    .replace(/\b(AKIA|ASIA)[A-Z0-9]{16}\b/g, '[CLÉ RETIRÉE]')
+}
+
+const DIAGRAM_WORDS = /architect|sch[ée]ma|flux|topolog|vue (d'ensemble|logique|physique|technique)|infrastructure|r[ée]seau|d[ée]ploiement|interconnexion|diagram/i
+const MAX_DIAGRAMS = 8
+
+/** Text of a document, with PDF tables kept as "cell | cell" rows, plus the PDF pages that look like diagrams. */
+async function extractDoc(file, progress) {
   const name = file.name.toLowerCase()
   if (name.endsWith('.pdf')) {
     // Loading the worker script too makes pdf.js parse on the main thread (no separate worker file needed).
     for (const s of LIBS.pdf) await loadScript(s)
     const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise
+    const OPS = pdfjsLib.OPS
     let text = ''
+    const candidates = []
     for (let i = 1; i <= pdf.numPages; i++) {
+      if (i % 10 === 1) progress(`lecture page ${i}/${pdf.numPages}…`)
       const page = await pdf.getPage(i)
       const tc = await page.getTextContent()
-      text += `\n--- page ${i} ---\n` + tc.items.map(it => it.str).join(' ')
+      const rows = new Map()
+      for (const it of tc.items) {
+        if (!it.str || !it.str.trim()) continue
+        const y = Math.round(it.transform[5] / 3)
+        rows.set(y, [...(rows.get(y) || []), it])
+      }
+      const lines = [...rows.entries()].sort((a, b) => b[0] - a[0])
+        .map(([, r]) => r.sort((a, b) => a.transform[4] - b.transform[4]).map(x => x.str.trim()).join(' | '))
+      const pageText = lines.join('\n')
+      text += `\n--- page ${i} ---\n${pageText}`
+      // A page with little text but images or many drawn shapes is probably a diagram.
+      if (pageText.length < 2000) {
+        const ops = await page.getOperatorList()
+        const images = ops.fnArray.filter(f => f === OPS.paintImageXObject || f === OPS.paintJpegXObject || f === OPS.paintInlineImageXObject).length
+        const paths = ops.fnArray.filter(f => f === OPS.constructPath).length
+        const sparse = pageText.length < 600
+        if (images > 0 || paths > 150 || (sparse && paths > 30)) {
+          candidates.push({ n: i, page, score: (DIAGRAM_WORDS.test(pageText) ? 10 : 0) + (sparse ? 3 : 0) + Math.min(images, 3) + Math.min(paths / 150, 5) })
+        }
+      }
     }
-    return text
+    const picked = candidates.sort((a, b) => b.score - a.score).slice(0, MAX_DIAGRAMS).sort((a, b) => a.n - b.n)
+    return { text, pages: pdf.numPages, diagrams: picked }
   }
   if (name.endsWith('.docx')) {
     await loadScript(LIBS.docx[0])
-    return (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value
+    return { text: (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value, diagrams: [] }
   }
   if (name.endsWith('.pptx')) {
     await loadScript(LIBS.pptx[0])
@@ -993,16 +1101,38 @@ async function extractText(file) {
     let text = ''
     for (const [i, f] of slides.entries()) {
       const xml = await zip.file(f).async('string')
-      text += `\n--- diapo ${i + 1} ---\n` + [...xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(m => dec(m[1])).join(' ')
+      // Each shape's text on its own line keeps diagram boxes and their labels apart.
+      const shapes = [...xml.matchAll(/<p:sp>[\s\S]*?<\/p:sp>|<a:tbl>[\s\S]*?<\/a:tbl>/g)].map(m => [...m[0].matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(t => dec(t[1])).join(' ').trim()).filter(Boolean)
+      text += `\n--- diapo ${i + 1} ---\n` + (shapes.length ? shapes.join('\n') : [...xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(m => dec(m[1])).join(' '))
     }
-    return text
+    return { text, pages: slides.length, diagrams: [] }
   }
-  return await file.text()
+  return { text: await file.text(), diagrams: [] }
 }
-const ARCH_PROMPT = `Voici un extrait d'un document d'architecture ou de périmètre d'un projet IT chez un opérateur télécom. Extrais ce qui aide à savoir quels composants sont concernés par un problème et quelle équipe contacter.
+
+async function renderPage(page) {
+  const base = page.getViewport({ scale: 1 })
+  const viewport = page.getViewport({ scale: Math.min(2.2, 1600 / base.width) })
+  const canvas = h('canvas', { width: Math.floor(viewport.width), height: Math.floor(viewport.height) })
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height)
+  await page.render({ canvasContext: ctx, viewport }).promise
+  return await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85))
+}
+
+const ARCH_PROMPT = `Voici un extrait d'un document d'un projet IT chez un opérateur télécom (HLD, DAT, LLD, périmètre, exploitation…). Extrais ce qui aide, quand un incident ou une demande arrive, à savoir quels composants et serveurs sont concernés, par quels flux, et quelle équipe ou quel support contacter.
+Les tableaux sont rendus ligne par ligne, cellules séparées par " | ".
 Réponds uniquement avec un objet JSON :
-{"summary":"2-3 phrases","components":[{"name":"","type":"application|base|middleware|réseau|serveur|externe|autre","environment":"","owner":"équipe ou personne responsable si indiqué","depends_on":["noms"],"notes":"rôle en une phrase"}],"flows":[{"from":"","to":"","purpose":""}],"environments":[""],"scope_in":[""],"scope_out":[""],"contacts":[{"name":"","role":""}]}
-N'invente rien : laisse vide ce qui n'est pas dans le texte.`
+{"doc":{"type":"HLD|DAT|LLD|périmètre|exploitation|autre","titre":"","version":"","date":"AAAA-MM-JJ si indiquée"},
+"summary":"2-3 phrases",
+"components":[{"name":"","type":"application|base de données|middleware|réseau|sécurité|serveur|externe|autre","environment":"","owner":"équipe ou personne responsable si indiqué","support":"équipe de support ou éditeur si indiqué","depends_on":["noms"],"notes":"rôle en une phrase"}],
+"servers":[{"host":"","ip":"","environment":"","role":"","component":""}],
+"flows":[{"from":"","to":"","protocol":"","port":"","purpose":"","environment":""}],
+"environments":[""],"scope_in":[""],"scope_out":[""],
+"support":[{"level":"N1|N2|N3|éditeur|astreinte|autre","who":"","contact":"email ou téléphone professionnel si indiqué","for":"périmètre couvert"}],
+"contacts":[{"name":"","role":""}]}
+N'invente rien : laisse vide ce qui n'est pas dans le texte. Ne recopie jamais de mot de passe, clé ou jeton.`
+
 function mergeNotes(a, b) {
   const byName = new Map()
   for (const c of [...(a.components || []), ...(b.components || [])]) {
@@ -1010,52 +1140,86 @@ function mergeNotes(a, b) {
     const cur = byName.get(k) || {}
     byName.set(k, { ...cur, ...Object.fromEntries(Object.entries(c).filter(([, v]) => v && (!Array.isArray(v) || v.length))), depends_on: [...new Set([...(cur.depends_on || []), ...(c.depends_on || [])])] })
   }
-  const uniq = arr => [...new Map(arr.filter(Boolean).map(x => [norm(typeof x === 'string' ? x : JSON.stringify(x)), x])).values()]
+  const uniq = (arr, key) => [...new Map(arr.filter(Boolean).map(x => [key ? key(x) : norm(typeof x === 'string' ? x : JSON.stringify(x)), x])).values()]
+  const meta = { ...(b.doc || {}), ...Object.fromEntries(Object.entries(a.doc || {}).filter(([, v]) => v)) } // first chunk's title page wins
   return {
-    summary: [a.summary, b.summary].filter(Boolean).join(' '),
+    doc: meta,
+    summary: [a.summary, b.summary].filter(Boolean).join(' ').slice(0, 1200),
     components: [...byName.values()],
-    flows: uniq([...(a.flows || []), ...(b.flows || [])]),
+    servers: uniq([...(a.servers || []), ...(b.servers || [])], s => norm(`${s.host}|${s.ip}`)),
+    flows: uniq([...(a.flows || []), ...(b.flows || [])], f => norm(`${f.from}|${f.to}|${f.port}|${f.protocol}`)),
     environments: uniq([...(a.environments || []), ...(b.environments || [])]),
     scope_in: uniq([...(a.scope_in || []), ...(b.scope_in || [])]),
     scope_out: uniq([...(a.scope_out || []), ...(b.scope_out || [])]),
-    contacts: uniq([...(a.contacts || []), ...(b.contacts || [])]),
+    support: uniq([...(a.support || []), ...(b.support || [])], s => norm(`${s.level}|${s.who}|${s.for}`)),
+    contacts: uniq([...(a.contacts || []), ...(b.contacts || [])], c => norm(c.name)),
   }
 }
+
+/** Keep a document's notes under the store's per-document size limit by trimming the longest lists. */
+function fitDoc(body) {
+  const lists = ['servers', 'flows', 'components', 'contacts']
+  while (bytes(JSON.stringify(body)) > 220000) {
+    const k = lists.sort((x, y) => (body.notes[y]?.length || 0) - (body.notes[x]?.length || 0))[0]
+    if (!body.notes[k]?.length) break
+    body.notes[k] = body.notes[k].slice(0, Math.floor(body.notes[k].length * 0.85))
+    body.trimmed = true
+  }
+  return body
+}
+
 $('#doc-file').addEventListener('change', async e => {
   const files = [...e.target.files]; e.target.value = ''
   if (!files.length || !db) return
   if (!sample) { toast('Claude n’est pas disponible dans cette vue'); return }
   const out = $('#doc-progress')
   for (const file of files) {
+    const say = msg => { out.textContent = `${file.name} : ${msg}` }
     try {
-      let notes = {}
+      let notes = {}, pages = null, diagramPages = []
       if (file.type.startsWith('image/')) {
         if (!limits?.images) throw new Error('les images ne peuvent pas être envoyées depuis cette vue')
-        out.textContent = `${file.name} : lecture du schéma…`
-        notes = await sample.json(ARCH_PROMPT + '\n\nLe document est le schéma joint en image.', { images: [file], cache: false })
+        say('lecture du schéma…')
+        notes = await sample.json(`${ARCH_PROMPT}\n\nLe document est le schéma joint en image (« ${file.name} »).`, { images: [file], cache: false })
       } else {
-        out.textContent = `${file.name} : lecture du texte…`
-        const text = (await extractText(file)).replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
-        if (text.length < 40) throw new Error('pas de texte lisible (document scanné ?) : envoyez plutôt des captures des schémas')
+        say('lecture…')
+        const doc = await extractDoc(file, say)
+        pages = doc.pages ?? null
+        const text = redact(doc.text).replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+        if (text.length < 40 && !doc.diagrams.length) throw new Error('pas de texte lisible (document scanné ?) : envoyez plutôt des captures des pages importantes')
         const CH = 90000
         const parts = Math.ceil(text.length / CH)
         for (let i = 0; i < parts; i++) {
-          out.textContent = `${file.name} : analyse ${i + 1}/${parts}…`
+          say(`analyse du texte ${i + 1}/${parts}…`)
           const part = await sample.json(`${ARCH_PROMPT}\n\nDocument « ${file.name} », partie ${i + 1}/${parts} :\n\n${text.slice(i * CH, (i + 1) * CH)}`, { cache: false })
           notes = mergeNotes(notes, part || {})
         }
+        // Diagrams inside the PDF: render the likely pages and let Claude read them as images.
+        if (doc.diagrams.length && limits?.images) {
+          const per = Math.max(1, Math.min(limits.images.maxCount || 1, 4))
+          for (let i = 0; i < doc.diagrams.length; i += per) {
+            const batch = doc.diagrams.slice(i, i + per)
+            say(`lecture des schémas (pages ${batch.map(d => d.n).join(', ')})…`)
+            const images = []
+            for (const d of batch) { const blob = await renderPage(d.page); if (blob) images.push(blob) }
+            if (!images.length) continue
+            const part = await sample.json(`${ARCH_PROMPT}\n\nLes images jointes sont les pages ${batch.map(d => d.n).join(', ')} du document « ${file.name} » (schémas d'architecture). Lis les boîtes, les liens et les légendes.`, { images, cache: false })
+              .catch(err => { console.warn(err); return null })
+            if (part) { notes = mergeNotes(notes, part); diagramPages.push(...batch.map(d => d.n)) }
+          }
+        }
       }
-      let body = { name: file.name, at: new Date().toISOString(), size: file.size, notes }
-      while (bytes(JSON.stringify(body)) > 200000 && body.notes.components?.length > 20) body = { ...body, notes: { ...body.notes, components: body.notes.components.slice(0, Math.floor(body.notes.components.length * 0.8)) } }
+      const body = fitDoc({ name: file.name, at: new Date().toISOString(), size: file.size, pages, diagram_pages: diagramPages, notes })
       await db.collection('docs').add(body)
-      toast(`${file.name} ajouté`)
+      toast(`${file.name} ajouté${body.trimmed ? ' (listes raccourcies)' : ''}`)
     } catch (err) {
       const code = err?.code
-      toast(`${file.name} : ` + (code === 'not_granted' ? 'autorisez la page à utiliser Claude' : code === 'rate_limited' ? 'limite atteinte, réessayez plus tard' : err?.message || code || 'échec'))
+      toast(`${file.name} : ` + (code === 'not_granted' ? 'autorisez la page à utiliser Claude' : code === 'rate_limited' ? 'limite atteinte, réessayez plus tard' : code === 'cancelled' ? 'arrêté' : err?.message || code || 'échec'))
     }
   }
   out.textContent = ''
 })
+
 
 boot()
 </script>
