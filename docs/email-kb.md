@@ -50,6 +50,15 @@ in the Claude app, then Sources → *Importer kb.json* once after each build. On
   "Discuter du diagnostic"): ask why, who else, what to prepare, or give extra details; a detail can then be
   folded into the analysis ("Intégrer à l'analyse") or saved on the person's card ("Noter sur …"). The
   conversation is kept with the case;
+- **sources**: every line of data sent to Claude is tagged ([E3] email directory entry with its source email
+  subjects and dates, [D2 p.14] document with type/version/page, [P5] person card, [C1] past case, [N] notes,
+  [S]/[U1] your input). Claude must cite them for each claim; the page shows them as chips that open the exact
+  excerpt that was sent. The page then checks the answer itself: cited ids must exist, email addresses must be
+  in your data (otherwise they are removed), impacted components must be in your documents, unsourced claims
+  are marked; the result is shown in "Contrôle des sources";
+- **Autotest** (Sources tab): 5 scenarios on fixed fictional data, including traps (topic absent from the data,
+  unknown person, missing phone number), run against Claude and checked by code; results are stored in the
+  page's database (`tests` collection) for review;
 - close each case as réel / fausse alerte / doublon: past outcomes are used to spot false alarms and duplicates;
 - note people's WhatsApp number and location, log each contact (channel, result, 1–5 rating) and set a
   follow-up; the Suivis tab lists what to chase, with a ready-made French reminder.

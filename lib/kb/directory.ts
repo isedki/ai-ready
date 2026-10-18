@@ -19,6 +19,7 @@ export type Entry = {
   include: Note[]
   tips: Note[]
   example_subject: string | null
+  threads: { id: string; subject: string; date: string | null }[]   // most recent source emails, for citations
   thread_count: number; first_seen: string | null; last_seen: string | null
   confidence: 'low' | 'medium' | 'high'
 }
@@ -64,6 +65,8 @@ export function buildEntries(db: DB): Entry[] {
   const contactsQ = db.prepare('SELECT actor, role, date FROM contacts WHERE entry_id = ?')
   const factsQ = db.prepare('SELECT text, count FROM facts WHERE entry_id = ? AND kind = ? ORDER BY count DESC, last_seen DESC LIMIT ?')
   const latestQ = db.prepare('SELECT text FROM facts WHERE entry_id = ? AND kind = ? ORDER BY last_seen DESC LIMIT 1')
+  const threadsQ = db.prepare(`SELECT t.id, t.subject, et.date FROM entry_threads et JOIN threads t ON t.id = et.thread_id
+    WHERE et.entry_id = ? ORDER BY et.date DESC LIMIT 6`)
 
   return entries.map(e => {
     const rows = contactsQ.all(e.id) as ContactRow[]
@@ -93,6 +96,7 @@ export function buildEntries(db: DB): Entry[] {
       include: factsQ.all(e.id, 'include', 5) as Note[],
       tips: factsQ.all(e.id, 'tip', 2) as Note[],
       example_subject: (latestQ.get(e.id, 'subject') as { text: string } | undefined)?.text ?? null,
+      threads: threadsQ.all(e.id) as Entry['threads'],
       thread_count: e.thread_count, first_seen: e.first_seen, last_seen: e.last_seen,
       confidence: e.thread_count >= 5 ? 'high' : e.thread_count >= 2 ? 'medium' : 'low',
     }

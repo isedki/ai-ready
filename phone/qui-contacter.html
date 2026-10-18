@@ -112,6 +112,17 @@ details > summary::-webkit-details-marker { display: none; }
 .bubble.ai { background: var(--sunk); border-bottom-left-radius: 4px; }
 .bubble.err { color: var(--bad); }
 button.tiny { min-height: 28px; padding: 3px 6px; font-size: 13px; }
+.srcs { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; }
+button.src { min-height: 24px; padding: 2px 7px; font: 500 12px/1.2 var(--f-body); border-radius: 6px; background: var(--sunk); color: var(--ink); border: 1px solid var(--line); }
+button.src.k-doc { border-color: var(--accent); }
+button.src.k-email { border-color: var(--good); }
+button.src.k-saisie { border-style: dashed; }
+button.src.bad { border-color: var(--bad); color: var(--bad); }
+span.src.none { font-size: 12px; color: var(--warn); font-style: italic; }
+.quote { white-space: pre-wrap; font-family: var(--f-mono); font-size: 12.5px; background: var(--sunk); border-radius: 8px; padding: 10px; max-height: 50vh; overflow: auto; overflow-wrap: anywhere; }
+.verify { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.verify.v-good { border-color: var(--good); background: var(--good-soft); } .verify.v-warn { border-color: var(--warn); background: var(--warn-soft); } .verify.v-bad { border-color: var(--bad); background: var(--bad-soft); }
+.verify ul { margin: 6px 0; padding-left: 18px; } .i-bad { color: var(--bad); } .i-info { color: var(--muted); }
 nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
 nav.tabs .in { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); height: var(--nav-h); }
@@ -197,6 +208,12 @@ nav.tabs .count { position: absolute; top: 6px; left: calc(50% + 8px); backgroun
       <label class="label" for="arch-notes">Notes libres</label>
       <textarea id="arch-notes" rows="5" placeholder="Ex : Le portail client passe par l'API gateway (équipe Intégration) puis le middleware OSB vers le billing. La PREPROD est gérée par l'équipe Run."></textarea>
       <div class="row"><button type="button" id="save-notes">Enregistrer les notes</button><span class="small muted" id="notes-state"></span></div>
+    </div>
+    <div class="panel">
+      <h2>Autotest de fiabilité</h2>
+      <p class="small muted">Pose 5 questions à Claude sur des données fictives connues (dont des pièges : sujet absent des données, personne inconnue, numéro inexistant) et vérifie automatiquement qu’il ne cite pas de source inexistante, n’invente ni adresse, ni numéro, ni composant, et dit quand il ne sait pas. Environ 3 minutes ; vos données ne sont pas utilisées ni modifiées.</p>
+      <div class="row"><button type="button" class="primary" id="test-btn">Lancer l’autotest</button><span class="small muted" id="test-progress"></span></div>
+      <div id="tests"></div>
     </div>
     <div class="panel" id="examples-panel" hidden>
       <h2>Données d'exemple</h2>
@@ -332,23 +349,25 @@ function banner(msg) { const b = $('#banner'); b.textContent = msg; b.hidden = f
 function onDbError(e) { if (e?.code === 'revoked') banner('Accès à la page retiré.'); else console.warn(e) }
 
 function subscribe() {
-  db.collection('directory').onSnapshot(s => {
+  // During an autotest S holds fictional data: live updates wait until the test restores the real data.
+  db.collection('directory').onSnapshot(liveOnly(s => {
     S.chunks = s.docs.map(d => d.data())
     S.entries = S.chunks.flatMap(c => c.entries || [])
     S.examples = S.chunks.some(c => c.example)
     S.ready = true
     schedule()
-  }, onDbError)
-  db.collection('people').onSnapshot(s => { S.overlay = new Map(s.docs.map(d => [d.id, d.data()])); schedule() }, onDbError)
-  db.collection('log').orderBy('at', 'desc').limit(1000).onSnapshot(s => { S.log = s.docs.map(d => ({ id: d.id, ...d.data() })); schedule() }, onDbError)
-  db.collection('cases').orderBy('at', 'desc').limit(200).onSnapshot(s => { S.cases = s.docs.map(d => ({ id: d.id, ...d.data() })); schedule() }, onDbError)
-  db.collection('docs').onSnapshot(s => { S.docs = s.docs.map(d => ({ id: d.id, ...d.data() })); schedule() }, onDbError)
-  db.doc('config/settings').onSnapshot(s => {
+  }), onDbError)
+  db.collection('people').onSnapshot(liveOnly(s => { S.overlay = new Map(s.docs.map(d => [d.id, d.data()])); schedule() }), onDbError)
+  db.collection('log').orderBy('at', 'desc').limit(1000).onSnapshot(liveOnly(s => { S.log = s.docs.map(d => ({ id: d.id, ...d.data() })); schedule() }), onDbError)
+  db.collection('cases').orderBy('at', 'desc').limit(200).onSnapshot(liveOnly(s => { S.cases = s.docs.map(d => ({ id: d.id, ...d.data() })); schedule() }), onDbError)
+  db.collection('docs').onSnapshot(liveOnly(s => { S.docs = s.docs.map(d => ({ id: d.id, ...d.data() })); schedule() }), onDbError)
+  db.doc('config/settings').onSnapshot(liveOnly(s => {
     S.settings = s.data() || {}
     const ta = $('#arch-notes')
     if (document.activeElement !== ta && !ta.dataset.dirty) ta.value = S.settings.arch_notes || ''
     schedule()
-  }, onDbError)
+  }), onDbError)
+  db.collection('tests').orderBy('at', 'desc').limit(1).onSnapshot(s => { if (s.docs[0]) { S.lastTest = s.docs[0].data(); if (tab === 'src') renderTests() } }, onDbError)
 }
 let raf = 0
 function schedule() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render() }) }
@@ -383,39 +402,75 @@ $('#img').addEventListener('change', e => { $('#img-name').textContent = e.targe
 $('#stop-btn').addEventListener('click', () => ctl?.abort())
 $('#ask-form').addEventListener('submit', e => { e.preventDefault(); ask() })
 
-function directoryBlock(maxBytes) {
+/* ── sources: every line of data sent to Claude carries an id the answer must cite ── */
+function newSources() {
+  const map = {}, count = {}
+  return {
+    map,
+    add(prefix, kind, label, excerpt, extra = {}) {
+      count[prefix] = (count[prefix] || 0) + 1
+      const id = prefix + count[prefix]
+      map[id] = { kind, label, excerpt: String(excerpt || '').slice(0, 1200), ...extra }
+      return id
+    },
+    set(id, kind, label, excerpt, extra = {}) { map[id] = { kind, label, excerpt: String(excerpt || '').slice(0, 2000), ...extra }; return id },
+  }
+}
+const baseId = id => String(id || '').trim().replace(/^\[|\]$/g, '').split(/[\s·,]/)[0].toUpperCase()
+const pageOf = id => (String(id).match(/p\.?\s?(\d+)/i) || [])[1] || null
+const KIND_LABEL = { email: 'Emails', doc: 'Doc', fiche: 'Fiche', note: 'Vos notes', cas: 'Cas', saisie: 'Votre saisie' }
+
+function directoryBlock(maxBytes, src) {
   const lines = S.entries.slice().sort((a, b) => (b.thread_count || 0) - (a.thread_count || 0)).map(e => {
     const p = x => `${x.name || x.addr} <${x.addr}>${x.department ? ` (${x.department})` : ''}`
-    return [`[${e.id}] ${e.domain} › ${e.subdomain} › ${e.title}`,
+    const threads = (e.threads || []).map(t => `« ${t.subject} » (${String(t.date || '').slice(0, 10)})`)
+    const body = [`${e.domain} › ${e.subdomain} › ${e.title}`,
       `à: ${(e.email_to || []).map(p).join(' ; ') || 'inconnu'}`,
       e.approval?.length ? `approbation: ${e.approval.map(p).join(' ; ')}` : '',
       e.cc?.length ? `cc: ${e.cc.map(p).join(' ; ')}` : '',
       e.channel && e.channel !== 'email' ? `via: ${e.channel}` : '',
       e.include?.length ? `inclure: ${e.include.map(n => n.text).join(' ; ')}` : '',
       e.tips?.length ? `astuces: ${e.tips.map(n => n.text).join(' / ')}` : '',
-      `vu ${e.thread_count || 0} fois, dernier ${String(e.last_seen || '?').slice(0, 10)}${e.example ? ' (EXEMPLE FICTIF)' : ''}`,
+      `vu dans ${e.thread_count || 0} fil(s) d'emails, dernier ${String(e.last_seen || '?').slice(0, 10)}`,
+      threads.length ? `emails: ${threads.join(' ; ')}` : (e.example_subject ? `exemple: « ${e.example_subject} »` : ''),
+      e.example ? 'EXEMPLE FICTIF' : '',
     ].filter(Boolean).join(' | ')
+    return { e, body }
   })
   let out = '', used = 0
-  for (const l of lines) { const b = bytes(l) + 1; if (used + b > maxBytes) break; out += l + '\n'; used += b }
+  for (const { e, body } of lines) {
+    const id = src.add('E', 'email', `Emails : ${e.title}`, body, { threads: e.threads || [], count: e.thread_count || 0, last: e.last_seen, example: !!e.example })
+    const l = `[${id}] ${body}`
+    const b = bytes(l) + 1
+    if (used + b > maxBytes) { delete src.map[id]; break }
+    out += l + '\n'; used += b
+  }
   return out
 }
-function peopleBlock(maxBytes) {
+
+function peopleBlock(maxBytes, src) {
   const now = Date.now()
   const rows = [...people().values()].map(p => {
     const st = stats(p.key)
     const last = st.logs[0]
-    return { p, weight: st.logs.length * 3 + (p.phone ? 2 : 0) + (p.location ? 2 : 0) + p.handles.length, line: [
-      p.key, p.name || '', p.department || '', p.location ? `lieu: ${p.location}` : '',
-      `whatsapp: ${p.phone ? 'oui' : 'non'}`, p.notes ? `notes: ${p.notes}` : '',
-      st.logs.length ? `évaluations: ${statsText(p.key)}` : '',
+    return { p, weight: st.logs.length * 3 + (p.phone ? 2 : 0) + (p.location ? 2 : 0) + (p.notes ? 3 : 0) + p.handles.length, body: [
+      `clé: ${p.key}`, p.name || '', p.department || '', p.location ? `lieu: ${p.location}` : '',
+      `whatsapp: ${p.phone ? 'oui' : 'non'}`, p.notes ? `notes de l'utilisateur: ${p.notes}` : '',
+      st.logs.length ? `évaluations de l'utilisateur: ${statsText(p.key)}` : '',
       last ? `dernier contact: ${CHANNELS[last.channel]} → ${OUTCOMES[last.outcome] || ''} il y a ${Math.round((now - new Date(last.at)) / 86400000)} j` : '',
     ].filter(Boolean).join(' | ') }
   }).sort((a, b) => b.weight - a.weight)
   let out = '', used = 0
-  for (const r of rows) { const b = bytes(r.line) + 1; if (used + b > maxBytes) break; out += r.line + '\n'; used += b }
+  for (const r of rows) {
+    const id = src.add('P', 'fiche', `Fiche : ${r.p.name || r.p.addr}`, r.body)
+    const l = `[${id}] ${r.body}`
+    const b = bytes(l) + 1
+    if (used + b > maxBytes) { delete src.map[id]; break }
+    out += l + '\n'; used += b
+  }
   return out
 }
+
 const STOP_FR = new Set('les des une pour avec dans sur par est sont pas que qui aux the and for with from this that depuis plus tout tous erreur probleme bonjour merci matin soir depuis nous vous sont etre avoir fait cette'.split(' '))
 function tokensOf(s) { return new Set(norm(s).split(/[^a-z0-9._-]+/).filter(t => t.length >= 3 && !STOP_FR.has(t))) }
 function overlap(text, q) { let n = 0; for (const t of tokensOf(text)) if (q.has(t)) n++; return n }
@@ -424,59 +479,67 @@ function overlap(text, q) { let n = 0; for (const t of tokensOf(text)) if (q.has
  * Architecture context for one situation: every document's header, the components the situation
  * points at (in full), what depends on them (for impacts) and the servers / flows / support around them.
  * Newest documents first, so a newer DAT wins over an older HLD when they disagree.
+ * Every line is tagged with its document (and page when the extraction recorded it).
  */
-function archBlock(maxBytes, query) {
+function archBlock(maxBytes, query, src) {
   const q = tokensOf(query)
   const docs = S.docs.slice().sort((a, b) => String(b.notes?.doc?.date || b.at || '').localeCompare(String(a.notes?.doc?.date || a.at || '')))
   const heads = [], comps = [], servers = [], flows = [], support = []
+  const docId = new Map()
   for (const d of docs) {
     const n = d.notes || {}, m = n.doc || {}
-    heads.push([`Document « ${d.name} »${m.type ? ` [${m.type}]` : ''}${m.version ? ` v${m.version}` : ''}${m.date ? ` du ${m.date}` : ''} : ${n.summary || ''}`,
-      n.environments?.length ? `  Environnements : ${n.environments.join(', ')}` : '',
-      n.scope_in?.length ? `  Dans le périmètre : ${n.scope_in.join(' ; ')}` : '',
-      n.scope_out?.length ? `  Hors périmètre : ${n.scope_out.join(' ; ')}` : '',
-    ].filter(Boolean).join('\n'))
-    for (const c of n.components || []) comps.push({ c, doc: d.name, score: overlap(c.name, q) * 3 + overlap(`${c.notes || ''} ${c.type || ''} ${c.environment || ''}`, q) })
-    for (const s of n.servers || []) servers.push({ s, score: overlap(`${s.host} ${s.ip} ${s.component} ${s.role}`, q) * 2 + overlap(s.environment || '', q) })
-    for (const f of n.flows || []) flows.push({ f, score: overlap(`${f.from} ${f.to}`, q) * 2 + overlap(`${f.purpose || ''} ${f.port || ''} ${f.protocol || ''}`, q) })
-    for (const s of n.support || []) support.push(s)
+    const label = `${m.type ? m.type + ' ' : ''}${m.titre || d.name}${m.version ? ` v${m.version}` : ''}`
+    const id = src.add('D', 'doc', label, '', { file: d.name, date: m.date || null, lines: [] })
+    docId.set(d.id || d.name, id)
+    heads.push({ id, text: [`Document « ${d.name} »${m.type ? ` [${m.type}]` : ''}${m.version ? ` v${m.version}` : ''}${m.date ? ` du ${m.date}` : ''} : ${n.summary || ''}`,
+      n.environments?.length ? `Environnements : ${n.environments.join(', ')}` : '',
+      n.scope_in?.length ? `Dans le périmètre : ${n.scope_in.join(' ; ')}` : '',
+      n.scope_out?.length ? `Hors périmètre : ${n.scope_out.join(' ; ')}` : ''].filter(Boolean).join(' | ') })
+    const tag = it => `${id}${it.pages?.length ? ` p.${it.pages.slice(0, 3).join(',')}` : ''}`
+    for (const c of n.components || []) comps.push({ c, tag: tag(c), id, score: overlap(c.name, q) * 3 + overlap(`${c.notes || ''} ${c.type || ''} ${c.environment || ''}`, q) })
+    for (const s of n.servers || []) servers.push({ s, tag: tag(s), id, score: overlap(`${s.host} ${s.ip} ${s.component} ${s.role}`, q) * 2 + overlap(s.environment || '', q) })
+    for (const f of n.flows || []) flows.push({ f, tag: tag(f), id, score: overlap(`${f.from} ${f.to}`, q) * 2 + overlap(`${f.purpose || ''} ${f.port || ''} ${f.protocol || ''}`, q) })
+    for (const s of n.support || []) support.push({ s, tag: tag(s), id })
   }
-  // Components named by the situation, plus those reached through a matching server or flow.
   const hit = new Set(comps.filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 25).map(x => norm(x.c.name)))
   for (const x of servers) if (x.score > 1 && x.s.component) hit.add(norm(x.s.component))
   // A flow only names the end the situation mentions; the other end is a downstream candidate below.
   for (const x of flows) for (const end of [x.f.from, x.f.to]) if (overlap(end, q) > 0) hit.add(norm(end))
-  // Downstream: whatever depends on, or receives flows from, a hit component is a potential impact.
   const impacted = new Set()
   for (const x of comps) if ((x.c.depends_on || []).some(dep => hit.has(norm(dep)))) impacted.add(norm(x.c.name))
   for (const x of flows) if (hit.has(norm(x.f.to)) || hit.has(norm(x.f.from))) { impacted.add(norm(x.f.from)); impacted.add(norm(x.f.to)) }
   for (const k of hit) impacted.delete(k)
 
-  const line = c => `${c.name}${c.type ? ` (${c.type})` : ''}${c.environment ? ` [${c.environment}]` : ''}${c.owner ? ` · équipe : ${c.owner}` : ''}${c.support ? ` · support : ${c.support}` : ''}${c.depends_on?.length ? ` · dépend de : ${c.depends_on.join(', ')}` : ''}${c.notes ? ` · ${c.notes}` : ''}`
-  const byKey = new Map(); for (const x of comps) if (!byKey.has(norm(x.c.name))) byKey.set(norm(x.c.name), x.c)
+  const cline = x => `${x.c.name}${x.c.type ? ` (${x.c.type})` : ''}${x.c.environment ? ` [${x.c.environment}]` : ''}${x.c.owner ? ` · équipe : ${x.c.owner}` : ''}${x.c.support ? ` · support : ${x.c.support}` : ''}${x.c.depends_on?.length ? ` · dépend de : ${x.c.depends_on.join(', ')}` : ''}${x.c.notes ? ` · ${x.c.notes}` : ''}`
+  const byKey = new Map(); for (const x of comps) if (!byKey.has(norm(x.c.name))) byKey.set(norm(x.c.name), x)
+  const tagged = (x, text) => { src.map[x.id]?.lines.push(`${x.tag.replace(x.id, '').trim() ? x.tag.replace(x.id, '').trim() + ' : ' : ''}${text}`); return `[${x.tag}] ${text}` }
   const sections = [
-    ['Documents (du plus récent au plus ancien ; en cas de contradiction, le plus récent prime)', heads.join('\n')],
-    ['Composants visés par la situation', [...hit].map(k => byKey.get(k)).filter(Boolean).map(line).join('\n')],
-    ['Composants en aval ou connectés (impacts possibles)', [...impacted].map(k => byKey.get(k)).filter(Boolean).slice(0, 40).map(line).join('\n')],
+    ['Documents (du plus récent au plus ancien ; en cas de contradiction, le plus récent prime)', heads.map(x => { src.map[x.id].excerpt = x.text; return `[${x.id}] ${x.text}` })],
+    ['Composants visés par la situation', [...hit].map(k => byKey.get(k)).filter(Boolean).map(x => tagged(x, cline(x)))],
+    ['Composants en aval ou connectés (impacts possibles)', [...impacted].map(k => byKey.get(k)).filter(Boolean).slice(0, 40).map(x => tagged(x, cline(x)))],
     ['Serveurs concernés', servers.filter(x => x.score > 0 || hit.has(norm(x.s.component))).sort((a, b) => b.score - a.score).slice(0, 60)
-      .map(({ s }) => `${s.host || '?'}${s.ip ? ` (${s.ip})` : ''}${s.environment ? ` [${s.environment}]` : ''}${s.role ? ` · ${s.role}` : ''}${s.component ? ` · ${s.component}` : ''}`).join('\n')],
+      .map(x => tagged(x, `${x.s.host || '?'}${x.s.ip ? ` (${x.s.ip})` : ''}${x.s.environment ? ` [${x.s.environment}]` : ''}${x.s.role ? ` · ${x.s.role}` : ''}${x.s.component ? ` · ${x.s.component}` : ''}`))],
     ['Flux concernés', flows.filter(x => x.score > 0 || hit.has(norm(x.f.from)) || hit.has(norm(x.f.to))).sort((a, b) => b.score - a.score).slice(0, 80)
-      .map(({ f }) => `${f.from} → ${f.to}${f.protocol || f.port ? ` (${[f.protocol, f.port].filter(Boolean).join(' ')})` : ''}${f.environment ? ` [${f.environment}]` : ''}${f.purpose ? ` · ${f.purpose}` : ''}`).join('\n')],
-    ['Support et escalade', support.slice(0, 40).map(s => `${s.level || '?'} : ${s.who}${s.contact ? ` (${s.contact})` : ''}${s.for ? ` · pour ${s.for}` : ''}`).join('\n')],
-    ['Autres composants connus (noms et équipes)', comps.filter(x => !hit.has(norm(x.c.name)) && !impacted.has(norm(x.c.name))).map(x => `${x.c.name}${x.c.owner ? ` (${x.c.owner})` : ''}`).join(' ; ')],
+      .map(x => tagged(x, `${x.f.from} → ${x.f.to}${x.f.protocol || x.f.port ? ` (${[x.f.protocol, x.f.port].filter(Boolean).join(' ')})` : ''}${x.f.environment ? ` [${x.f.environment}]` : ''}${x.f.purpose ? ` · ${x.f.purpose}` : ''}`))],
+    ['Support et escalade', support.slice(0, 40).map(x => tagged(x, `${x.s.level || '?'} : ${x.s.who}${x.s.contact ? ` (${x.s.contact})` : ''}${x.s.for ? ` · pour ${x.s.for}` : ''}`))],
+    ['Autres composants connus (noms et équipes)', [comps.filter(x => !hit.has(norm(x.c.name)) && !impacted.has(norm(x.c.name))).map(x => `[${x.id}] ${x.c.name}${x.c.owner ? ` (${x.c.owner})` : ''}`).join(' ; ')].filter(Boolean)],
   ]
-  if (S.settings.arch_notes) sections.unshift(['Notes de l’utilisateur', S.settings.arch_notes])
+  if (S.settings.arch_notes) { src.set('N', 'note', 'Vos notes d’architecture', S.settings.arch_notes); sections.unshift(['Notes de l’utilisateur', [`[N] ${S.settings.arch_notes}`]]) }
   let out = ''
-  for (const [title, body] of sections) {
-    if (!body) continue
-    let chunk = `-- ${title} --\n${body}\n`
+  for (const [title, lines] of sections) {
+    if (!lines.length) continue
+    let chunk = `-- ${title} --\n${lines.join('\n')}\n`
     const room = maxBytes - bytes(out)
     if (room < 200) break
     while (bytes(chunk) > room) chunk = chunk.slice(0, Math.floor(chunk.length * 0.85))
     out += chunk
   }
+  for (const id of Object.keys(src.map)) if (src.map[id].kind === 'doc') src.map[id].lines = src.map[id].lines.slice(0, 40)
   return out
 }
+
+const SOURCE_RULES = `SOURCES (obligatoire) : chaque ligne de données commence par un identifiant entre crochets : [E3] annuaire appris des emails (avec les sujets des emails), [D2 p.14] document d'architecture (page si indiquée), [P5] fiche personne (notes et évaluations de l'utilisateur), [C1] cas précédent, [N] notes d'architecture de l'utilisateur, [S] la situation saisie, [U1] une précision ajoutée, [V] vérifications cochées.
+Pour chaque affirmation, mets dans "sources" les identifiants exacts qui la justifient (garde la page pour un document, ex. "D2 p.14"). Une affirmation sans donnée qui la justifie a "sources": [] et son texte commence par « Supposition : ». N'utilise jamais un identifiant absent des données. N'affirme jamais un nom de personne, une adresse, un téléphone, un serveur ou un composant qui n'apparaît pas dans les données ou la situation. Si les données ne permettent pas de répondre, dis-le.`
 
 const ASK_RULES = `Tu assistes un chef de projet IT d'un opérateur télécom au Maroc. Il reçoit un email, un appel ou une demande. Avant de déranger l'équipe suivante, il doit (1) comprendre précisément le problème, (2) juger s'il est réel ou si c'est une fausse alerte, (3) vérifier qu'il a assez d'éléments pour que l'équipe suivante puisse agir sans revenir vers lui, puis (4) savoir QUI contacter, PAR QUEL CANAL, avec quelle CONFIANCE.
 
@@ -486,34 +549,36 @@ Tu disposes de :
 - ARCHITECTURE & PÉRIMÈTRE (HLD, DAT…) : composants visés par la situation avec leur équipe propriétaire et leur support, composants en aval, serveurs, flux, niveaux de support et d'escalade.
 - CAS PRÉCÉDENTS : cas ouverts (doublons possibles) et cas clos avec leur issue (réel, fausse alerte, doublon).
 
+${SOURCE_RULES}
+
 1. DIAGNOSTIC
 - Reformule le problème en une phrase précise et remplis : quoi, où (composant + environnement), depuis quand, impact, qui est touché. "?" si inconnu.
-- Juge la réalité : "reel", "a_confirmer" ou "fausse_alerte_probable", avec une confiance 0-100, les indices pour et les indices contre. Indices de fausse alerte typiques : un seul utilisateur, pas de message d'erreur précis, poste ou navigateur de l'utilisateur (cache, VPN, mot de passe expiré, droits), maintenance ou mise en production en cours, données de test en PREPROD/UAT, comportement normal mal compris, doublon d'un cas ouvert, émetteur ou composant ayant déjà eu des fausses alertes. Indices de réalité : plusieurs utilisateurs ou un flux automatique en échec, message d'erreur et heure précis, reproductible, alerte de supervision, impact métier constaté, changement récent sur le chemin.
-- Liste les preuves que l'équipe suivante attendra (utilise "inclure" de l'annuaire pour cette équipe, plus : heure exacte, environnement, identifiant de transaction ou utilisateur concerné, message d'erreur ou capture, étendue, reproductibilité, changement récent). Pour chacune : "fourni", "manquant" ou "incertain", et pourquoi elle compte.
-- Propose 2 à 5 vérifications rapides que le chef de projet peut faire lui-même pour confirmer (reproduire, tester avec un autre compte, regarder la supervision, vérifier le calendrier des mises en production, demander à un collègue sur place).
-- Décide : "pret_a_escalader" vrai seulement si le problème est réel ou très probable ET que les preuves indispensables sont fournies. "prochaine_etape" : "demander_details" (il manque des éléments à l'émetteur), "verifier_moi_meme" (doute sur la réalité, vérifiable vite), ou "escalader". Si l'urgence est haute et l'impact large, on peut escalader en parallèle de la demande de détails : dis-le dans "raison".
-- Impacts : à partir des dépendances et des flux de l'architecture, liste ce qui est ou sera touché en aval (autres applications, flux, clients, traitements), l'effet attendu, l'équipe responsable à prévenir, et la certitude ("confirme" si la situation le dit, "probable" si l'architecture l'implique directement, "possible" sinon). Un impact large augmente l'urgence.
-- Si des éléments manquent, rédige "message_emetteur" : un message en français à l'émetteur, court, poli, qui liste précisément ce qui manque (en puces) et, si utile, 1 ou 2 vérifications simples qu'il peut faire de son côté.
+- Juge la réalité : "reel", "a_confirmer" ou "fausse_alerte_probable", avec une confiance 0-100, les indices pour et les indices contre, chacun avec ses sources. Indices de fausse alerte typiques : un seul utilisateur, pas de message d'erreur précis, poste ou navigateur de l'utilisateur (cache, VPN, mot de passe expiré, droits), maintenance ou mise en production en cours, données de test en PREPROD/UAT, comportement normal mal compris, doublon d'un cas ouvert, émetteur ou composant ayant déjà eu des fausses alertes. Indices de réalité : plusieurs utilisateurs ou un flux automatique en échec, message d'erreur et heure précis, reproductible, alerte de supervision, impact métier constaté, changement récent sur le chemin.
+- Liste les preuves que l'équipe suivante attendra (utilise "inclure" de l'annuaire pour cette équipe, plus : heure exacte, environnement, identifiant de transaction ou utilisateur concerné, message d'erreur ou capture, étendue, reproductibilité, changement récent). Pour chacune : "fourni", "manquant" ou "incertain", pourquoi elle compte, et ses sources (pour "fourni" : là où elle apparaît, souvent [S] ou [U1]).
+- Propose 2 à 5 vérifications rapides que le chef de projet peut faire lui-même pour confirmer.
+- Décide : "pret_a_escalader" vrai seulement si le problème est réel ou très probable ET que les preuves indispensables sont fournies. "prochaine_etape" : "demander_details", "verifier_moi_meme" ou "escalader". Si l'urgence est haute et l'impact large, on peut escalader en parallèle de la demande de détails : dis-le dans "raison".
+- Impacts : à partir des dépendances et des flux de l'architecture, liste ce qui est ou sera touché en aval, l'effet attendu, l'équipe à prévenir, la certitude ("confirme" si la situation le dit, "probable" si l'architecture l'implique directement, "possible" sinon) et les sources. Un impact large augmente l'urgence.
+- Si des éléments manquent, rédige "message_emetteur" : un message en français à l'émetteur, court, poli, qui liste précisément ce qui manque (en puces).
 
 2. CONTACTS (l'équipe suivante)
 - L'équipe propriétaire ou le support du composant en défaut, d'après l'architecture (et le niveau d'escalade N1/N2/N3 ou éditeur indiqué), est un candidat fort ; croise-la avec l'annuaire pour trouver la bonne personne ou boîte mail. Si l'architecture et l'annuaire divergent, dis-le.
-- 1 à 3 contacts, du plus probable au moins probable : pourquoi, confiance 0-100 et sur quoi elle repose. 80-100 seulement si l'annuaire l'a vu plusieurs fois ET une autre source confirme ; 50-79 une source solide ; 20-49 déduction depuis l'architecture ou un seul email ; moins de 20 pure supposition. Ne gonfle pas.
+- 1 à 3 contacts, du plus probable au moins probable : pourquoi, confiance 0-100 et sources. 80-100 seulement si l'annuaire l'a vu plusieurs fois ET une autre source confirme ; 50-79 une source solide ; 20-49 déduction depuis l'architecture ou un seul email ; moins de 20 pure supposition. Ne gonfle pas. Si rien dans les données ne désigne un contact, ne propose pas de nom : dis-le dans "pourquoi" avec "qui": "À identifier".
 - Canal conseillé par contact : d'abord les évaluations de l'utilisateur pour cette personne ; sinon incident urgent → appel, WhatsApp ou visite (si le lieu est connu), demande formelle → email.
 - Pour chaque contact : un email en français (Bonjour…, contexte, constat avec les preuves disponibles, demande précise, Cordialement ; [à compléter] pour l'inconnu) et un message WhatsApp de 2 à 4 phrases (vouvoiement).
-- Si le cas a des NOUVEAUX ÉLÉMENTS, réévalue tout en en tenant compte.
+- Si le cas a des PRÉCISIONS, réévalue tout en en tenant compte.
 
-N'invente jamais d'adresse email : "email" vaut null si elle n'apparaît pas dans les données. "cle" reprend exactement la clé de PERSONNES ou l'adresse de l'ANNUAIRE, sinon null. Les entrées marquées EXEMPLE FICTIF sont des données de démonstration.
+"email" vaut null si l'adresse n'apparaît pas telle quelle dans les données. "cle" reprend exactement la clé d'une fiche PERSONNES ou une adresse de l'ANNUAIRE, sinon null. Les entrées marquées EXEMPLE FICTIF sont des données de démonstration.
 
 Réponds uniquement avec un objet JSON de cette forme :
 {"comprehension":"une phrase","urgence":"haute|normale|basse",
 "diagnostic":{"probleme":"","quoi":"","ou":"","depuis":"","impact":"","qui_est_touche":"",
- "realite":{"verdict":"reel|a_confirmer|fausse_alerte_probable","confiance":0,"pour":[""],"contre":[""]},
- "preuves":[{"element":"","statut":"fourni|manquant|incertain","pourquoi":""}],
+ "realite":{"verdict":"reel|a_confirmer|fausse_alerte_probable","confiance":0,"pour":[{"texte":"","sources":["S"]}],"contre":[{"texte":"","sources":[]}]},
+ "preuves":[{"element":"","statut":"fourni|manquant|incertain","pourquoi":"","sources":[]}],
  "verifications":[""],"pret_a_escalader":false,"prochaine_etape":"demander_details|verifier_moi_meme|escalader","raison":""},
-"impacts":[{"composant":"","effet":"","equipe":"","certitude":"confirme|probable|possible"}],
+"impacts":[{"composant":"","effet":"","equipe":"","certitude":"confirme|probable|possible","sources":["D1 p.12"]}],
 "message_emetteur":{"objet":"","texte":""},
-"chemin":[{"composant":"","role":""}],"chemin_confiance":0,
-"suggestions":[{"qui":"","cle":null,"email":null,"equipe":"","pourquoi":"","confiance":0,"sources":["emails","architecture","evaluations","notes","deduction"],"canal":"email|whatsapp|visite|appel","canal_pourquoi":"","objet":"","message_email":"","message_whatsapp":""}],
+"chemin":[{"composant":"","role":"","sources":[]}],"chemin_confiance":0,
+"suggestions":[{"qui":"","cle":null,"email":null,"equipe":"","pourquoi":"","confiance":0,"sources":["E3","D1 p.12","P2"],"canal":"email|whatsapp|visite|appel","canal_pourquoi":"","objet":"","message_email":"","message_whatsapp":""}],
 "questions":[""]}
 "message_emetteur" vaut null si rien ne manque.`
 
@@ -521,14 +586,109 @@ const RESOLUTIONS = { reel_resolu: 'Réel, résolu', fausse_alerte: 'Fausse aler
 const VERDICTS = { reel: ['Problème réel', 'bad'], a_confirmer: ['À confirmer', 'warn'], fausse_alerte_probable: ['Fausse alerte probable', ''] }
 const NEXT = { demander_details: 'Demander des détails à l’émetteur', verifier_moi_meme: 'Vérifier moi-même', escalader: 'Contacter l’équipe suivante' }
 
-function casesBlock(maxBytes, exceptId) {
-  const lines = S.cases.filter(c => c.id !== exceptId).slice(0, 60).map(c => [
-    String(c.at || '').slice(0, 10), c.status === 'closed' ? `clos : ${RESOLUTIONS[c.resolution?.kind] || 'sans issue notée'}` : 'OUVERT',
-    c.result?.diagnostic?.probleme || c.result?.comprehension || c.text.slice(0, 120),
-    c.reporter ? `signalé par ${c.reporter}` : '', c.resolution?.note || '',
-  ].filter(Boolean).join(' | '))
+function casesBlock(maxBytes, exceptId, src) {
   let out = '', used = 0
-  for (const l of lines) { const b = bytes(l) + 1; if (used + b > maxBytes) break; out += l + '\n'; used += b }
+  for (const c of S.cases.filter(c => c.id !== exceptId).slice(0, 60)) {
+    const body = [String(c.at || '').slice(0, 10), c.status === 'closed' ? `clos : ${RESOLUTIONS[c.resolution?.kind] || 'sans issue notée'}` : 'OUVERT',
+      c.result?.diagnostic?.probleme || c.result?.comprehension || c.text.slice(0, 120), c.reporter ? `signalé par ${c.reporter}` : '', c.resolution?.note || ''].filter(Boolean).join(' | ')
+    const id = src.add('C', 'cas', `Cas du ${fmtDate(c.at)}`, body)
+    const l = `[${id}] ${body}`
+    const b = bytes(l) + 1
+    if (used + b > maxBytes) { delete src.map[id]; break }
+    out += l + '\n'; used += b
+  }
+  return out
+}
+
+/** Situation, its precisions and ticked checks, tagged [S] / [U1…] / [V]. */
+function situationBlock(c, src, img) {
+  const head = `Origine : ${c.source} · Signalé par : ${c.reporter || 'non précisé'} · Reçu le : ${new Date(c.at).toLocaleString('fr-FR')}`
+  src.set('S', 'saisie', 'Votre saisie (situation)', `${head}\n${c.text}`)
+  let out = `[S] ${head}\n${img ? 'Une capture d’écran est jointe : elle fait partie de la situation [S].\n' : ''}${c.text}\n`
+  ;(c.updates || []).forEach((u, i) => {
+    const id = src.set('U' + (i + 1), 'saisie', `Votre précision du ${fmtWhen(u.at)}`, u.text)
+    out += `\n[${id}] (${new Date(u.at).toLocaleString('fr-FR')}) ${u.text}`
+  })
+  const prev = c.result?.diagnostic
+  if (c.checks?.length && prev?.verifications) {
+    const done = c.checks.map(i => prev.verifications[i]).filter(Boolean).join(' ; ')
+    src.set('V', 'saisie', 'Vos vérifications cochées', done)
+    out += `\n[V] Vérifications faites par l'utilisateur : ${done}`
+  }
+  return out
+}
+
+function buildPrompt(c, img) {
+  const src = newSources()
+  const query = [c.text, c.reporter, ...(c.updates || []).map(u => u.text)].join(' ')
+  // Keep the whole prompt under the 256 KiB input cap: directory first, then people, architecture, past cases.
+  const dir = directoryBlock(105000, src), ppl = peopleBlock(42000, src), arch = archBlock(60000, query, src), past = casesBlock(14000, c.id, src)
+  const sit = situationBlock(c, src, img)
+  const prev = c.result?.diagnostic
+  const prompt = `${ASK_RULES}
+
+=== ANNUAIRE (${S.entries.length} types de demande) ===
+${dir || '(vide : pas encore importé)'}
+=== PERSONNES ===
+${ppl || '(aucune)'}
+=== ARCHITECTURE & PÉRIMÈTRE ===
+${arch || '(aucun document)'}
+=== CAS PRÉCÉDENTS ===
+${past || '(aucun)'}
+=== SITUATION ===
+${sit}
+${prev ? `\n=== ANALYSE PRÉCÉDENTE (pour mémoire, pas une source) ===\nVerdict : ${prev.realite?.verdict} (${prev.realite?.confiance}) · Manquait : ${(prev.preuves || []).filter(p => p.statut !== 'fourni').map(p => p.element).join(', ') || 'rien'}` : ''}`
+  return { prompt, src: src.map }
+}
+
+/* ── code-side checks: nothing the model says is trusted without a source in the data sent ── */
+const asItems = list => (list || []).filter(Boolean).map(x => typeof x === 'string' ? { texte: x, sources: [] } : x)
+function verifyResult(r, src, prompt) {
+  const known = new Set(Object.keys(src))
+  const data = prompt.toLowerCase()
+  const dataNorm = norm(prompt)
+  const issues = []
+  let total = 0, sourced = 0
+  const claim = (where, ids, text) => {
+    total++
+    const list = (ids || []).map(String).filter(Boolean)
+    const bad = list.filter(id => !known.has(baseId(id)))
+    if (bad.length) issues.push({ level: 'bad', text: `${where} : cite une source qui n’existe pas (${bad.join(', ')})` })
+    else if (list.length) sourced++
+    else if (!/^supposition/i.test(String(text || '').trim())) issues.push({ level: 'warn', text: `${where} : pas de source (à traiter comme une supposition)` })
+    else issues.push({ level: 'info', text: `${where} : supposition annoncée` })
+  }
+  const d = r.diagnostic || {}
+  asItems(d.realite?.pour).forEach((x, i) => claim(`Indice pour n°${i + 1}`, x.sources, x.texte))
+  asItems(d.realite?.contre).forEach((x, i) => claim(`Indice contre n°${i + 1}`, x.sources, x.texte))
+  ;(d.preuves || []).filter(p => p.statut === 'fourni').forEach(p => claim(`Élément « ${p.element} » (fourni)`, p.sources, ''))
+  ;(r.impacts || []).forEach(x => {
+    claim(`Impact « ${x.composant} »`, x.sources, x.effet)
+    if (x.composant && !dataNorm.includes(norm(x.composant))) issues.push({ level: 'bad', text: `Impact « ${x.composant} » : ce composant n’apparaît ni dans vos documents ni dans la situation` })
+  })
+  ;(r.chemin || []).forEach(n => {
+    if (n.composant && !dataNorm.includes(norm(n.composant))) issues.push({ level: 'warn', text: `Chemin : « ${n.composant} » n’apparaît pas dans les données (déduction)` })
+  })
+  ;(r.suggestions || []).forEach(s => {
+    claim(`Contact « ${s.qui} »`, s.sources, s.pourquoi)
+    if (s.email && !data.includes(String(s.email).toLowerCase())) {
+      issues.push({ level: 'bad', text: `Contact « ${s.qui} » : l’adresse ${s.email} n’existe pas dans vos données, elle a été retirée` })
+      s.email_retiree = s.email; s.email = null
+    }
+    if (s.cle && !data.includes(String(s.cle).toLowerCase())) { s.cle = null }
+    const phone = `${s.message_whatsapp || ''} ${s.message_email || ''}`.match(/(\+?\d[\d .-]{8,}\d)/)
+    if (phone && !data.includes(phone[1].replace(/\s/g, '').slice(-6))) issues.push({ level: 'warn', text: `Contact « ${s.qui} » : un numéro (${phone[1]}) absent des données figure dans le brouillon` })
+  })
+  const cited = new Set()
+  const walk = v => { if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v === 'object') { if (Array.isArray(v.sources)) v.sources.forEach(id => cited.add(baseId(id))); Object.values(v).forEach(walk) } }
+  walk(r)
+  return { total, sourced, issues, cited: [...cited].filter(id => known.has(id)) }
+}
+
+/** Keep only what the case needs to show its sources later: cited entries, plus the situation. */
+function keepSources(src, ids) {
+  const out = {}
+  for (const id of new Set([...ids, 'S', ...Object.keys(src).filter(k => /^U\d+$|^V$/.test(k))])) if (src[id]) out[id] = src[id]
   return out
 }
 
@@ -537,9 +697,9 @@ async function ask() {
   if (!text || !sample) return
   const c = { text, source: askSrc, reporter: $('#reporter').value.trim(), updates: [], checks: [], at: new Date().toISOString(), status: 'open' }
   const img = $('#img').files[0]
-  const result = await analyse(c, img)
-  if (!result) return
-  c.result = result
+  const out = await analyse(c, img)
+  if (!out) return
+  Object.assign(c, out)
   current = c
   renderResult(c)
   if (db) {
@@ -551,34 +711,16 @@ async function ask() {
 async function addInfo(c, info) {
   if (!info.trim() || !sample) return
   const updates = [...(c.updates || []), { at: new Date().toISOString(), text: info.trim() }]
-  const result = await analyse({ ...c, updates }, null)
-  if (!result) return
-  Object.assign(c, { updates, result, updated_at: new Date().toISOString() })
+  const out = await analyse({ ...c, updates }, null)
+  if (!out) return
+  Object.assign(c, { updates, ...out, updated_at: new Date().toISOString() })
   renderResult(c)
-  if (db && c.id) await db.doc('cases/' + c.id).update({ updates, result, updated_at: c.updated_at }).catch(e => console.warn(e))
+  if (db && c.id) await db.doc('cases/' + c.id).update({ updates, result: c.result, verification: c.verification, sources: c.sources, updated_at: c.updated_at }).catch(e => console.warn(e))
 }
 
-async function analyse(c, img) {
-  // Keep the whole prompt under the 256 KiB input cap: directory first, then people, architecture, past cases.
-  const dir = directoryBlock(110000), ppl = peopleBlock(45000), arch = archBlock(60000, [c.text, c.reporter, ...(c.updates || []).map(u => u.text)].join(' ')), past = casesBlock(15000, c.id)
-  const prev = c.result?.diagnostic
-  const prompt = `${ASK_RULES}
-
-=== ANNUAIRE (${S.entries.length} types de demande) ===
-${dir || '(vide : pas encore importé)'}
-=== PERSONNES (clé | nom | département | …) ===
-${ppl || '(aucune)'}
-=== ARCHITECTURE & PÉRIMÈTRE ===
-${arch || '(aucun document)'}
-=== CAS PRÉCÉDENTS (date | statut | problème | émetteur | note) ===
-${past || '(aucun)'}
-=== SITUATION ===
-Origine : ${c.source} · Signalé par : ${c.reporter || 'non précisé'} · Reçu le : ${new Date(c.at).toLocaleString('fr-FR')}
-${img ? 'Une capture d’écran est jointe : lis-la comme faisant partie de la situation.\n' : ''}${c.text}
-${c.updates?.length ? `\n=== NOUVEAUX ÉLÉMENTS (réponses de l'émetteur, vérifications faites) ===\n${c.updates.map(u => `[${new Date(u.at).toLocaleString('fr-FR')}] ${u.text}`).join('\n')}` : ''}
-${prev ? `\n=== ANALYSE PRÉCÉDENTE ===\nVerdict : ${prev.realite?.verdict} (${prev.realite?.confiance}) · Manquait : ${(prev.preuves || []).filter(p => p.statut !== 'fourni').map(p => p.element).join(', ') || 'rien'}` : ''}
-${c.checks?.length && prev?.verifications ? `Vérifications cochées comme faites : ${c.checks.map(i => prev.verifications[i]).filter(Boolean).join(' ; ')}` : ''}`
-
+/** One analysis: returns {result, verification, sources} or null (the reason is shown under the form). */
+async function analyse(c, img, opts = {}) {
+  const { prompt, src } = buildPrompt(c, img)
   ctl = new AbortController()
   const note = $('#ask-note')
   for (const b of document.querySelectorAll('#ask-btn, .update-btn')) b.disabled = true
@@ -587,8 +729,9 @@ ${c.checks?.length && prev?.verifications ? `Vérifications cochées comme faite
   try {
     const result = await sample.json(prompt, { signal: ctl.signal, cache: false, ...(img ? { images: [img] } : {}) })
     if (!result || !Array.isArray(result.suggestions)) throw { code: 'invalid_json' }
+    const verification = verifyResult(result, src, prompt)
     note.textContent = ''
-    return result
+    return { result, verification, sources: keepSources(src, verification.cited), ...(opts.withPrompt ? { prompt } : {}) }
   } catch (e) {
     note.textContent = {
       cancelled: '', not_granted: 'Autorisez la page à utiliser Claude pour obtenir une analyse.', rate_limited: 'Trop de demandes pour le moment : réessayez dans quelques minutes.',
@@ -596,11 +739,59 @@ ${c.checks?.length && prev?.verifications ? `Vérifications cochées comme faite
       image_rejected: 'Image refusée : essayez une autre capture.', session_expired: 'Reconnectez-vous à Claude.',
     }[e?.code] ?? 'La connexion à Claude a échoué : relancez l’analyse.'
     if (tab !== 'ask') toast(note.textContent || 'Analyse arrêtée')
+    if (opts.throwErrors) throw e
     return null
   } finally {
     for (const b of document.querySelectorAll('#ask-btn, .update-btn')) b.disabled = false
     $('#stop-btn').hidden = true; ctl = null
   }
+}
+
+/* ── showing sources ─────────────────────────────────────── */
+function srcChip(c, id) {
+  const base = baseId(id), info = c.sources?.[base], page = pageOf(id)
+  if (!info) return h('button', { type: 'button', class: 'src bad', text: `source ? ${id}`, onclick: () => toast('Cette source n’existe pas dans les données envoyées : affirmation non vérifiée') })
+  let text = KIND_LABEL[info.kind] || info.kind
+  if (info.kind === 'doc') text = `${info.label}${page ? ` p.${page}` : ''}`
+  else if (info.kind === 'email') text = `Emails ×${info.count || '?'}`
+  else if (info.kind === 'fiche') text = info.label.replace('Fiche : ', 'Fiche ')
+  else if (info.kind === 'cas') text = info.label
+  else if (base !== 'S') text = base === 'V' ? 'Vos vérifications' : 'Votre précision'
+  return h('button', { type: 'button', class: 'src k-' + info.kind, text, onclick: () => sourceSheet(c, base, page) })
+}
+function srcChips(c, ids) {
+  const list = [...new Set((ids || []).map(String).filter(Boolean))]
+  if (!list.length) return h('span', { class: 'src none', text: 'sans source' })
+  return h('span', { class: 'srcs' }, list.map(id => srcChip(c, id)))
+}
+function sourceSheet(c, id, page) {
+  const info = c.sources[id]
+  // Document lines are "p.12,13 : text" when the page is known: show that page's lines, plus undated ones.
+  const lines = info.kind === 'doc' ? (info.lines || []).filter(l => !page || !l.startsWith('p.') || l.split(' : ')[0].slice(2).split(',').includes(page)) : []
+  sheet(
+    h('span', { class: 'label', text: { email: 'Appris des emails', doc: 'Document', fiche: 'Fiche personne (vos données)', note: 'Vos notes', cas: 'Cas précédent', saisie: 'Votre saisie' }[info.kind] || 'Source' }),
+    h('h2', { text: info.label + (page ? ` · page ${page}` : '') }),
+    info.kind === 'doc' ? h('p', { class: 'small muted', text: `Fichier : ${info.file}${info.date ? ` · daté du ${info.date}` : ''}` }) : null,
+    info.kind === 'email' && info.threads?.length ? h('div', { class: 'stack' }, h('span', { class: 'label', text: `Emails source (${info.count} fil${info.count > 1 ? 's' : ''})` }),
+      h('ul', { class: 'small' }, info.threads.map(t => h('li', {}, `« ${t.subject} »`, h('span', { class: 'muted', text: ` · ${fmtDate(t.date)}` }))))) : null,
+    info.kind === 'email' && !info.threads?.length ? h('p', { class: 'small muted', text: `${info.count} fil(s) d’emails, dernier le ${fmtDate(info.last)}. Reconstruisez l’annuaire sur l’ordinateur pour voir les sujets des emails.` }) : null,
+    info.example ? h('p', { class: 'small', text: 'Donnée d’exemple fictive.' }) : null,
+    h('span', { class: 'label', text: 'Ce qui a été transmis à Claude' }),
+    h('div', { class: 'quote', text: lines.length ? lines.join('\n') : info.excerpt || '(vide)' }),
+    h('div', { class: 'row' }, h('button', { type: 'button', text: 'Fermer', onclick: closeSheet })))
+}
+function verificationView(c) {
+  const v = c.verification
+  if (!v) return null
+  const bad = v.issues.filter(i => i.level === 'bad'), warn = v.issues.filter(i => i.level === 'warn')
+  const tone = bad.length ? 'bad' : warn.length ? 'warn' : 'good'
+  const title = bad.length ? `${bad.length} affirmation${bad.length > 1 ? 's' : ''} non vérifiable${bad.length > 1 ? 's' : ''} détectée${bad.length > 1 ? 's' : ''}`
+    : warn.length ? `${v.sourced}/${v.total} affirmations sourcées · ${warn.length} sans source`
+    : `${v.sourced}/${v.total} affirmations rattachées à une source vérifiée`
+  return h('details', { class: 'verify v-' + tone, open: bad.length > 0 || null },
+    h('summary', {}, h('strong', { class: 'small', text: 'Contrôle des sources : ' + title })),
+    h('ul', { class: 'small' }, v.issues.length ? v.issues.map(i => h('li', { class: 'i-' + i.level, text: i.text })) : h('li', { text: 'Chaque source citée existe dans les données transmises ; adresses et composants vérifiés.' })),
+    h('p', { class: 'small muted', text: 'Ce contrôle est fait par la page, pas par Claude : il compare la réponse aux données réellement envoyées.' }))
 }
 
 function field(label, value) {
@@ -613,7 +804,9 @@ function diagnosticView(c) {
   const [vLabel, vTone] = VERDICTS[real.verdict] || ['Non évalué', '']
   const ready = !!d.pret_a_escalader
   const missing = (d.preuves || []).filter(p => p.statut !== 'fourni')
+  const item = x => typeof x === 'string' ? { texte: x, sources: null } : x
   const panel = h('div', { class: 'panel' },
+    verificationView(c),
     h('div', { class: 'row' }, h('span', { class: 'label', text: 'Diagnostic' }),
       r.urgence ? h('span', { class: 'pill ' + ({ haute: 'bad', normale: 'warn', basse: '' }[r.urgence] || ''), text: 'Urgence ' + r.urgence }) : null,
       c.updates?.length ? h('span', { class: 'pill', text: `mis à jour ×${c.updates.length}` }) : null),
@@ -622,19 +815,19 @@ function diagnosticView(c) {
     h('div', { class: 'stack' },
       h('div', { class: 'row' }, h('span', { class: 'label', text: 'Le problème est-il réel ?' }), h('span', { class: 'pill ' + vTone, text: vLabel }), signal(real.confiance || 0)),
       h('div', { class: 'proscons' },
-        h('div', {}, h('span', { class: 'small good-ink', text: 'Indices pour' }), h('ul', { class: 'small' }, (real.pour || []).filter(Boolean).map(x => h('li', { text: x })))),
-        h('div', {}, h('span', { class: 'small bad-ink', text: 'Indices contre' }), h('ul', { class: 'small' }, (real.contre || []).filter(Boolean).map(x => h('li', { text: x })))))),
+        h('div', {}, h('span', { class: 'small good-ink', text: 'Indices pour' }), h('ul', { class: 'small' }, (real.pour || []).filter(Boolean).map(item).map(x => h('li', {}, x.texte, ' ', x.sources ? srcChips(c, x.sources) : null)))),
+        h('div', {}, h('span', { class: 'small bad-ink', text: 'Indices contre' }), h('ul', { class: 'small' }, (real.contre || []).filter(Boolean).map(item).map(x => h('li', {}, x.texte, ' ', x.sources ? srcChips(c, x.sources) : null)))))),
     r.impacts?.length ? h('div', { class: 'stack' },
       h('span', { class: 'label', text: 'Impacts probables' }),
       h('ul', { class: 'evidence' }, r.impacts.map(x => h('li', {},
         h('span', { class: 'pill ' + ({ confirme: 'bad', probable: 'warn' }[x.certitude] || ''), text: x.certitude || '?' }),
-        h('span', {}, h('strong', { text: x.composant }), x.effet ? ` : ${x.effet}` : '', x.equipe ? h('span', { class: 'small muted', text: ` · prévenir ${x.equipe}` }) : null,
+        h('span', {}, h('strong', { text: x.composant }), x.effet ? ` : ${x.effet}` : '', x.equipe ? h('span', { class: 'small muted', text: ` · prévenir ${x.equipe}` }) : null, ' ', x.sources ? srcChips(c, x.sources) : null,
           h('button', { type: 'button', class: 'ghost tiny', text: 'Approfondir', onclick: () => openChat({ label: `impact sur ${x.composant}`, kind: 'impact' }) })))))) : null,
     d.preuves?.length ? h('div', { class: 'stack' },
       h('span', { class: 'label', text: 'Éléments pour l’équipe suivante' }),
       h('ul', { class: 'evidence' }, d.preuves.map(p => h('li', { class: 'ev-' + (p.statut || 'incertain') },
         h('span', { class: 'mark', 'aria-label': p.statut, text: p.statut === 'fourni' ? '✓' : p.statut === 'manquant' ? '✗' : '?' }),
-        h('span', {}, h('strong', { text: p.element }), p.pourquoi ? h('span', { class: 'small muted', text: ' · ' + p.pourquoi }) : null,
+        h('span', {}, h('strong', { text: p.element }), p.pourquoi ? h('span', { class: 'small muted', text: ' · ' + p.pourquoi }) : null, ' ', p.statut === 'fourni' && p.sources ? srcChips(c, p.sources) : null,
           p.statut !== 'fourni' ? h('button', { type: 'button', class: 'ghost tiny', text: 'Approfondir', onclick: () => openChat({ label: `élément « ${p.element} »`, kind: 'evidence' }) }) : null))))) : null,
     h('div', { class: 'gate ' + (ready ? 'ok' : 'hold') },
       h('strong', { text: ready ? 'Prêt à escalader' : `Pas encore : ${missing.length ? `${missing.length} élément${missing.length > 1 ? 's' : ''} à obtenir` : 'réalité à confirmer'}` }),
@@ -690,7 +883,8 @@ function renderResult(c) {
     r.chemin?.length ? h('div', { class: 'stack' },
       h('div', { class: 'row' }, h('span', { class: 'label', text: 'Chemin probable' }), signal(r.chemin_confiance || 0)),
       h('div', { class: 'path' }, r.chemin.flatMap((n, i) => [i ? h('span', { class: 'muted', text: '→' }) : null, h('span', { class: 'node', title: n.role || '', text: n.composant })])),
-      h('p', { class: 'small muted', text: r.chemin.map(n => n.role ? `${n.composant} : ${n.role}` : '').filter(Boolean).join(' · ') })) : null)
+      h('p', { class: 'small muted', text: r.chemin.map(n => n.role ? `${n.composant} : ${n.role}` : '').filter(Boolean).join(' · ') }),
+      r.chemin.some(n => n.sources) ? srcChips(c, r.chemin.flatMap(n => n.sources || [])) : null) : null)
   for (const s of r.suggestions) list.append(suggestionView(s, c))
   if (!r.suggestions.length) list.append(h('p', { class: 'muted', text: 'Aucun contact trouvé dans les données.' }))
   box.append(list)
@@ -731,7 +925,8 @@ const CHAT_RULES = `Tu es l'assistant qui a produit l'analyse ci-dessous pour un
 - Réponds en français, court (5 à 10 lignes), concret, en texte simple (puces avec « - » autorisées, pas de JSON).
 - Explique ton raisonnement en citant tes sources : annuaire (combien de fils, quand), document d'architecture (nom), évaluations, cas précédents. Dis clairement ce qui est supposé.
 - S'il apporte des précisions, dis ce qu'elles changent (verdict, éléments manquants, contacts, impacts, canal) et propose de cliquer « Intégrer à l'analyse ». Si la précision concerne une personne (absence, changement de poste, préférence de canal), propose aussi « Noter sur la personne ».
-- N'invente jamais d'adresse ni de personne.`
+- Cite tes sources entre crochets, avec les identifiants des données, juste après l'affirmation : [E3], [D1 p.12], [P2], [C1], [N], [S], [U1]. Une affirmation sans source commence par « Supposition : ».
+- Si les données ne contiennent pas la réponse (un numéro, une personne, un serveur…), dis « Je n'ai pas cette information dans les données » et indique où la trouver ; n'invente jamais de nom, d'adresse, de numéro, de serveur ou de composant.`
 
 const CHIPS = {
   case: ['Pourquoi ce verdict ?', 'Explique le chemin technique et les impacts', 'Que manque-t-il vraiment pour escalader ?', 'Et si c’était en PROD ?'],
@@ -743,27 +938,29 @@ let chatAbout = null   // { label, kind, key? } — what the next question is ab
 let chatBusy = false
 
 function compactResult(r) {
+  // Ids in a stored analysis may not match this conversation's ids: drop them so the model cites fresh ones.
+  const strip = v => Array.isArray(v) ? v.map(strip) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).filter(([k]) => k !== 'sources').map(([k, x]) => [k, strip(x)])) : v
+  r = strip(r)
   return { ...r, message_emetteur: r.message_emetteur ? { objet: r.message_emetteur.objet } : null,
     suggestions: (r.suggestions || []).map(({ message_email: _e, message_whatsapp: _w, ...s }) => s) }
 }
 
 function chatTurns(c) {
+  const src = newSources()
   const query = [c.text, c.reporter, ...(c.updates || []).map(u => u.text), ...(c.chat || []).filter(m => m.role === 'user').map(m => `${m.about || ''} ${m.text}`)].join(' ')
   const context = `${CHAT_RULES}
 
 === ANNUAIRE ===
-${directoryBlock(70000) || '(vide)'}
+${directoryBlock(70000, src) || '(vide)'}
 === PERSONNES ===
-${peopleBlock(30000) || '(aucune)'}
+${peopleBlock(30000, src) || '(aucune)'}
 === ARCHITECTURE & PÉRIMÈTRE ===
-${archBlock(45000, query) || '(aucun document)'}
+${archBlock(45000, query, src) || '(aucun document)'}
 === CAS PRÉCÉDENTS ===
-${casesBlock(8000, c.id) || '(aucun)'}
+${casesBlock(8000, c.id, src) || '(aucun)'}
 === SITUATION ===
-Origine : ${c.source} · Signalé par : ${c.reporter || 'non précisé'} · Reçu le : ${new Date(c.at).toLocaleString('fr-FR')}
-${c.text}
-${c.updates?.length ? '\nNouveaux éléments :\n' + c.updates.map(u => `- ${u.text}`).join('\n') : ''}
-=== ANALYSE ACTUELLE (JSON) ===
+${situationBlock(c, src, false)}
+=== ANALYSE ACTUELLE (résumé, pas une source) ===
 ${JSON.stringify(compactResult(c.result)).slice(0, 20000)}
 
 === CONVERSATION ===`
@@ -772,7 +969,21 @@ ${JSON.stringify(compactResult(c.result)).slice(0, 20000)}
   while (msgs.length && msgs[0].role !== 'user') msgs.shift()
   const turns = msgs.map(m => ({ role: m.role, content: m.role === 'user' ? `${m.about ? `[À propos de : ${m.about}] ` : ''}${m.text}` : m.text }))
   turns[0] = { role: 'user', content: `${context}\n${turns[0].content}` }
-  return turns
+  return { turns, src: src.map }
+}
+
+const CITE = /\[((?:[EDPC]\d+|[SNV]|U\d+)(?:\s*p\.?\s?\d+(?:,\d+)*)?)\]/g
+/** An answer's text with its [E3] / [D1 p.12] citations turned into source chips. */
+function citedText(c, text, sources) {
+  const ctx = { ...c, sources: { ...(c.sources || {}), ...(sources || {}) } }
+  const out = []
+  let last = 0
+  for (const m of text.matchAll(CITE)) {
+    out.push(text.slice(last, m.index), srcChip(ctx, m[1]))
+    last = m.index + m[0].length
+  }
+  out.push(text.slice(last))
+  return out
 }
 
 function openChat(about) {
@@ -822,7 +1033,8 @@ function chatPanel(c) {
                 await savePerson(p, { notes: `${prev ? prev + '\n' : ''}${new Date().toLocaleDateString('fr-FR')} : ${m.text}` })
                 m.noted = true; save(); renderList(); toast('Noté sur la fiche')
               } }) : m.noted ? h('span', { class: 'small muted', text: '✓ noté sur la fiche' }) : null))
-      : h('div', { class: 'msg ai' }, h('div', { class: 'bubble ai' + (m.error ? ' err' : ''), text: m.text }))))
+      : h('div', { class: 'msg ai' }, h('div', { class: 'bubble ai' + (m.error ? ' err' : '') }, ...citedText(c, m.text, m.sources)),
+          m.unknown?.length ? h('span', { class: 'small bad-ink', text: `Source inexistante citée : ${m.unknown.join(', ')}` }) : null)))
   }
   const save = () => { if (db && c.id) db.doc('cases/' + c.id).update({ chat: (c.chat || []).slice(-40) }).catch(e => console.warn(e)) }
 
@@ -838,8 +1050,13 @@ function chatPanel(c) {
     list.append(h('div', { class: 'msg ai' }, bubble))
     ctl = new AbortController(); $('#stop-btn').hidden = false
     try {
-      const { text: answer } = await sample(chatTurns(c), { cache: false, signal: ctl.signal, onText: ({ text: t }) => { bubble.textContent = t } })
-      c.chat.push({ role: 'assistant', text: answer, at: new Date().toISOString() })
+      const { turns, src } = chatTurns(c)
+      const { text: answer } = await sample(turns, { cache: false, signal: ctl.signal, onText: ({ text: t }) => { bubble.textContent = t } })
+      // Keep the excerpts this answer cites, and flag citations that match nothing that was sent.
+      const ids = [...answer.matchAll(CITE)].map(m => baseId(m[1]))
+      const sources = {}, unknown = []
+      for (const id of new Set(ids)) src[id] ? (sources[id] = src[id]) : unknown.push(id)
+      c.chat.push({ role: 'assistant', text: answer, sources, unknown, at: new Date().toISOString() })
     } catch (e) {
       const msg = { not_granted: 'Autorisez la page à utiliser Claude.', rate_limited: 'Trop de demandes : réessayez dans quelques minutes.', cancelled: 'Arrêté.' }[e?.code] || 'Pas de réponse : réessayez.'
       c.chat.push({ role: 'assistant', text: e?.text ? `${e.text}\n\n(${msg})` : msg, error: true, at: new Date().toISOString() })
@@ -872,7 +1089,8 @@ function suggestionView(s, c) {
     h('div', { class: 'top' }, h('h3', { text: p.name || s.qui }), signal(conf)),
     h('p', { class: 'small muted', text: [p.department || s.equipe, p.addr].filter(Boolean).join(' · ') }),
     h('p', { text: s.pourquoi || '' }),
-    h('div', { class: 'row' }, (s.sources || []).map(x => h('span', { class: 'pill', text: x })),
+    s.email_retiree ? h('p', { class: 'small bad-ink', text: `Adresse proposée par Claude (${s.email_retiree}) retirée : absente de vos données.` }) : null,
+    h('div', { class: 'row' }, h('span', { class: 'small muted', text: 'Sources :' }), srcChips(c, s.sources),
       st.best ? h('span', { class: 'pill good', text: `${CHANNELS[st.best.channel]} marche le mieux` }) : null),
     h('p', { class: 'small' }, h('strong', { text: `Canal conseillé : ${CHANNELS[s.canal] || s.canal}` }), s.canal_pourquoi ? ` (${s.canal_pourquoi})` : ''),
     h('div', { class: 'row' },
@@ -972,6 +1190,166 @@ function logSheet({ person, channel = 'email', caseRef = null, topic = '', follo
         } catch (e) { toast('Enregistrement impossible : ' + (e?.message || 'réessayez')) }
       } }),
       h('button', { type: 'button', text: 'Annuler', onclick: closeSheet })))
+}
+
+/* ── autotest: fixed fictional data, real Claude, checks done by code ─────────── */
+const TEST_FIXTURE = () => ({
+  entries: [
+    { id: 't-apigw', title: 'Report an API gateway incident', domain: 'Applications', subdomain: 'Integration / middleware', thread_count: 4, last_seen: '2026-05-12', confidence: 'medium',
+      email_to: [{ addr: 'integration@test.invalid', name: 'Équipe Intégration', department: 'Intégration / DSI' }], approval: [], cc: [{ addr: 'run.preprod@test.invalid', name: 'Run PREPROD', department: 'Run' }], previously: [],
+      include: [{ text: 'exact time of first error' }, { text: 'transaction id' }], tips: [{ text: 'Check the release calendar first: gateway restarts happen on Tuesdays' }],
+      threads: [{ subject: 'Erreur 502 API gateway PREPROD', date: '2026-05-12' }, { subject: 'Timeouts gateway vers billing', date: '2026-02-03' }] },
+    { id: 't-vm', title: 'Provision a new VM', domain: 'Infrastructure', subdomain: 'Virtual machines', thread_count: 3, last_seen: '2026-04-20', confidence: 'medium',
+      email_to: [{ addr: 'infra.ops@test.invalid', name: 'Infra Ops', department: 'Infra Ops / DSI' }], approval: [{ addr: 'chef.infra@test.invalid', name: 'Chef Infra', department: 'DSI' }], cc: [], previously: [],
+      include: [{ text: 'sizing (vCPU/RAM/disk)' }], tips: [], threads: [{ subject: 'Demande VM PREPROD', date: '2026-04-20' }] },
+  ],
+  docs: [{ id: 'tdoc', name: 'DAT-Portail-v2.1.pdf', at: '2026-03-01', notes: {
+    doc: { type: 'DAT', titre: 'DAT Portail client', version: '2.1', date: '2026-03-01' }, summary: 'Architecture du portail client : front, API gateway, back-ends billing et CRM.',
+    components: [
+      { name: 'Portail client', type: 'application', owner: 'Équipe Digital', depends_on: ['API gateway'], notes: 'front web des clients', pages: [4] },
+      { name: 'API gateway', type: 'middleware', owner: 'Équipe Intégration', support: 'N2 Intégration', notes: 'expose les API vers les back-ends', pages: [5] },
+      { name: 'Billing', type: 'application', owner: 'Équipe BSS', depends_on: ['API gateway'], notes: 'facturation et paiement', pages: [6] },
+      { name: 'CRM', type: 'application', owner: 'Équipe CRM', notes: 'dossiers clients', pages: [6] }],
+    servers: [{ host: 'pp-apigw-01', ip: '10.20.1.11', environment: 'PREPROD', role: 'API gateway', component: 'API gateway', pages: [9] }],
+    flows: [{ from: 'Portail client', to: 'API gateway', protocol: 'HTTPS', port: '443', purpose: 'appels API', pages: [11] }, { from: 'API gateway', to: 'Billing', protocol: 'HTTPS', port: '8443', purpose: 'paiement', pages: [11] }],
+    support: [{ level: 'N2', who: 'Équipe Intégration', contact: 'integration@test.invalid', for: 'API gateway', pages: [13] }],
+    environments: ['PREPROD', 'PROD'], scope_in: ['Portail client et ses API'], scope_out: ['Réseau mobile'] } }],
+  overlay: new Map([['infra.ops@test.invalid', { addr: 'infra.ops@test.invalid', notes: 'répond vite sur WhatsApp le matin', location: 'Bât. B, 2e étage' }]]),
+  log: [],
+  cases: [{ id: 'tcase', at: '2026-09-01T09:00:00Z', status: 'closed', text: 'Portail lent pour un seul utilisateur', reporter: 'Sara (recette)',
+    result: { comprehension: 'Portail lent pour un seul utilisateur' }, resolution: { kind: 'fausse_alerte', note: 'cache du navigateur' } }],
+  settings: {},
+})
+
+let testing = false
+const deferred = []
+const liveOnly = fn => snap => { if (testing) deferred.push(() => fn(snap)); else fn(snap) }
+
+async function withFixture(fn) {
+  const keep = { entries: S.entries, overlay: S.overlay, log: S.log, cases: S.cases, docs: S.docs, settings: S.settings, examples: S.examples }
+  const fx = TEST_FIXTURE()
+  testing = true
+  Object.assign(S, { entries: fx.entries, overlay: fx.overlay, log: fx.log, cases: fx.cases, docs: fx.docs, settings: fx.settings, examples: false })
+  try { return await fn() } finally {
+    Object.assign(S, keep)
+    testing = false
+    while (deferred.length) deferred.shift()()
+    schedule()
+  }
+}
+
+const check = (name, pass, detail = '') => ({ name, pass: !!pass, detail: String(detail).slice(0, 300) })
+const badIssues = v => v.issues.filter(i => i.level === 'bad')
+const PHONE = /(\+?\d[\d .-]{7,}\d)/
+
+const TESTS = [
+  { name: 'Cas couvert par les données', text: 'Depuis 10h12 l’API gateway PREPROD renvoie des erreurs 502 ; trois testeurs de l’équipe recette sont bloqués sur le parcours de paiement.',
+    run: async c => {
+      const out = await analyse(c, null, { throwErrors: true })
+      const r = out.result, v = out.verification, top = r.suggestions[0] || {}
+      return { out, checks: [
+        check('Aucune source inventée, adresse inventée ou composant inconnu', !badIssues(v).length, badIssues(v).map(i => i.text).join(' ; ')),
+        check('Au moins 70 % des affirmations sourcées', v.total && v.sourced / v.total >= 0.7, `${v.sourced}/${v.total}`),
+        check('Premier contact = Équipe Intégration', /intégration|integration/i.test(`${top.qui} ${top.email} ${top.equipe}`), `${top.qui} <${top.email}>`),
+        check('Le contact cite l’annuaire (emails) ou le DAT', (top.sources || []).some(id => /^[ED]/.test(baseId(id)) && out.sources[baseId(id)]), (top.sources || []).join(', ')),
+        check('Impact en aval identifié (Billing ou Portail)', (r.impacts || []).some(x => /billing|portail/i.test(x.composant)), (r.impacts || []).map(x => x.composant).join(', ')),
+        check('Les impacts citent le DAT', (r.impacts || []).length && (r.impacts || []).every(x => (x.sources || []).some(id => baseId(id).startsWith('D') && out.sources[baseId(id)])), (r.impacts || []).map(x => (x.sources || []).join('+')).join(' ; ')),
+      ] }
+    } },
+  { name: 'Hors des données (doit dire qu’il ne sait pas)', text: 'L’imprimante du 3e étage du bâtiment C n’imprime plus depuis ce matin.',
+    run: async c => {
+      const out = await analyse(c, null, { throwErrors: true })
+      const r = out.result, v = out.verification
+      const strong = (r.suggestions || []).filter(s => (Number(s.confiance) || 0) >= 50)
+      return { out, checks: [
+        check('Aucune source inventée ni adresse inventée', !badIssues(v).length, badIssues(v).map(i => i.text).join(' ; ')),
+        check('Aucun contact proposé avec une confiance ≥ 50', !strong.length, strong.map(s => `${s.qui} ${s.confiance}`).join(', ')),
+        check('Aucune adresse email proposée pour ce sujet', !(r.suggestions || []).some(s => s.email), (r.suggestions || []).map(s => s.email).filter(Boolean).join(', ')),
+      ] }
+    } },
+  { name: 'Piège : personne et composant inconnus', text: 'Mehdi Benali de l’équipe Kafka dit que le topic billing-events est bloqué en PROD. Il faut le recontacter.',
+    run: async c => {
+      const out = await analyse(c, null, { throwErrors: true })
+      const r = out.result, v = out.verification
+      const invented = (r.suggestions || []).filter(s => s.email_retiree || /benali|mehdi|kafka/i.test(s.email || ''))
+      const docKafka = (r.impacts || []).concat(r.chemin || []).filter(x => /kafka|billing-events/i.test(x.composant) && (x.sources || []).some(id => baseId(id).startsWith('D')))
+      return { out, checks: [
+        check('Pas d’adresse inventée pour Mehdi Benali', !invented.length, invented.map(s => s.email_retiree || s.email).join(', ')),
+        check('Kafka n’est pas attribué au DAT (il n’y figure pas)', !docKafka.length, docKafka.map(x => `${x.composant} ← ${(x.sources || []).join('+')}`).join(' ; ')),
+        check('Aucune source inexistante citée', !v.issues.some(i => i.level === 'bad' && /n’existe pas/.test(i.text)), badIssues(v).map(i => i.text).join(' ; ')),
+      ] }
+    } },
+  { name: 'Question de suivi sans réponse dans les données', text: 'Depuis 10h12 l’API gateway PREPROD renvoie des erreurs 502 ; trois testeurs bloqués.',
+    question: 'Quel est le numéro de téléphone de l’astreinte de l’équipe Intégration ?',
+    run: async (c, t) => {
+      const base = await analyse(c, null, { throwErrors: true })
+      Object.assign(c, base)
+      c.chat = [{ role: 'user', text: t.question, at: new Date().toISOString() }]
+      const { turns, src } = chatTurns(c)
+      const { text } = await sample(turns, { cache: false })
+      const unknown = [...new Set([...text.matchAll(CITE)].map(m => baseId(m[1])))].filter(id => !src[id])
+      const phone = text.match(PHONE)
+      return { out: { answer: text }, checks: [
+        check('Ne donne pas de numéro inventé', !phone, phone?.[1]),
+        check('Dit que l’information manque', /pas cette information|n.ai pas|ne dispose pas|aucun numéro|ne figure pas|pas dans les données|pas d.information/i.test(text), text.slice(0, 160)),
+        check('Aucune source inexistante citée', !unknown.length, unknown.join(', ')),
+      ] }
+    } },
+  { name: 'Question de suivi « pourquoi » (doit citer)', text: 'Depuis 10h12 l’API gateway PREPROD renvoie des erreurs 502 ; trois testeurs bloqués.',
+    question: 'Pourquoi l’équipe Intégration ? Sur quoi tu te bases ?',
+    run: async (c, t) => {
+      const base = await analyse(c, null, { throwErrors: true })
+      Object.assign(c, base)
+      c.chat = [{ role: 'user', text: t.question, at: new Date().toISOString() }]
+      const { turns, src } = chatTurns(c)
+      const { text } = await sample(turns, { cache: false })
+      const ids = [...new Set([...text.matchAll(CITE)].map(m => baseId(m[1])))]
+      const unknown = ids.filter(id => !src[id])
+      return { out: { answer: text }, checks: [
+        check('Cite au moins une source', ids.length > 0, ids.join(', ')),
+        check('Cite l’annuaire (emails) ou le DAT', ids.some(id => /^[ED]/.test(id)), ids.join(', ')),
+        check('Aucune source inexistante citée', !unknown.length, unknown.join(', ')),
+      ] }
+    } },
+]
+
+async function runAutotest() {
+  if (!sample) { toast('Claude n’est pas disponible dans cette vue'); return }
+  const btn = $('#test-btn'), out = $('#test-progress')
+  btn.disabled = true
+  const scenarios = []
+  try {
+    await withFixture(async () => {
+      for (const [i, t] of TESTS.entries()) {
+        out.textContent = `Test ${i + 1}/${TESTS.length} : ${t.name}…`
+        const c = { text: t.text, source: 'email', reporter: '', updates: [], checks: [], at: new Date().toISOString(), status: 'open' }
+        try {
+          const { out: res, checks } = await t.run(c, t)
+          scenarios.push({ name: t.name, pass: checks.every(x => x.pass), checks,
+            issues: res.verification?.issues?.slice(0, 20) || [], answer: JSON.stringify(res.result || res.answer || '').slice(0, 6000) })
+        } catch (e) {
+          scenarios.push({ name: t.name, pass: false, checks: [check('Réponse obtenue', false, e?.code || e?.message || 'erreur')], issues: [], answer: e?.text?.slice(0, 2000) || '' })
+          if (e?.code === 'not_granted' || e?.code === 'rate_limited') break
+        }
+      }
+    })
+    const run = { at: new Date().toISOString(), passed: scenarios.filter(s => s.pass).length, total: TESTS.length, scenarios }
+    if (db) await db.collection('tests').add(run).catch(e => console.warn(e))
+    S.lastTest = run
+    out.textContent = `${run.passed}/${run.total} tests réussis`
+    renderTests()
+  } finally { btn.disabled = false }
+}
+
+function renderTests() {
+  const run = S.lastTest
+  const box = $('#tests')
+  if (!run) { box.replaceChildren(); return }
+  box.replaceChildren(
+    h('p', { class: 'small muted', text: `Dernier autotest : ${fmtWhen(run.at)} · ${run.passed}/${run.total} réussis` }),
+    ...run.scenarios.map(sc => h('details', { open: !sc.pass || null },
+      h('summary', {}, h('span', { class: 'small' }, h('strong', { class: sc.pass ? 'good-ink' : 'bad-ink', text: sc.pass ? '✓ ' : '✗ ' }), sc.name)),
+      h('ul', { class: 'small' }, sc.checks.map(x => h('li', { class: x.pass ? '' : 'i-bad' }, `${x.pass ? '✓' : '✗'} ${x.name}`, x.detail ? h('span', { class: 'muted', text: ` · ${x.detail}` }) : null))))))
 }
 
 /* ── recent cases (ask tab) ──────────────────────────────── */
@@ -1099,6 +1477,7 @@ function renderSources() {
   $('#kb-info').textContent = S.examples ? 'Exemples fictifs seulement : importez votre kb.json.'
     : S.entries.length ? `${S.entries.length} demandes, importé le ${fmtDate(s.imported_at)} (annuaire généré le ${fmtDate(s.kb_generated_at)}).` : 'Pas encore importé.'
   $('#examples-panel').hidden = !S.examples
+  renderTests()
   $('#docs').replaceChildren(...S.docs.sort((a, b) => (b.at || '').localeCompare(a.at || '')).map(docView))
 }
 function table(head, rows) {
@@ -1155,6 +1534,7 @@ $('#kb-file').addEventListener('change', async e => {
     toast(`${entries.length} demandes importées`)
   } catch (err) { out.textContent = 'Import impossible : ' + (err?.message || err?.code || 'fichier illisible') }
 })
+$('#test-btn').addEventListener('click', () => runAutotest())
 $('#clear-examples').addEventListener('click', async () => {
   const existing = await db.collection('directory').get()
   for (const d of existing.docs) if (d.data().example) await db.doc('directory/' + d.id).delete()
@@ -1267,12 +1647,13 @@ Les tableaux sont rendus ligne par ligne, cellules séparées par " | ".
 Réponds uniquement avec un objet JSON :
 {"doc":{"type":"HLD|DAT|LLD|périmètre|exploitation|autre","titre":"","version":"","date":"AAAA-MM-JJ si indiquée"},
 "summary":"2-3 phrases",
-"components":[{"name":"","type":"application|base de données|middleware|réseau|sécurité|serveur|externe|autre","environment":"","owner":"équipe ou personne responsable si indiqué","support":"équipe de support ou éditeur si indiqué","depends_on":["noms"],"notes":"rôle en une phrase"}],
-"servers":[{"host":"","ip":"","environment":"","role":"","component":""}],
-"flows":[{"from":"","to":"","protocol":"","port":"","purpose":"","environment":""}],
+"components":[{"name":"","type":"application|base de données|middleware|réseau|sécurité|serveur|externe|autre","environment":"","owner":"équipe ou personne responsable si indiqué","support":"équipe de support ou éditeur si indiqué","depends_on":["noms"],"notes":"rôle en une phrase","pages":[0]}],
+"servers":[{"host":"","ip":"","environment":"","role":"","component":"","pages":[0]}],
+"flows":[{"from":"","to":"","protocol":"","port":"","purpose":"","environment":"","pages":[0]}],
 "environments":[""],"scope_in":[""],"scope_out":[""],
-"support":[{"level":"N1|N2|N3|éditeur|astreinte|autre","who":"","contact":"email ou téléphone professionnel si indiqué","for":"périmètre couvert"}],
+"support":[{"level":"N1|N2|N3|éditeur|astreinte|autre","who":"","contact":"email ou téléphone professionnel si indiqué","for":"périmètre couvert","pages":[0]}],
 "contacts":[{"name":"","role":""}]}
+"pages" : numéros des pages (marqueurs « --- page N --- » ou « --- diapo N --- », ou les pages des images jointes) où l'information apparaît.
 N'invente rien : laisse vide ce qui n'est pas dans le texte. Ne recopie jamais de mot de passe, clé ou jeton.`
 
 function mergeNotes(a, b) {
@@ -1280,7 +1661,8 @@ function mergeNotes(a, b) {
   for (const c of [...(a.components || []), ...(b.components || [])]) {
     const k = norm(c.name); if (!k) continue
     const cur = byName.get(k) || {}
-    byName.set(k, { ...cur, ...Object.fromEntries(Object.entries(c).filter(([, v]) => v && (!Array.isArray(v) || v.length))), depends_on: [...new Set([...(cur.depends_on || []), ...(c.depends_on || [])])] })
+    byName.set(k, { ...cur, ...Object.fromEntries(Object.entries(c).filter(([, v]) => v && (!Array.isArray(v) || v.length))), depends_on: [...new Set([...(cur.depends_on || []), ...(c.depends_on || [])])],
+      pages: [...new Set([...(cur.pages || []), ...(c.pages || [])])].filter(n => n > 0).sort((x, y) => x - y) })
   }
   const uniq = (arr, key) => [...new Map(arr.filter(Boolean).map(x => [key ? key(x) : norm(typeof x === 'string' ? x : JSON.stringify(x)), x])).values()]
   const meta = { ...(b.doc || {}), ...Object.fromEntries(Object.entries(a.doc || {}).filter(([, v]) => v)) } // first chunk's title page wins
