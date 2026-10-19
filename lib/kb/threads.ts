@@ -7,7 +7,7 @@ import type { Address }   from './ingest/store'
 type Row = {
   id: string; subject: string; norm_subject: string; from_addr: string; from_name: string
   to_addrs: string; cc_addrs: string; date: string | null; in_reply_to: string | null; refs: string
-  body_clean: string; signature: string | null; is_noise: number
+  body_clean: string; signature: string | null; body_quoted: string | null; is_noise: number
 }
 
 const SUBJECT_LINK_GAP_DAYS = 14
@@ -47,7 +47,7 @@ function participantsOf(r: Row): string[] {
 
 /** Group messages into threads (reply headers first, then same subject + shared participant + close in time). */
 export function buildThreads(db: DB): { threads: number; pending: number; skipped: number } {
-  const rows = db.prepare('SELECT id, subject, norm_subject, from_addr, from_name, to_addrs, cc_addrs, date, in_reply_to, refs, body_clean, signature, is_noise FROM messages ORDER BY date').all() as Row[]
+  const rows = db.prepare('SELECT id, subject, norm_subject, from_addr, from_name, to_addrs, cc_addrs, date, in_reply_to, refs, body_clean, signature, body_quoted, is_noise FROM messages ORDER BY date').all() as Row[]
   const parent = new Map<string, string>(rows.map(r => [r.id, r.id]))
   const find = (x: string): string => {
     let p = parent.get(x)!
@@ -73,6 +73,22 @@ export function buildThreads(db: DB): { threads: number; pending: number; skippe
     list.push(r)
     bySubject.set(r.norm_subject, list)
   }
+  // Ticket references (ServiceNow RITM/INC/CHG, MGEN…) tie together mails whose subjects drifted.
+  const TICKET = /\b(?:MC-)?(MGEN\d{3,}|RITM\d{5,}|INC\d{5,}|CHG\d{5,}|REQ\d{5,}|TASK\d{5,})\b/gi
+  const byTicket = new Map<string, Row[]>()
+  for (const r of rows) {
+    for (const m of r.subject.matchAll(TICKET)) {
+      const k = m[1].toUpperCase()
+      byTicket.set(k, [...(byTicket.get(k) ?? []), r])
+    }
+  }
+  for (const list of byTicket.values()) {
+    for (let i = 1; i < list.length; i++) {
+      const gap = list[i].date && list[i - 1].date ? Math.abs(Date.parse(list[i].date!) - Date.parse(list[i - 1].date!)) / 86_400_000 : 0
+      if (gap <= 60) union(list[i - 1].id, list[i].id)
+    }
+  }
+
   for (const list of bySubject.values()) {
     for (let i = 1; i < list.length; i++) {
       const a = list[i - 1], b = list[i]
@@ -125,6 +141,9 @@ export function buildThreads(db: DB): { threads: number; pending: number; skippe
         const cc = (JSON.parse(r.cc_addrs) as Address[]).map(a => a.addr).join(', ')
         return `[${i + 1}] ${r.date?.slice(0, 16).replace('T', ' ') ?? '?'} | From: ${r.from_addr} | To: ${to}${cc ? ` | Cc: ${cc}` : ''}\n${r.body_clean}`
       })
+      // The latest message's quoted history holds the earlier exchange, often absent from this mailbox.
+      const withHistory = [...list].reverse().find(r => r.body_quoted && r.body_quoted.length > 80)
+      if (withHistory) blocks.push(`[historique cité dans le message du ${withHistory.date?.slice(0, 10) ?? '?'}]\n${withHistory.body_quoted}`)
       let body = blocks.join('\n\n')
       if (body.length > MAX_THREAD_CHARS) {
         const half = MAX_THREAD_CHARS / 2

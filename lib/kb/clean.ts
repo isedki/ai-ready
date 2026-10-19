@@ -4,7 +4,7 @@
  * Patterns cover Outlook in English and French, the two languages expected in the dump.
  */
 
-const SUBJECT_PREFIX = /^\s*((re|tr|fw|fwd|aw|wg|rép|réf)\s*(\[\d+\])?\s*:\s*|\[(ext|external|externe)\]\s*)/i
+const SUBJECT_PREFIX = /^\s*((re|tr|fw|fwd|aw|wg|rép|réf)\s*(\[\d+\])?\s*:\s*|\[(ext|external|externe)\]\s*|\*{2,}\s*[a-z]+\s*\*{2,}\s*)/i
 
 export function normalizeSubject(subject: string | null | undefined): string {
   let s = (subject ?? '').trim()
@@ -44,14 +44,23 @@ const SIGNATURE_STARTS: RegExp[] = [
   /^--\s*$/,
   /^(this (e-?mail|message) (and any|is confidential|contains))/i,
   /^(ce (message|courriel|mail) (et|est|ainsi)|les informations contenues dans ce)/i,
-  /^(sent from my|envoyé de mon|envoyé depuis)/i,
+  /^(sent from my|envoyé de mon|envoyé depuis|envoyé à partir de|get outlook for)/i,
 ]
-const CLOSINGS = /^(cordialement|bien cordialement|bien à vous|salutations|best regards|kind regards|regards|thanks and regards|br|cdlt|merci et bonne journée)[\s,.!]*$/i
+const CLOSINGS = /^(cordialement|bien cordialement|bien à vous|salutations|best regards|kind regards|regards|thanks and regards|br|cdlt|cdt|cr|bàv|merci et bonne journée|bonne journée)[\s,.!]*$/i
+
+// Lines that carry no knowledge but repeat in every quoted message: external-mail banners,
+// Teams join blocks, legal footers, inline image placeholders.
+const BOILERPLATE = /^(avertissement\s*:\s*cet e-?mail provient de l'extérieur|caution\s*:\s*external email|\[cid:|réunion microsoft teams|rejoindre\s*:\s*https:\/\/teams|numéro de réunion|participer par téléphone|trouver un numéro local|numéro de conférence|pour les organisateurs|besoin d'aide \?|aide de l'organisation|imprimer utile|the information in this email is confidential|_{20,}$)/i
 
 const MAX_MESSAGE_CHARS = 6000
 
+/** Outlook leaves "<mailto:x@y> @Name" mentions and "<https://…>" link targets in plain-text bodies. */
+function tidy(body: string): string {
+  return body.replace(/\r\n?/g, '\n').replace(/<mailto:[^>\s]+>\s*/g, '').replace(/<https?:\/\/[^>\s]+>/g, '')
+}
+
 export function stripQuotesAndSignature(body: string): string {
-  const lines = body.replace(/\r\n?/g, '\n').split('\n')
+  const lines = tidy(body).split('\n')
   const out: string[] = []
 
   for (let i = 0; i < lines.length; i++) {
@@ -59,7 +68,7 @@ export function stripQuotesAndSignature(body: string): string {
     if (QUOTE_STARTS.some(r => r.test(line))) break
     if (HEADER_FROM.test(line) && lines.slice(i + 1, i + 5).some(l => HEADER_NEXT.test(l.trim()))) break
     if (SIGNATURE_STARTS.some(r => r.test(line))) break
-    if (line.startsWith('>')) continue
+    if (line.startsWith('>') || BOILERPLATE.test(line)) continue
     // A closing word followed by a short tail is a signature block; keep the closing, drop the tail.
     if (CLOSINGS.test(line) && lines.length - i <= 20) {
       out.push(line)
@@ -73,6 +82,30 @@ export function stripQuotesAndSignature(body: string): string {
     const dropped = text.length - MAX_MESSAGE_CHARS
     text = text.slice(0, MAX_MESSAGE_CHARS) + `\n[… ${dropped} more characters not included]`
   }
+  return text
+}
+
+const MAX_HISTORY_CHARS = 15000
+
+/**
+ * The quoted / forwarded history under a message's own text. Forwards and short replies
+ * ("++ @x", "DAT ci-joint") carry their substance there, and the earlier messages are
+ * often not in the mailbox at all. Returned without "> " prefixes and disclaimers.
+ */
+export function quotedHistory(body: string): string {
+  const lines = tidy(body).split('\n')
+  let start = -1
+  for (let i = 0; i < lines.length && start < 0; i++) {
+    const line = lines[i].trim()
+    if (QUOTE_STARTS.some(r => r.test(line))) start = i
+    else if (HEADER_FROM.test(line) && lines.slice(i + 1, i + 5).some(l => HEADER_NEXT.test(l.trim()))) start = i
+    else if (line.startsWith('>')) start = i
+  }
+  if (start < 0) return ''
+  const out = lines.slice(start).map(l => l.replace(/^(\s*>)+\s?/, ''))
+    .filter(l => !SIGNATURE_STARTS.slice(1).some(r => r.test(l.trim())) && !BOILERPLATE.test(l.trim()))
+  let text = out.join('\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+  if (text.length > MAX_HISTORY_CHARS) text = text.slice(0, MAX_HISTORY_CHARS) + `\n[… ${text.length - MAX_HISTORY_CHARS} more characters of history not included]`
   return text
 }
 
@@ -116,6 +149,8 @@ export function redactSecrets(text: string): string {
       (_m, pre: string, label: string, _l: string, indent: string) => `${pre}${label}\n${indent}[REDACTED-SECRET]`)
     .replace(/\bBearer\s+[A-Za-z0-9\-._~+/]{16,}=*/g, 'Bearer [REDACTED-TOKEN]')
     .replace(/\b(AKIA|ASIA)[A-Z0-9]{16}\b/g, '[REDACTED-AWS-KEY]')
+    // Subscriber numbers (MSISDN, Moroccan 212 + 9 digits) are customer data, useless for routing.
+    .replace(/(?<!\d)212[5-7]\d{8}(?!\d)/g, '[MSISDN]')
     .replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, '[REDACTED-JWT]')
     // long random-looking strings: mixed case + digits, no path/url characters
     .replace(/(?<![\w/.@-])(?=[A-Za-z0-9+_!$%*#-]{20,}(?![\w/.@]))(?=[^\s]*[a-z])(?=[^\s]*[A-Z])(?=[^\s]*\d)[A-Za-z0-9+_!$%*#-]{20,}/g, '[REDACTED-TOKEN]')

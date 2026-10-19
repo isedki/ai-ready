@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS messages (
   body_raw     TEXT,
   body_clean   TEXT,
   signature    TEXT,
+  body_quoted  TEXT,      -- quoted / forwarded history under the message's own text
   is_noise     INTEGER DEFAULT 0,
   noise_reason TEXT
 );
@@ -142,6 +143,9 @@ export function openDb(path = process.env.KB_DB ?? 'data/kb.sqlite'): DatabaseSy
   const db = new DatabaseSync(path)
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = OFF;')
   db.exec(SCHEMA)
+  // Databases created before a column existed get it added (SQLite has no ADD COLUMN IF NOT EXISTS).
+  const cols = (db.prepare('PRAGMA table_info(messages)').all() as { name: string }[]).map(c => c.name)
+  if (!cols.includes('body_quoted')) db.exec('ALTER TABLE messages ADD COLUMN body_quoted TEXT')
   instance = db
   return db
 }
