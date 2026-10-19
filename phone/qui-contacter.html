@@ -1474,7 +1474,9 @@ function personSheet(p) {
 /* ── sources: import kb.json ─────────────────────────────── */
 function renderSources() {
   const s = S.settings
-  $('#kb-info').textContent = S.examples ? 'Exemples fictifs seulement : importez votre kb.json.'
+  const real = S.entries.filter(e => !e.example).length
+  $('#kb-info').textContent = !real && S.examples ? 'Exemples fictifs seulement : importez votre kb.json.'
+    : S.examples ? `${real} demandes réelles + des exemples fictifs (bouton ci-dessous pour les supprimer).`
     : S.entries.length ? `${S.entries.length} demandes, importé le ${fmtDate(s.imported_at)} (annuaire généré le ${fmtDate(s.kb_generated_at)}).` : 'Pas encore importé.'
   $('#examples-panel').hidden = !S.examples
   renderTests()
