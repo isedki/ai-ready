@@ -32,7 +32,8 @@ Each question costs about one cent.
 **On the phone** (main way to use it): the private page *Qui contacter* in your Claude account
 (source: `phone/qui-contacter.html`, published at https://claude.ai/artifact/ULSMj55EzN3r3XvFWykfou). Open it
 in the Claude app, then Sources → *Importer kb.json* once after each build. On the page you can also:
-- add architecture documents (HLD, DAT, LLD, scope, operations; PDF, Word, PowerPoint, photos of diagrams).
+- add architecture documents (HLD, DAT, LLD, flow matrices, scope, operations; PDF, Word, PowerPoint, Excel/CSV,
+  photos of diagrams).
   Text and tables are read on the device (passwords removed), diagram pages inside PDFs are read as images
   (up to 8 per document), and Claude extracts components with their owning team and support level, servers,
   flows, escalation levels and scope; the extracted lists can be checked under each document. For each
@@ -59,6 +60,15 @@ in the Claude app, then Sources → *Importer kb.json* once after each build. On
 - **Autotest** (Sources tab): 5 scenarios on fixed fictional data, including traps (topic absent from the data,
   unknown person, missing phone number), run against Claude and checked by code; results are stored in the
   page's database (`tests` collection) for review;
+- **Dossiers** tab: *démarches* are the usual chain of steps for a kind of request (who does what, in which
+  order, the expected result), created from a Planner screenshot or pasted task list (Claude reads it, you check
+  it), or saved from a finished dossier. A *dossier* is one live request built from a démarche (or proposed by
+  Claude from your démarches, emails and documents, with sources and the same address checks as an analysis).
+  Each step has a status (à faire / en cours / en attente / fait), shows what it is waiting for, and has a
+  ready-made French email or WhatsApp to its owner. **Rapport** builds a weekly progress report (done, in
+  progress, waiting on whom since when, next steps, open incidents) from the recorded statuses only, ready to
+  copy or send. Démarches and open dossiers are also given to the analysis ([B1] / [F1] sources), so an email
+  about a dossier is tied to the right step;
 - close each case as réel / fausse alerte / doublon: past outcomes are used to spot false alarms and duplicates;
 - note people's WhatsApp number and location, log each contact (channel, result, 1–5 rating) and set a
   follow-up; the Suivis tab lists what to chase, with a ready-made French reminder.

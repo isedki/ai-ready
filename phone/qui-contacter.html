@@ -3,7 +3,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: one phone-width column, a switchboard of four tabs on a bottom bar; confidence drawn as signal bars. */
+/* Layout: one phone-width column, a switchboard of five tabs on a bottom bar; confidence drawn as signal bars. */
 :root {
   --bg: #f3f5f7; --surface: #ffffff; --sunk: #e8ecf0; --line: #d5dce3;
   --ink: #15202b; --muted: #5a6774; --accent: #1d5fc4; --accent-ink: #ffffff; --accent-soft: #e3ecfa;
@@ -100,6 +100,16 @@ details > summary::-webkit-details-marker { display: none; }
 .check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; cursor: pointer; }
 .check input { width: 20px; height: 20px; padding: 0; flex: none; margin-top: 1px; accent-color: var(--accent); }
 .panel > *, .stack > *, .item > *, details { min-width: 0; }
+.bar { height: 6px; border-radius: 3px; background: var(--sunk); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--good); }
+.step { border-left: 3px solid var(--line); padding: 4px 0 4px 12px; display: grid; gap: 6px; min-width: 0; }
+.step > * { min-width: 0; }
+.step.s-en_cours { border-left-color: var(--warn); } .step.s-attente { border-left-color: var(--bad); } .step.s-fait { border-left-color: var(--good); }
+.step.s-fait > strong, .step.s-fait .top strong { color: var(--muted); }
+.step.blocked { opacity: .8; }
+.warn-ink { color: var(--warn); font-weight: 600; }
+ol.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.report { min-height: 260px; font-family: var(--f-mono); font-size: 12.5px; }
 .tbl { overflow-x: auto; margin-top: 8px; max-width: 100%; }
 .tbl table { border-collapse: collapse; font-size: 12.5px; min-width: 100%; }
 .tbl th, .tbl td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -125,8 +135,8 @@ span.src.none { font-size: 12px; color: var(--warn); font-style: italic; }
 .verify ul { margin: 6px 0; padding-left: 18px; } .i-bad { color: var(--bad); } .i-info { color: var(--muted); }
 nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
-nav.tabs .in { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); height: var(--nav-h); }
-nav.tabs button { border: 0; border-radius: 0; background: transparent; flex-direction: column; justify-content: center; gap: 3px; font-family: var(--f-head); font-size: 13px; color: var(--muted); position: relative; min-height: 0; }
+nav.tabs .in { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); height: var(--nav-h); }
+nav.tabs button { border: 0; border-radius: 0; background: transparent; flex-direction: column; justify-content: center; gap: 3px; font-family: var(--f-head); font-size: 12px; color: var(--muted); position: relative; min-height: 0; }
 nav.tabs button svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 nav.tabs button[aria-selected="true"] { color: var(--accent); }
 nav.tabs .count { position: absolute; top: 6px; left: calc(50% + 8px); background: var(--bad); color: #fff; font: 600 11px/1 var(--f-body); border-radius: 999px; padding: 3px 5px; }
@@ -182,6 +192,9 @@ nav.tabs .count { position: absolute; top: 6px; left: calc(50% + 8px); backgroun
     <div class="panel"><h2>Derniers contacts</h2><div id="history"></div></div>
   </section>
 
+  <!-- ── Dossiers ─────────────────────────────────────────── -->
+  <section id="tab-proj" class="stack" hidden><div id="proj" class="stack"></div></section>
+
   <!-- ── Annuaire ─────────────────────────────────────────── -->
   <section id="tab-dir" class="stack" hidden>
     <input id="dir-search" type="search" placeholder="Chercher : VM, flux, AD, portail, une personne…" aria-label="Chercher dans l'annuaire">
@@ -227,6 +240,7 @@ nav.tabs .count { position: absolute; top: 6px; left: calc(50% + 8px); backgroun
   <div class="in" role="tablist">
     <button role="tab" data-tab="ask" aria-selected="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M9 10h6"/></svg>Demander</button>
     <button role="tab" data-tab="follow" aria-selected="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l3 2M9 3h6"/></svg>Suivis<span class="count" id="due-count" hidden></span></button>
+    <button role="tab" data-tab="proj" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13l2.5 2.5L16 11"/></svg>Dossiers</button>
     <button role="tab" data-tab="dir" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M5 18a2 2 0 0 1 2-2h12M9 8h6"/></svg>Annuaire</button>
     <button role="tab" data-tab="src" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="18" cy="17" r="2"/></svg>Sources</button>
   </div>
@@ -287,7 +301,7 @@ function signal(c) {
 }
 
 /* ── state ───────────────────────────────────────────────── */
-const S = { entries: [], examples: false, chunks: [], overlay: new Map(), log: [], cases: [], docs: [], settings: {}, ready: false }
+const S = { entries: [], examples: false, chunks: [], overlay: new Map(), log: [], cases: [], docs: [], settings: {}, playbooks: [], projects: [], ready: false }
 let db = null, sample = null, limits = null, tab = 'ask', askSrc = 'email', ctl = null, current = null
 
 /* People = what the emails taught (directory) + what you added (overlay) + what you logged. */
@@ -361,6 +375,8 @@ function subscribe() {
   db.collection('log').orderBy('at', 'desc').limit(1000).onSnapshot(liveOnly(s => { S.log = s.docs.map(d => ({ id: d.id, ...d.data() })); schedule() }), onDbError)
   db.collection('cases').orderBy('at', 'desc').limit(200).onSnapshot(liveOnly(s => { S.cases = s.docs.map(d => ({ id: d.id, ...d.data() })); schedule() }), onDbError)
   db.collection('docs').onSnapshot(liveOnly(s => { S.docs = s.docs.map(d => ({ id: d.id, ...d.data() })); schedule() }), onDbError)
+  db.collection('playbooks').onSnapshot(liveOnly(s => { S.playbooks = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.runs || 0) - (a.runs || 0) || a.title.localeCompare(b.title)); schedule() }), onDbError)
+  db.collection('projects').onSnapshot(liveOnly(s => { S.projects = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || ''))); schedule() }), onDbError)
   db.doc('config/settings').onSnapshot(liveOnly(s => {
     S.settings = s.data() || {}
     const ta = $('#arch-notes')
@@ -377,7 +393,7 @@ for (const b of document.querySelectorAll('nav.tabs button')) {
   b.addEventListener('click', () => {
     tab = b.dataset.tab
     for (const x of document.querySelectorAll('nav.tabs button')) x.setAttribute('aria-selected', String(x === b))
-    for (const t of ['ask', 'follow', 'dir', 'src']) $('#tab-' + t).hidden = t !== tab
+    for (const t of ['ask', 'follow', 'proj', 'dir', 'src']) $('#tab-' + t).hidden = t !== tab
     window.scrollTo(0, 0)
     render()
   })
@@ -390,6 +406,7 @@ function render() {
   $('#status').textContent = S.ready ? `${S.entries.length} demandes · ${S.docs.length} doc${S.docs.length > 1 ? 's' : ''}` : 'Connexion…'
   if (tab === 'ask') renderRecent()
   if (tab === 'follow') renderFollow()
+  if (tab === 'proj') renderProjects()
   if (tab === 'dir') renderDir()
   if (tab === 'src') renderSources()
 }
@@ -418,7 +435,7 @@ function newSources() {
 }
 const baseId = id => String(id || '').trim().replace(/^\[|\]$/g, '').split(/[\s·,]/)[0].toUpperCase()
 const pageOf = id => (String(id).match(/p\.?\s?(\d+)/i) || [])[1] || null
-const KIND_LABEL = { email: 'Emails', doc: 'Doc', fiche: 'Fiche', note: 'Vos notes', cas: 'Cas', saisie: 'Votre saisie' }
+const KIND_LABEL = { email: 'Emails', doc: 'Doc', fiche: 'Fiche', note: 'Vos notes', cas: 'Cas', saisie: 'Votre saisie', demarche: 'Démarche', dossier: 'Dossier' }
 
 function directoryBlock(maxBytes, src) {
   const lines = S.entries.slice().sort((a, b) => (b.thread_count || 0) - (a.thread_count || 0)).map(e => {
@@ -538,7 +555,7 @@ function archBlock(maxBytes, query, src) {
   return out
 }
 
-const SOURCE_RULES = `SOURCES (obligatoire) : chaque ligne de données commence par un identifiant entre crochets : [E3] annuaire appris des emails (avec les sujets des emails), [D2 p.14] document d'architecture (page si indiquée), [P5] fiche personne (notes et évaluations de l'utilisateur), [C1] cas précédent, [N] notes d'architecture de l'utilisateur, [S] la situation saisie, [U1] une précision ajoutée, [V] vérifications cochées.
+const SOURCE_RULES = `SOURCES (obligatoire) : chaque ligne de données commence par un identifiant entre crochets : [E3] annuaire appris des emails (avec les sujets des emails), [D2 p.14] document d'architecture (page si indiquée), [P5] fiche personne (notes et évaluations de l'utilisateur), [C1] cas précédent, [B1] démarche (étapes habituelles notées par l'utilisateur), [F1] dossier en cours (état de chaque étape), [N] notes d'architecture de l'utilisateur, [S] la situation saisie, [U1] une précision ajoutée, [V] vérifications cochées.
 Pour chaque affirmation, mets dans "sources" les identifiants exacts qui la justifient (garde la page pour un document, ex. "D2 p.14"). Une affirmation sans donnée qui la justifie a "sources": [] et son texte commence par « Supposition : ». N'utilise jamais un identifiant absent des données. N'affirme jamais un nom de personne, une adresse, un téléphone, un serveur ou un composant qui n'apparaît pas dans les données ou la situation. Si les données ne permettent pas de répondre, dis-le.`
 
 const ASK_RULES = `Tu assistes un chef de projet IT d'un opérateur télécom au Maroc. Il reçoit un email, un appel ou une demande. Avant de déranger l'équipe suivante, il doit (1) comprendre précisément le problème, (2) juger s'il est réel ou si c'est une fausse alerte, (3) vérifier qu'il a assez d'éléments pour que l'équipe suivante puisse agir sans revenir vers lui, puis (4) savoir QUI contacter, PAR QUEL CANAL, avec quelle CONFIANCE.
@@ -548,6 +565,7 @@ Tu disposes de :
 - PERSONNES : ses notes (lieu, WhatsApp, notes) et ses évaluations des canaux par personne.
 - ARCHITECTURE & PÉRIMÈTRE (HLD, DAT…) : composants visés par la situation avec leur équipe propriétaire et leur support, composants en aval, serveurs, flux, niveaux de support et d'escalade.
 - CAS PRÉCÉDENTS : cas ouverts (doublons possibles) et cas clos avec leur issue (réel, fausse alerte, doublon).
+- DÉMARCHES ET DOSSIERS : les enchaînements d'étapes habituels (qui fait quoi, dans quel ordre) et les dossiers en cours avec l'état de chaque étape. Si la situation relève d'une démarche ou d'un dossier en cours, dis à quelle étape elle se rattache et qui la porte, en citant [B…] ou [F…].
 
 ${SOURCE_RULES}
 
@@ -622,7 +640,7 @@ function buildPrompt(c, img) {
   const src = newSources()
   const query = [c.text, c.reporter, ...(c.updates || []).map(u => u.text)].join(' ')
   // Keep the whole prompt under the 256 KiB input cap: directory first, then people, architecture, past cases.
-  const dir = directoryBlock(105000, src), ppl = peopleBlock(42000, src), arch = archBlock(60000, query, src), past = casesBlock(14000, c.id, src)
+  const dir = directoryBlock(95000, src), ppl = peopleBlock(40000, src), arch = archBlock(58000, query, src), past = casesBlock(12000, c.id, src), plays = playbooksBlock(18000, src)
   const sit = situationBlock(c, src, img)
   const prev = c.result?.diagnostic
   const prompt = `${ASK_RULES}
@@ -635,6 +653,8 @@ ${ppl || '(aucune)'}
 ${arch || '(aucun document)'}
 === CAS PRÉCÉDENTS ===
 ${past || '(aucun)'}
+=== DÉMARCHES ET DOSSIERS ===
+${plays || '(aucun)'}
 === SITUATION ===
 ${sit}
 ${prev ? `\n=== ANALYSE PRÉCÉDENTE (pour mémoire, pas une source) ===\nVerdict : ${prev.realite?.verdict} (${prev.realite?.confiance}) · Manquait : ${(prev.preuves || []).filter(p => p.statut !== 'fourni').map(p => p.element).join(', ') || 'rien'}` : ''}`
@@ -755,7 +775,7 @@ function srcChip(c, id) {
   if (info.kind === 'doc') text = `${info.label}${page ? ` p.${page}` : ''}`
   else if (info.kind === 'email') text = `Emails ×${info.count || '?'}`
   else if (info.kind === 'fiche') text = info.label.replace('Fiche : ', 'Fiche ')
-  else if (info.kind === 'cas') text = info.label
+  else if (info.kind === 'cas' || info.kind === 'demarche' || info.kind === 'dossier') text = info.label
   else if (base !== 'S') text = base === 'V' ? 'Vos vérifications' : 'Votre précision'
   return h('button', { type: 'button', class: 'src k-' + info.kind, text, onclick: () => sourceSheet(c, base, page) })
 }
@@ -958,6 +978,8 @@ ${peopleBlock(30000, src) || '(aucune)'}
 ${archBlock(45000, query, src) || '(aucun document)'}
 === CAS PRÉCÉDENTS ===
 ${casesBlock(8000, c.id, src) || '(aucun)'}
+=== DÉMARCHES ET DOSSIERS ===
+${playbooksBlock(12000, src) || '(aucun)'}
 === SITUATION ===
 ${situationBlock(c, src, false)}
 === ANALYSE ACTUELLE (résumé, pas une source) ===
@@ -972,7 +994,7 @@ ${JSON.stringify(compactResult(c.result)).slice(0, 20000)}
   return { turns, src: src.map }
 }
 
-const CITE = /\[((?:[EDPC]\d+|[SNV]|U\d+)(?:\s*p\.?\s?\d+(?:,\d+)*)?)\]/g
+const CITE = /\[((?:[EDPCBF]\d+|[SNV]|U\d+)(?:\s*p\.?\s?\d+(?:,\d+)*)?)\]/g
 /** An answer's text with its [E3] / [D1 p.12] citations turned into source chips. */
 function citedText(c, text, sources) {
   const ctx = { ...c, sources: { ...(c.sources || {}), ...(sources || {}) } }
@@ -1226,10 +1248,10 @@ const deferred = []
 const liveOnly = fn => snap => { if (testing) deferred.push(() => fn(snap)); else fn(snap) }
 
 async function withFixture(fn) {
-  const keep = { entries: S.entries, overlay: S.overlay, log: S.log, cases: S.cases, docs: S.docs, settings: S.settings, examples: S.examples }
+  const keep = { entries: S.entries, overlay: S.overlay, log: S.log, cases: S.cases, docs: S.docs, settings: S.settings, examples: S.examples, playbooks: S.playbooks, projects: S.projects }
   const fx = TEST_FIXTURE()
   testing = true
-  Object.assign(S, { entries: fx.entries, overlay: fx.overlay, log: fx.log, cases: fx.cases, docs: fx.docs, settings: fx.settings, examples: false })
+  Object.assign(S, { entries: fx.entries, overlay: fx.overlay, log: fx.log, cases: fx.cases, docs: fx.docs, settings: fx.settings, examples: false, playbooks: [], projects: [] })
   try { return await fn() } finally {
     Object.assign(S, keep)
     testing = false
@@ -1759,6 +1781,465 @@ $('#doc-file').addEventListener('change', async e => {
   }
   out.textContent = ''
 })
+
+
+/* ── dossiers: démarches (the usual chain of steps) and live projects ─────────── */
+const STEP_STATUS = { a_faire: 'À faire', en_cours: 'En cours', attente: 'En attente', fait: 'Fait' }
+const STEP_TONE = { a_faire: '', en_cours: 'warn', attente: 'bad', fait: 'good' }
+const TBD = 'À identifier'
+let projOpen = null   // id of the project shown in the Dossiers tab
+
+const hasOwner = o => !!(o && (o.name || o.addr))
+const ownerText = o => !hasOwner(o) ? 'vous' : [o.name || o.addr, o.team, o.location].filter(Boolean).join(' · ')
+const ownerLine = o => !hasOwner(o) ? 'le chef de projet' : `${o.name || ''}${o.addr ? ` <${o.addr}>` : ''}${o.team ? ` (${o.team})` : ''}${o.location ? ` · ${o.location}` : ''}`
+/** The step owner as a person card: the known card when the address is known, else a temporary one. */
+function ownerPerson(o) {
+  if (!hasOwner(o) || o.name === TBD) return null
+  const k = o.addr ? personKey(o.addr) : 'p-' + slug(o.name)
+  const known = people().get(k)
+  if (known) return { ...known, name: known.name || o.name, department: known.department || o.team || '', location: known.location || o.location || '' }
+  return { key: k, addr: o.addr || '', name: o.name || o.addr, department: o.team || '', location: o.location || '', handles: [], transient: true }
+}
+const stepReady = (p, st) => (st.needs || []).every(k => { const x = p.steps.find(y => y.key === k); return !x || x.status === 'fait' })
+const nextSteps = p => p.steps.filter(s => s.status !== 'fait' && stepReady(p, s))
+function progress(p) { const n = p.steps.length, d = p.steps.filter(s => s.status === 'fait').length; return { n, d, pct: n ? Math.round(d * 100 / n) : 0 } }
+function bar(pct) { const i = h('i'); i.style.width = pct + '%'; return h('div', { class: 'bar', role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100 }, i) }
+const newKey = () => 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
+/** Two taps to delete: no confirm() dialogs inside the page. */
+function dangerButton(label, run) {
+  let armed = false
+  const b = h('button', { type: 'button', class: 'danger', text: label, onclick: async () => {
+    if (!armed) { armed = true; b.textContent = 'Confirmer'; setTimeout(() => { armed = false; b.textContent = label }, 4000); return }
+    await run()
+  } })
+  return b
+}
+
+/** Démarches and open dossiers for the analysis prompts, tagged [B…] / [F…]. */
+function playbooksBlock(maxBytes, src) {
+  const idx = (steps, keys) => (keys || []).map(k => steps.findIndex(x => x.key === k) + 1).filter(Boolean).join(', ')
+  const rows = [
+    ...S.playbooks.map(b => ['B', 'demarche', `Démarche : ${b.title}`, `Démarche « ${b.title} »${b.when ? ` (quand : ${b.when})` : ''} : ` +
+      b.steps.map((s, i) => `${i + 1}. ${s.title} → ${ownerLine(s.owner)}${s.needs?.length ? ` [après ${idx(b.steps, s.needs)}]` : ''}${s.output ? ` · livrable : ${s.output}` : ''}${s.how ? ` · ${s.how}` : ''}`).join(' ; ')]),
+    ...S.projects.filter(p => p.status !== 'done').map(p => ['F', 'dossier', `Dossier : ${p.title}`, `Dossier en cours « ${p.title} »${p.context ? ` (${p.context})` : ''} : ` +
+      p.steps.map((s, i) => `${i + 1}. ${s.title} → ${ownerLine(s.owner)} [${STEP_STATUS[s.status] || s.status}${s.note ? ` : ${s.note}` : ''}]`).join(' ; ')]),
+  ]
+  let out = '', used = 0
+  for (const [prefix, kind, label, body] of rows) {
+    const id = src.add(prefix, kind, label, '')
+    src.map[id].excerpt = body.slice(0, 4000)
+    const l = `[${id}] ${body}`
+    const b = bytes(l) + 1
+    if (used + b > maxBytes) { delete src.map[id]; continue }
+    out += l + '\n'; used += b
+  }
+  return out
+}
+
+/* ── list ── */
+function renderProjects() {
+  const box = $('#proj')
+  if (projOpen) {
+    // A dossier just created shows up with the next database update.
+    const p = S.projects.find(x => x.id === projOpen)
+    box.replaceChildren(p ? projectView(p) : h('div', { class: 'panel' }, h('p', { class: 'muted', text: 'Chargement du dossier…' }),
+      h('div', { class: 'row' }, h('button', { type: 'button', class: 'ghost', text: '← Dossiers', onclick: () => { projOpen = null; renderProjects() } }))))
+    return
+  }
+  const open = S.projects.filter(p => p.status !== 'done'), done = S.projects.filter(p => p.status === 'done')
+  box.replaceChildren(
+    h('div', { class: 'panel' },
+      h('div', { class: 'top' }, h('h2', { text: 'Dossiers en cours' }),
+        h('div', { class: 'row' }, h('button', { type: 'button', text: 'Rapport', onclick: () => reportSheet(null) }), h('button', { type: 'button', class: 'primary', text: '+ Nouveau', onclick: () => newProjectSheet(null) }))),
+      ...(open.length ? open.map(projectItem) : [h('p', { class: 'muted small', text: 'Aucun dossier. « + Nouveau » part d’une démarche connue, ou fait proposer les étapes par Claude.' })])),
+    h('div', { class: 'panel' },
+      h('div', { class: 'top' }, h('h2', { text: 'Démarches' }), h('button', { type: 'button', class: 'ghost', text: '+ Depuis une capture', onclick: captureSheet })),
+      h('p', { class: 'small muted', text: 'Les étapes habituelles d’un type de demande, dans l’ordre, avec qui fait quoi. Elles servent de modèle aux dossiers, et l’analyse (onglet Demander) les connaît.' }),
+      ...(S.playbooks.length ? S.playbooks.map(playbookItem) : [h('p', { class: 'muted small', text: 'Aucune démarche. Ajoutez-en une depuis une capture de Planner, ou « Enregistrer comme démarche » sur un dossier.' })])),
+    done.length ? h('details', { class: 'panel' }, h('summary', {}, h('h2', { text: `Dossiers terminés (${done.length})` })), ...done.map(projectItem)) : null)
+}
+function projectItem(p) {
+  const pr = progress(p), next = nextSteps(p).filter(s => s.status === 'a_faire').slice(0, 2), waiting = p.steps.filter(s => s.status === 'attente')
+  return h('div', { class: 'item' },
+    h('div', { class: 'top' }, h('button', { type: 'button', class: 'ghost', text: p.title, onclick: () => { projOpen = p.id; renderProjects(); window.scrollTo(0, 0) } }), h('span', { class: 'small muted', text: `${pr.d}/${pr.n}` })),
+    bar(pr.pct),
+    waiting.length ? h('p', { class: 'small bad-ink', text: 'En attente : ' + waiting.map(s => `${s.owner?.name || s.owner?.addr || 'vous'} (${s.title})`).join(' ; ') }) : null,
+    next.length && p.status !== 'done' ? h('p', { class: 'small', text: 'À lancer : ' + next.map(s => `${s.title} → ${ownerText(s.owner)}`).join(' ; ') }) : null)
+}
+function playbookItem(b) {
+  return h('div', { class: 'item' },
+    h('div', { class: 'top' }, h('strong', { text: b.title }), h('span', { class: 'small muted', text: `${b.steps.length} étapes${b.runs ? ` · ${b.runs} dossier${b.runs > 1 ? 's' : ''}` : ''}` })),
+    b.when ? h('p', { class: 'small muted', text: b.when }) : null,
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'primary', text: 'Démarrer un dossier', onclick: () => newProjectSheet(b) }),
+      h('button', { type: 'button', text: 'Voir / modifier', onclick: () => playbookSheet(b) })))
+}
+
+/* ── one dossier ── */
+async function saveProject(p, patch, log) {
+  const at = new Date().toISOString()
+  const journal = log ? [{ at, text: log }, ...(p.journal || [])].slice(0, 300) : (p.journal || [])
+  try { await db.doc('projects/' + p.id).update({ ...patch, journal, updated_at: at }) }
+  catch (e) { toast('Enregistrement impossible : ' + (e?.message || 'réessayez')) }
+}
+async function setStepStatus(p, st, v) {
+  if (st.status === v) return
+  const at = new Date().toISOString()
+  const steps = p.steps.map(x => x.key === st.key ? { ...x, status: v, since: at, done_at: v === 'fait' ? at : null } : x)
+  await saveProject(p, { steps }, `${st.title} : ${STEP_STATUS[st.status] || st.status} → ${STEP_STATUS[v]}`)
+}
+function stepMail(p, st, person) {
+  const ready = (st.needs || []).map(k => p.steps.find(x => x.key === k)).filter(x => x && x.status === 'fait')
+  return {
+    objet: `${p.title} – ${st.title}`,
+    message_email: `Bonjour ${firstName(person.name)},\n\nDans le cadre de « ${p.title} »${p.context ? ` (${p.context})` : ''}, pourriez-vous ${st.title.charAt(0).toLowerCase() + st.title.slice(1)} ?\n` +
+      (st.output ? `\nRésultat attendu : ${st.output}\n` : '') +
+      (ready.length ? `\nDéjà disponible : ${ready.map(x => x.title + (x.note ? ` (${x.note})` : '')).join(' ; ')}\n` : '') +
+      `\nMerci d'avance.\n\nCordialement,`,
+  }
+}
+const stepWa = (p, st, person) => `Bonjour ${firstName(person.name)}, pour « ${p.title} », pourriez-vous ${st.title.charAt(0).toLowerCase() + st.title.slice(1)} ? Merci !`
+
+function projectView(p) {
+  const pr = progress(p)
+  const jl = h('input', { placeholder: 'Ajouter au journal (décision, n° de ticket, réunion…)', 'aria-label': 'Entrée de journal' })
+  const back = () => { projOpen = null; renderProjects(); window.scrollTo(0, 0) }
+  return h('div', { class: 'stack' },
+    h('div', { class: 'panel' },
+      h('div', { class: 'row' }, h('button', { type: 'button', class: 'ghost', text: '← Dossiers', onclick: back })),
+      h('h2', { text: p.title }),
+      p.context ? h('p', { class: 'small muted', text: p.context }) : null,
+      bar(pr.pct),
+      h('p', { class: 'small', text: `${pr.d}/${pr.n} étapes faites${p.playbook_title ? ` · démarche : ${p.playbook_title}` : ''}${p.status === 'done' ? ' · terminé' : ''}` }),
+      p.origin === 'claude' ? h('p', { class: 'small warn-ink', text: 'Étapes proposées par Claude : vérifiez-les (les sources sont sous chaque étape).' }) : null,
+      p.checks?.length ? h('ul', { class: 'small' }, p.checks.map(t => h('li', { text: t }))) : null,
+      p.missing?.length ? h('div', { class: 'stack' }, h('span', { class: 'label', text: 'À clarifier' }), h('ul', { class: 'small' }, p.missing.map(t => h('li', { text: t })))) : null,
+      h('div', { class: 'row' },
+        h('button', { type: 'button', text: '+ Étape', onclick: () => stepSheet(p, null, (steps, log) => saveProject(p, { steps }, log), { note: true }) }),
+        h('button', { type: 'button', text: 'Rapport', onclick: () => reportSheet(p) }),
+        h('button', { type: 'button', text: p.playbook_id ? 'Mettre à jour la démarche' : 'Enregistrer comme démarche', onclick: () => saveAsPlaybook(p) }),
+        h('button', { type: 'button', class: 'ghost', text: p.status === 'done' ? 'Rouvrir' : 'Terminer', onclick: () => saveProject(p, { status: p.status === 'done' ? 'open' : 'done' }, p.status === 'done' ? 'Dossier rouvert' : 'Dossier terminé') }),
+        dangerButton('Supprimer', async () => { await db.doc('projects/' + p.id).delete(); back(); toast('Dossier supprimé') }))),
+    h('div', { class: 'panel' }, h('h2', { text: 'Étapes' }),
+      ...(p.steps.length ? p.steps.map((st, i) => stepView(p, st, i)) : [h('p', { class: 'muted small', text: 'Aucune étape : « + Étape ».' })])),
+    h('div', { class: 'panel' }, h('h2', { text: 'Journal' }),
+      h('div', { class: 'row' }, jl, h('button', { type: 'button', text: 'Ajouter', onclick: async () => { const t = jl.value.trim(); if (t) { jl.value = ''; await saveProject(p, {}, t) } } })),
+      ...(p.journal || []).slice(0, 20).map(j => h('p', { class: 'small' }, h('span', { class: 'muted', text: fmtWhen(j.at) + ' · ' }), j.text))))
+}
+function stepView(p, st, i) {
+  const person = ownerPerson(st.owner)
+  const blockers = (st.needs || []).map(k => p.steps.find(x => x.key === k)).filter(x => x && x.status !== 'fait')
+  const composer = h('div', { class: 'composer', hidden: true })
+  const show = node => { composer.hidden = false; composer.replaceChildren(node) }
+  const where = [person?.department, person?.location].filter(Boolean).join(' · ')
+  return h('div', { class: `step s-${st.status}${blockers.length && st.status !== 'fait' ? ' blocked' : ''}` },
+    h('div', { class: 'top' }, h('strong', { text: `${i + 1}. ${st.title}` }), h('span', { class: 'pill ' + (STEP_TONE[st.status] || ''), text: (STEP_STATUS[st.status] || st.status) + (st.status !== 'a_faire' && st.since ? ` · ${fmtDate(st.since)}` : '') })),
+    h('p', { class: 'small' }, '→ ',
+      person ? h('button', { type: 'button', class: 'ghost', text: person.name || person.addr, onclick: () => personSheet(person) }) : h('span', { text: st.owner?.name === TBD ? TBD : 'vous' }),
+      where ? h('span', { class: 'muted', text: ' · ' + where }) : null),
+    blockers.length && st.status !== 'fait' ? h('p', { class: 'small warn-ink', text: 'Attend : ' + blockers.map(b => b.title).join(' ; ') }) : null,
+    st.output ? h('p', { class: 'small muted', text: 'Résultat attendu : ' + st.output }) : null,
+    st.how ? h('p', { class: 'small', text: st.how }) : null,
+    st.note ? h('p', { class: 'small' }, h('strong', { text: 'Note : ' }), st.note) : null,
+    st.src_ids?.length ? h('div', { class: 'row' }, h('span', { class: 'small muted', text: 'Sources :' }), srcChips(p, st.src_ids)) : null,
+    st.from ? h('p', { class: 'small muted', text: 'Source : ' + st.from }) : null,
+    chipGroup(STEP_STATUS, st.status, v => setStepStatus(p, st, v)),
+    h('div', { class: 'row' },
+      person?.addr ? h('button', { type: 'button', text: 'Email', onclick: () => show(emailComposer(stepMail(p, st, person), person)) }) : null,
+      person ? h('button', { type: 'button', text: 'WhatsApp', onclick: () => show(waComposer(stepWa(p, st, person), person)) }) : null,
+      person ? h('button', { type: 'button', class: 'ghost', text: 'J’ai contacté…', onclick: () => logSheet({ person, topic: `${p.title} : ${st.title}` }) }) : null,
+      h('button', { type: 'button', class: 'ghost', text: 'Modifier / note', onclick: () => stepSheet(p, st, (steps, log) => saveProject(p, { steps }, log), { note: true }) })),
+    composer)
+}
+
+/** Edit or add a step of a dossier or a démarche. save(steps, journalText) persists; back(steps) reopens the caller. */
+function stepSheet(target, st, save, opts = {}) {
+  const isNew = !st
+  st = st || { key: newKey(), title: '', owner: {}, needs: [], status: 'a_faire' }
+  const f = {}
+  const inp = (k, label, val, a = {}) => {
+    f[k] = h(a.area ? 'textarea' : 'input', { id: 'sf-' + k, rows: a.area ? 3 : null, type: a.type || null, placeholder: a.ph || null }); f[k].value = val || ''
+    return h('div', { class: 'stack' }, h('label', { class: 'label', for: 'sf-' + k, text: label }), f[k])
+  }
+  const others = target.steps.filter(x => x.key !== st.key)
+  const needs = new Set(st.needs || [])
+  const needWrap = h('div', { class: 'chips' }, others.map(o => {
+    const b = h('button', { type: 'button', class: 'chip', 'aria-pressed': String(needs.has(o.key)), text: o.title.length > 48 ? o.title.slice(0, 46) + '…' : o.title,
+      onclick: () => { needs.has(o.key) ? needs.delete(o.key) : needs.add(o.key); b.setAttribute('aria-pressed', String(needs.has(o.key))) } })
+    return b
+  }))
+  const done = async (steps, log) => { await save(steps, log); if (opts.back) opts.back(steps); else closeSheet() }
+  const idx = target.steps.findIndex(x => x.key === st.key)
+  const move = d => { const steps = target.steps.slice(); const [x] = steps.splice(idx, 1); steps.splice(idx + d, 0, x); return done(steps, null) }
+  sheet(
+    h('h2', { text: isNew ? 'Nouvelle étape' : 'Étape' }),
+    inp('title', 'Étape (verbe à l’infinitif)', st.title, { ph: 'Ex : Faire valider la matrice de flux' }),
+    inp('name', 'Qui (vide = vous)', st.owner?.name), inp('addr', 'Email', st.owner?.addr, { type: 'email' }),
+    inp('team', 'Équipe', st.owner?.team), inp('location', 'Où le trouver', st.owner?.location, { ph: 'Ex : 6e étage' }),
+    inp('output', 'Résultat attendu', st.output, { ph: 'Ex : n° de ticket, adresse IP, DAT validé' }), inp('how', 'Comment / astuces', st.how, { area: true }),
+    opts.note ? inp('note', 'Note (avancement, n° de ticket…)', st.note, { area: true }) : null,
+    others.length ? h('span', { class: 'label', text: 'À faire après' }) : null, others.length ? needWrap : null,
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'primary', text: 'Enregistrer', onclick: async () => {
+        const title = f.title.value.trim()
+        if (!title) { toast('Indiquez l’étape'); return }
+        const owner = { name: f.name.value.trim(), addr: f.addr.value.trim().toLowerCase(), team: f.team.value.trim(), location: f.location.value.trim() }
+        const next = { ...st, title, owner, output: f.output.value.trim(), how: f.how.value.trim(), needs: [...needs], ...(opts.note ? { note: f.note.value.trim() } : {}) }
+        // A location noted on a step also goes on the person's card.
+        const person = ownerPerson(owner)
+        if (person && owner.location && person.location !== owner.location && !S.overlay.get(person.key)?.location) savePerson(person, { location: owner.location })
+        const steps = isNew ? [...target.steps, next] : target.steps.map(x => x.key === st.key ? next : x)
+        await done(steps, isNew ? `Étape ajoutée : ${title}` : opts.note && (next.note || '') !== (st.note || '') ? `${title} : ${next.note}` : null)
+      } }),
+      !isNew && idx > 0 ? h('button', { type: 'button', text: '↑', 'aria-label': 'Monter', onclick: () => move(-1) }) : null,
+      !isNew && idx < target.steps.length - 1 ? h('button', { type: 'button', text: '↓', 'aria-label': 'Descendre', onclick: () => move(1) }) : null,
+      !isNew ? dangerButton('Supprimer', () => done(target.steps.filter(x => x.key !== st.key).map(x => ({ ...x, needs: (x.needs || []).filter(k => k !== st.key) })), `Étape supprimée : ${st.title}`)) : null,
+      h('button', { type: 'button', class: 'ghost', text: 'Annuler', onclick: () => opts.back ? opts.back(target.steps) : closeSheet() })))
+}
+
+/* ── démarches ── */
+const playbookSteps = steps => steps.map(({ key, title, owner, needs, output, how, from }) => ({ key, title, owner: owner || {}, needs: needs || [], output: output || '', how: (how || '').replace(/^Supposition : /, ''), ...(from ? { from } : {}) }))
+async function savePlaybook(b, patch) {
+  const at = new Date().toISOString()
+  try {
+    if (b.id) await db.doc('playbooks/' + b.id).update({ ...patch, updated_at: at })
+    else { const { id: _, ...rest } = b; b.id = slug(patch.title || b.title) + '-' + Date.now().toString(36); await db.doc('playbooks/' + b.id).set({ ...rest, ...patch, updated_at: at }) }
+    return true
+  } catch (e) { toast('Enregistrement impossible : ' + (e?.message || 'réessayez')); return false }
+}
+function playbookSheet(b) {
+  const title = h('input', { 'aria-label': 'Nom de la démarche' }); title.value = b.title || ''
+  const when = h('textarea', { rows: 2, 'aria-label': 'Quand l’utiliser', placeholder: 'Quand l’utiliser (ex : un partenaire externe doit déposer des fichiers chez inwi)' }); when.value = b.when || ''
+  const cur = steps => ({ ...b, title: title.value.trim() || b.title, when: when.value.trim(), steps })
+  const back = steps => playbookSheet(cur(steps))
+  // A draft (from a capture) is only written when "Enregistrer" is tapped.
+  const save = b.id ? steps => savePlaybook(b, { steps }) : async () => {}
+  sheet(
+    h('h2', { text: b.id ? 'Démarche' : 'Nouvelle démarche (à vérifier)' }),
+    title, when,
+    b.note ? h('p', { class: 'small muted', text: b.note }) : null,
+    h('ol', { class: 'plain' }, b.steps.map(st => h('li', {},
+      h('button', { type: 'button', class: 'ghost', text: st.title, onclick: () => stepSheet(cur(b.steps), st, save, { back }) }),
+      h('span', { class: 'small muted', text: ' → ' + ownerText(st.owner) + (st.needs?.length ? ` · après ${st.needs.map(k => b.steps.findIndex(x => x.key === k) + 1).filter(Boolean).join(', ')}` : '') })))),
+    h('div', { class: 'row' },
+      h('button', { type: 'button', text: '+ Étape', onclick: () => stepSheet(cur(b.steps), null, save, { back }) }),
+      h('button', { type: 'button', class: 'primary', text: 'Enregistrer', onclick: async () => {
+        const c = cur(b.steps)
+        if (!c.title) { toast('Donnez un nom à la démarche'); return }
+        if (await savePlaybook(b, { title: c.title, when: c.when, steps: c.steps })) { closeSheet(); toast('Démarche enregistrée') }
+      } }),
+      b.id ? h('button', { type: 'button', text: 'Démarrer un dossier', onclick: () => newProjectSheet(cur(b.steps)) }) : null,
+      b.id ? dangerButton('Supprimer', async () => { await db.doc('playbooks/' + b.id).delete(); closeSheet(); toast('Démarche supprimée') }) : null,
+      h('button', { type: 'button', class: 'ghost', text: 'Fermer', onclick: closeSheet })))
+}
+async function saveAsPlaybook(p) {
+  const linked = p.playbook_id && S.playbooks.find(b => b.id === p.playbook_id)
+  const steps = playbookSteps(p.steps)
+  if (linked) { if (await savePlaybook(linked, { steps })) toast(`Démarche « ${linked.title} » mise à jour`) }
+  else playbookSheet({ id: null, title: p.title, when: p.context || '', steps, note: `Créée depuis le dossier « ${p.title} ».` })
+}
+
+/* ── new dossier ── */
+function newProjectSheet(base) {
+  let chosen = base
+  const title = h('input', { placeholder: 'Nom du dossier, ex : SFTP agence XYZ', 'aria-label': 'Nom du dossier' })
+  const ctx = h('textarea', { rows: 3, placeholder: 'De quoi s’agit-il ? Ex : donner à l’agence XYZ un accès VPN au SFTP pour les fichiers précontentieux' })
+  const note = h('p', { class: 'small muted', 'aria-live': 'polite' })
+  const pbWrap = h('div', { class: 'chips' })
+  const draw = () => {
+    const q = tokensOf(`${title.value} ${ctx.value}`)
+    const list = S.playbooks.slice().sort((x, y) => overlap(`${y.title} ${y.when || ''}`, q) - overlap(`${x.title} ${x.when || ''}`, q))
+    const chip = x => h('button', { type: 'button', class: 'chip', 'aria-pressed': String((chosen?.id || null) === (x?.id || null) && (!!chosen === !!x)), text: x ? x.title : 'Aucune',
+      onclick: () => { chosen = x; draw() } })
+    pbWrap.replaceChildren(...list.map(chip), chip(null))
+  }
+  ctx.addEventListener('change', draw); draw()
+  const create = async withClaude => {
+    const t = title.value.trim() || ctx.value.trim().slice(0, 60)
+    if (!t) { toast('Donnez un nom au dossier'); return }
+    const at = new Date().toISOString()
+    let steps = chosen ? chosen.steps.map(s => ({ ...s, status: 'a_faire', note: '' })) : []
+    let extra = { origin: chosen ? 'demarche' : 'vide' }
+    if (withClaude) {
+      for (const b of sheetButtons) b.disabled = true
+      note.textContent = 'Claude prépare les étapes… (20 à 60 s)'
+      try {
+        const r = await planSteps(t, ctx.value.trim(), chosen)
+        steps = r.steps; extra = { origin: 'claude', sources: r.sources, checks: r.checks, missing: r.missing }
+      } catch (e) {
+        note.textContent = { not_granted: 'Autorisez la page à utiliser Claude.', rate_limited: 'Limite atteinte, réessayez plus tard.', invalid_json: 'Réponse illisible : réessayez.' }[e?.code] || 'Échec : ' + (e?.message || e?.code || 'réessayez')
+        for (const b of sheetButtons) b.disabled = false
+        return
+      }
+    }
+    const id = slug(t) + '-' + Date.now().toString(36)
+    try {
+      await db.doc('projects/' + id).set({ title: t, context: ctx.value.trim(), playbook_id: chosen?.id || null, playbook_title: chosen?.title || null, status: 'open', at, updated_at: at, steps, ...extra,
+        journal: [{ at, text: 'Dossier créé' + (chosen ? ` depuis la démarche « ${chosen.title} »` : '') + (withClaude ? ', étapes proposées par Claude' : '') }] })
+      if (chosen?.id) savePlaybook(chosen, { runs: (chosen.runs || 0) + 1 })
+      closeSheet(); projOpen = id; goTab('proj')
+    } catch (e) { note.textContent = 'Enregistrement impossible : ' + (e?.message || 'réessayez') }
+  }
+  const sheetButtons = [
+    h('button', { type: 'button', class: 'primary', text: 'Créer', onclick: () => create(false) }),
+    sample ? h('button', { type: 'button', text: 'Proposer les étapes avec Claude', onclick: () => create(true) }) : null,
+  ].filter(Boolean)
+  sheet(
+    h('h2', { text: 'Nouveau dossier' }), title, ctx,
+    h('span', { class: 'label', text: 'Démarche de départ' }), pbWrap,
+    h('div', { class: 'row' }, ...sheetButtons, h('button', { type: 'button', class: 'ghost', text: 'Annuler', onclick: closeSheet })),
+    note,
+    h('p', { class: 'small muted', text: '« Créer » copie les étapes de la démarche. « Proposer les étapes avec Claude » l’adapte à ce dossier (ou part de rien) à partir de vos démarches, emails et documents, avec les sources ; vous corrigez ensuite.' }))
+}
+
+const PLAN_RULES = `Tu aides un chef de projet IT d'un opérateur télécom au Maroc à préparer un dossier : la liste ordonnée des étapes que les différentes équipes doivent faire, avec qui fait quoi.
+
+${SOURCE_RULES}
+
+Règles :
+- Si une DÉMARCHE DE BASE est indiquée, pars de ses étapes : garde-les, retire celles qui ne s'appliquent pas, ajoute celles que les données imposent pour ce dossier.
+- Sinon, déduis les étapes des démarches proches [B…], de l'annuaire [E…] (qui a traité quel type de demande, ce qu'il faut inclure) et de l'architecture [D…] (composants, flux, équipes).
+- Une étape = une action concrète avec un résultat attendu (DAT mis à jour, ticket créé, adresse IP, matrice de flux validée…), formulée avec un verbe à l'infinitif.
+- "qui" et "email" viennent uniquement des données, sinon "qui": "${TBD}" et "email": null.
+- "apres" : numéros (à partir de 1) des étapes qui doivent être finies avant.
+- Chaque étape a ses "sources" ; une étape sans source a "sources": [] et son "comment" commence par « Supposition : ».
+- "manques" : ce qu'il faut encore savoir pour lancer le dossier (questions précises).
+
+Réponds uniquement avec un objet JSON :
+{"etapes":[{"titre":"","qui":"","email":null,"equipe":"","resultat":"","comment":"","apres":[1],"sources":["B1","E3"]}],"manques":[""]}`
+
+async function planSteps(title, context, base) {
+  const src = newSources()
+  const query = `${title} ${context} ${base?.title || ''}`
+  src.set('S', 'saisie', 'Votre saisie (dossier)', `${title}\n${context}`)
+  const prompt = `${PLAN_RULES}
+
+=== DÉMARCHES ET DOSSIERS ===
+${playbooksBlock(30000, src) || '(aucun)'}
+=== ANNUAIRE ===
+${directoryBlock(80000, src) || '(vide)'}
+=== PERSONNES ===
+${peopleBlock(30000, src) || '(aucune)'}
+=== ARCHITECTURE & PÉRIMÈTRE ===
+${archBlock(55000, query, src) || '(aucun document)'}
+=== DOSSIER À PRÉPARER ===
+[S] ${title}${context ? ` : ${context}` : ''}${base ? `\nDÉMARCHE DE BASE : « ${base.title} » (voir DÉMARCHES ET DOSSIERS)` : ''}`
+  const r = await sample.json(prompt, { cache: false })
+  if (!r || !Array.isArray(r.etapes)) throw { code: 'invalid_json' }
+  // Same checks as an analysis: cited ids must exist, addresses must be in the data sent.
+  const known = new Set(Object.keys(src.map)), data = prompt.toLowerCase(), checks = [], cited = new Set()
+  const keys = r.etapes.map(() => newKey())
+  const steps = r.etapes.map((e, i) => {
+    if (!e?.titre) return null
+    const ids = (e.sources || []).map(String).filter(id => { const ok = known.has(baseId(id)); if (!ok) checks.push(`Étape ${i + 1} : source inexistante retirée (${id})`); return ok })
+    ids.forEach(id => cited.add(baseId(id)))
+    let addr = e.email ? String(e.email).toLowerCase().trim() : ''
+    if (addr && !data.includes(addr)) { checks.push(`Étape ${i + 1} : adresse ${addr} absente de vos données, retirée`); addr = '' }
+    let how = String(e.comment || '').trim()
+    if (!ids.length && !/^supposition/i.test(how)) how = 'Supposition : ' + how
+    return { key: keys[i], title: String(e.titre).trim(), owner: { name: e.qui || TBD, addr, team: e.equipe || '' }, output: e.resultat || '', how,
+      needs: (e.apres || []).map(n => keys[Number(n) - 1]).filter(k => k && k !== keys[i]), status: 'a_faire', note: '', src_ids: ids }
+  }).filter(Boolean)
+  return { steps, sources: keepSources(src.map, [...cited]), checks, missing: (r.manques || []).filter(Boolean).map(String).slice(0, 8) }
+}
+
+/* ── démarche from a Planner / Trello screenshot or pasted text ── */
+const CAPTURE_RULES = `Les images ou le texte ci-dessous viennent d'un outil de suivi de tâches (Planner, Trello, liste de contrôle…) ou d'un email d'un projet IT chez un opérateur télécom. Ils montrent les tâches réalisées pour un dossier. Extrais-en la démarche réutilisable : les étapes dans l'ordre, avec qui fait quoi.
+- Une étape = une action avec son responsable, formulée avec un verbe à l'infinitif. Les éléments d'une liste de contrôle deviennent des étapes s'ils sont faits par des personnes différentes.
+- "qui", "email", "lieu" (étage, bureau) : seulement s'ils sont écrits, sinon "". Recopie les adresses exactement.
+- "apres" : numéros (à partir de 1) des étapes qui doivent être finies avant, seulement si l'ordre l'impose clairement, sinon [].
+- Retire des titres ce qui est propre à ce dossier (nom du partenaire, étiquette entre crochets) et mets-le dans "exemple".
+- N'invente rien qui ne soit pas visible.
+Réponds uniquement avec un objet JSON :
+{"titre":"nom générique de la démarche","quand":"quand l'utiliser","exemple":"le dossier montré","etapes":[{"titre":"","qui":"","email":"","equipe":"","lieu":"","resultat":"","apres":[]}]}`
+
+function captureSheet() {
+  if (!sample) { toast('Claude n’est pas disponible dans cette vue'); return }
+  const files = h('input', { type: 'file', accept: limits?.images?.mediaTypes?.join(',') || 'image/*', multiple: true, id: 'cap-files', hidden: true })
+  const names = h('span', { class: 'small muted' })
+  files.addEventListener('change', () => { names.textContent = [...files.files].map(f => f.name).join(', ') })
+  const text = h('textarea', { rows: 5, placeholder: 'Ou collez le texte des tâches (copié depuis Planner, un email…)' })
+  const note = h('p', { class: 'small muted', 'aria-live': 'polite' })
+  const go = h('button', { type: 'button', class: 'primary', text: 'Extraire la démarche', onclick: async () => {
+    const imgs = [...files.files].slice(0, limits?.images?.maxCount || 1)
+    if (!imgs.length && !text.value.trim()) { toast('Ajoutez une capture ou du texte'); return }
+    if (imgs.length && !limits?.images) { toast('Les images ne peuvent pas être envoyées depuis cette vue'); return }
+    go.disabled = true; note.textContent = 'Claude lit les tâches… (20 à 60 s)'
+    try {
+      const pasted = redact(text.value.trim())
+      const r = await sample.json(`${CAPTURE_RULES}${pasted ? `\n\nTexte :\n${pasted}` : ''}${imgs.length ? `\n\n${imgs.length} capture(s) jointe(s).` : ''}`, { cache: false, ...(imgs.length ? { images: imgs } : {}) })
+      if (!r || !Array.isArray(r.etapes)) throw { code: 'invalid_json' }
+      const keys = r.etapes.map(() => newKey())
+      const day = new Date().toLocaleDateString('fr-FR')
+      const steps = r.etapes.map((e, i) => {
+        if (!e?.titre) return null
+        let addr = String(e.email || '').toLowerCase().trim()
+        // Pasted text can be checked; an address read on an image is kept for you to verify.
+        if (addr && !imgs.length && !pasted.toLowerCase().includes(addr)) addr = ''
+        return { key: keys[i], title: String(e.titre).trim(), owner: { name: e.qui || '', addr, team: e.equipe || '', location: e.lieu || '' }, output: e.resultat || '',
+          how: '', needs: (e.apres || []).map(n => keys[Number(n) - 1]).filter(k => k && k !== keys[i]), from: `${imgs.length ? 'capture' : 'texte collé'} du ${day}${r.exemple ? ` (${r.exemple})` : ''}` }
+      }).filter(Boolean)
+      playbookSheet({ id: null, title: r.titre || '', when: r.quand || '', steps, note: `Lu par Claude sur ${imgs.length ? 'une capture' : 'le texte collé'} le ${day}${r.exemple ? `, exemple : ${r.exemple}` : ''}. Vérifiez les noms, adresses et l’ordre avant d’enregistrer.` })
+    } catch (e) {
+      go.disabled = false
+      note.textContent = { not_granted: 'Autorisez la page à utiliser Claude.', rate_limited: 'Limite atteinte, réessayez plus tard.', invalid_json: 'Réponse illisible : réessayez.', image_rejected: 'Image refusée : essayez une autre capture.' }[e?.code] || 'Échec : ' + (e?.message || e?.code || 'réessayez')
+    }
+  } })
+  sheet(
+    h('h2', { text: 'Démarche depuis une capture' }),
+    h('p', { class: 'small muted', text: 'Une capture du tableau Planner, d’une carte avec sa liste de contrôle, ou le texte des tâches. Claude en tire les étapes, l’ordre et qui fait quoi ; vous vérifiez avant d’enregistrer.' }),
+    limits?.images ? h('div', { class: 'row' }, h('label', { class: 'btn', for: 'cap-files', text: 'Choisir des captures…' }), files, names) : null,
+    text,
+    h('div', { class: 'row' }, go, h('button', { type: 'button', class: 'ghost', text: 'Annuler', onclick: closeSheet })),
+    note)
+}
+
+/* ── report: built from the recorded statuses only, nothing generated ── */
+function reportText(list, days) {
+  const since = Date.now() - days * 86400e3
+  const recent = d => d && new Date(d).getTime() >= since
+  const who = s => hasOwner(s.owner) && s.owner.name !== TBD ? ` (${s.owner.name || s.owner.addr})` : ''
+  const L = [`Point d'avancement – ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`, '']
+  for (const p of list) {
+    const pr = progress(p)
+    L.push(`■ ${p.title} : ${pr.d}/${pr.n} étapes (${pr.pct} %)${p.status === 'done' ? ', terminé' : ''}`)
+    const block = (title, items, f) => { if (items.length) { L.push(`  ${title} :`); for (const x of items) L.push(`   - ${f(x)}`) } }
+    const note = s => s.note ? ` : ${s.note}` : ''
+    block(`Fait (${days} derniers jours)`, p.steps.filter(s => s.status === 'fait' && recent(s.done_at)), s => `${s.title}${who(s)}${note(s)}`)
+    block('En cours', p.steps.filter(s => s.status === 'en_cours'), s => `${s.title}${who(s)}${note(s)}`)
+    block('En attente', p.steps.filter(s => s.status === 'attente'), s => `${s.title}${who(s)}${s.since ? `, depuis le ${fmtDate(s.since)}` : ''}${note(s)}`)
+    block('Prochaines étapes', nextSteps(p).filter(s => s.status === 'a_faire').slice(0, 4), s => `${s.title}${who(s)}`)
+    block('À clarifier', p.missing || [], t => t)
+    L.push('')
+  }
+  const cases = S.cases.filter(c => c.status !== 'closed')
+  if (cases.length) {
+    L.push(`■ Incidents et demandes ouverts : ${cases.length}`)
+    for (const c of cases.slice(0, 8)) L.push(`   - ${String(c.result?.diagnostic?.probleme || c.result?.comprehension || c.text).slice(0, 140)} (${fmtDate(c.at)})`)
+  }
+  return L.join('\n').trim()
+}
+function reportSheet(p) {
+  let days = 7
+  const box = h('textarea', { class: 'report', 'aria-label': 'Rapport' })
+  const list = () => p ? [p] : S.projects.filter(x => x.status !== 'done' || new Date(x.updated_at || 0).getTime() >= Date.now() - days * 86400e3)
+  const subject = () => `Point d'avancement${p ? ` – ${p.title}` : ''} – ${new Date().toLocaleDateString('fr-FR')}`
+  const outlook = h('a', { class: 'btn', target: '_blank', rel: 'noopener', text: 'Outlook' })
+  const wa = h('a', { class: 'btn', target: '_blank', rel: 'noopener', text: 'WhatsApp' })
+  const sync = () => { outlook.href = outlookLink([], [], subject(), box.value); wa.href = `https://wa.me/?text=${enc(box.value)}` }
+  const fill = () => { box.value = list().length ? reportText(list(), days) : 'Aucun dossier.'; sync() }
+  box.addEventListener('input', sync)
+  fill()
+  sheet(
+    h('h2', { text: p ? `Rapport : ${p.title}` : 'Rapport d’avancement' }),
+    chipGroup({ 7: '7 jours', 14: '14 jours', 30: '30 jours' }, '7', v => { days = Number(v); fill() }),
+    box,
+    h('p', { class: 'small muted', text: 'Construit à partir des statuts et notes que vous avez enregistrés (rien n’est inventé). Modifiable avant envoi.' }),
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'primary', text: 'Copier', onclick: () => copy(box.value, box) }),
+      outlook, wa,
+      h('button', { type: 'button', class: 'ghost', text: 'Fermer', onclick: closeSheet })))
+}
 
 
 boot()
