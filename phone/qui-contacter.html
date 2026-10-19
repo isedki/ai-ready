@@ -202,8 +202,8 @@ nav.tabs .count { position: absolute; top: 6px; left: calc(50% + 8px); backgroun
     </div>
     <div class="panel">
       <h2>Architecture et périmètre</h2>
-      <p class="small muted">HLD, DAT, LLD, périmètre, exploitation : PDF, Word, PowerPoint, texte, ou photos de schémas. Le texte et les tableaux sont lus sur l'appareil (les mots de passe sont retirés), les schémas des PDF sont lus comme images (jusqu'à 8 par document). Claude en extrait les composants et leurs équipes, les serveurs, les flux, le support et le périmètre. Un gros DAT prend quelques minutes : gardez la page ouverte, de préférence sur ordinateur.</p>
-      <div class="row"><label class="btn primary" for="doc-file">Ajouter des documents</label><input id="doc-file" type="file" multiple accept=".pdf,.docx,.pptx,.txt,.md,image/*" hidden><span class="small muted" id="doc-progress"></span></div>
+      <p class="small muted">HLD, DAT, LLD, matrices de flux, périmètre, exploitation : PDF, Word, PowerPoint, Excel (xlsx, xls, csv), texte, ou photos de schémas. Le texte et les tableaux sont lus sur l'appareil (les mots de passe sont retirés), les schémas des PDF sont lus comme images (jusqu'à 8 par document). Claude en extrait les composants et leurs équipes, les serveurs, les flux, le support et le périmètre. Un gros DAT prend quelques minutes : gardez la page ouverte, de préférence sur ordinateur.</p>
+      <div class="row"><label class="btn primary" for="doc-file">Ajouter des documents</label><input id="doc-file" type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xlsm,.xls,.ods,.csv,.txt,.md,image/*,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden><span class="small muted" id="doc-progress"></span></div>
       <div id="docs"></div>
       <label class="label" for="arch-notes">Notes libres</label>
       <textarea id="arch-notes" rows="5" placeholder="Ex : Le portail client passe par l'API gateway (équipe Intégration) puis le middleware OSB vers le billing. La PREPROD est gérée par l'équipe Run."></textarea>
@@ -1557,6 +1557,7 @@ const LIBS = {
   pdf: ['https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js', 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'],
   docx: ['https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js'],
   pptx: ['https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'],
+  xlsx: ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'],
 }
 const loaded = {}
 function loadScript(src) {
@@ -1630,6 +1631,19 @@ async function extractDoc(file, progress) {
       text += `\n--- diapo ${i + 1} ---\n` + (shapes.length ? shapes.join('\n') : [...xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(m => dec(m[1])).join(' '))
     }
     return { text, pages: slides.length, diagrams: [] }
+  }
+  if (/\.(xlsx|xlsm|xls|ods|csv)$/.test(name)) {
+    await loadScript(LIBS.xlsx[0])
+    const wb = XLSX.read(new Uint8Array(await file.arrayBuffer()), { type: 'array' })
+    let text = ''
+    for (const sheet of wb.SheetNames) {
+      // One line per row, cells separated by " | " like PDF tables; empty rows and trailing cells dropped.
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheet], { header: 1, blankrows: false, defval: '', raw: false })
+        .map(r => { const c = r.map(v => String(v).replace(/\s+/g, ' ').trim()); while (c.length && !c[c.length - 1]) c.pop(); return c.join(' | ') })
+        .filter(r => r.replace(/[ |]/g, ''))
+      if (rows.length) text += `\n--- feuille ${sheet} ---\n${rows.join('\n')}`
+    }
+    return { text, pages: wb.SheetNames.length, diagrams: [] }
   }
   return { text: await file.text(), diagrams: [] }
 }
