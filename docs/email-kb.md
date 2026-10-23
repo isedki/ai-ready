@@ -78,6 +78,9 @@ in the Claude app, then Sources → *Importer kb.json* once after each build. On
   progress, waiting on whom since when, next steps, open incidents) from the recorded statuses only, ready to
   copy or send. Démarches and open dossiers are also given to the analysis ([B1] / [F1] sources), so an email
   about a dossier is tied to the right step;
+- **Moi** (Sources tab): your addresses, then those of people whose role you took over. They are marked VOUS
+  in everything sent to Claude: you are never suggested as the contact; when a request was theirs, the
+  analysis says it is yours and who to ask to get it done. The directory shows "→ Vous" on those entries;
 - close each case as réel / fausse alerte / doublon: past outcomes are used to spot false alarms and duplicates;
 - note people's WhatsApp number and location, log each contact (channel, result, 1–5 rating) and set a
   follow-up; the Suivis tab lists what to chase, with a ready-made French reminder.

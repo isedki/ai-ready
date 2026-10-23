@@ -228,6 +228,13 @@ nav.tabs .count { position: absolute; top: 6px; left: calc(50% + 8px); backgroun
       <div class="row"><button type="button" class="primary" id="test-btn">Lancer l’autotest</button><span class="small muted" id="test-progress"></span></div>
       <div id="tests"></div>
     </div>
+    <div class="panel">
+      <h2>Moi</h2>
+      <p class="small muted">Vos adresses, puis celles des personnes dont vous avez repris le rôle (une par ligne). L’analyse ne vous propose jamais comme contact : quand une demande leur revenait, elle vous dit que c’est à vous, et qui solliciter.</p>
+      <input id="me-name" placeholder="Votre nom" aria-label="Votre nom">
+      <textarea id="me-addrs" rows="3" placeholder="vous@exemple.ma&#10;ancien.titulaire@exemple.ma" aria-label="Adresses"></textarea>
+      <div class="row"><button type="button" id="save-me">Enregistrer</button><span class="small muted" id="me-state"></span></div>
+    </div>
     <div class="panel" id="examples-panel" hidden>
       <h2>Données d'exemple</h2>
       <p class="small muted">L'annuaire contient des exemples fictifs pour essayer la page. Ils disparaissent à l'import de votre kb.json.</p>
@@ -303,6 +310,12 @@ function signal(c) {
 /* ── state ───────────────────────────────────────────────── */
 const S = { entries: [], examples: false, chunks: [], overlay: new Map(), log: [], cases: [], docs: [], settings: {}, playbooks: [], projects: [], ready: false }
 let db = null, sample = null, limits = null, tab = 'ask', askSrc = 'email', ctl = null, current = null
+
+/* You: your own addresses first, then those of people whose role you took over (settings.me). */
+const meAddrs = () => (S.settings.me?.addrs || []).map(a => String(a).toLowerCase().trim()).filter(Boolean)
+const isMe = addr => !!addr && meAddrs().includes(String(addr).toLowerCase().trim())
+const meLabel = x => String(x?.addr || '').toLowerCase().trim() === meAddrs()[0] ? `VOUS (${S.settings.me?.name || 'l’utilisateur'})`
+  : `VOUS (${S.settings.me?.name || 'l’utilisateur'}, rôle repris de ${x?.name || x?.addr})`
 
 /* People = what the emails taught (directory) + what you added (overlay) + what you logged. */
 function people() {
@@ -381,6 +394,7 @@ function subscribe() {
     S.settings = s.data() || {}
     const ta = $('#arch-notes')
     if (document.activeElement !== ta && !ta.dataset.dirty) ta.value = S.settings.arch_notes || ''
+    if (![$('#me-name'), $('#me-addrs')].includes(document.activeElement)) { $('#me-name').value = S.settings.me?.name || ''; $('#me-addrs').value = (S.settings.me?.addrs || []).join('\n') }
     schedule()
   }), onDbError)
   db.collection('tests').orderBy('at', 'desc').limit(1).onSnapshot(s => { if (s.docs[0]) { S.lastTest = s.docs[0].data(); if (tab === 'src') renderTests() } }, onDbError)
@@ -439,7 +453,7 @@ const KIND_LABEL = { email: 'Emails', doc: 'Doc', fiche: 'Fiche', note: 'Vos not
 
 function directoryBlock(maxBytes, src) {
   const lines = S.entries.slice().sort((a, b) => (b.thread_count || 0) - (a.thread_count || 0)).map(e => {
-    const p = x => `${x.name || x.addr} <${x.addr}>${x.department ? ` (${x.department})` : ''}`
+    const p = x => isMe(x.addr) ? `${meLabel(x)} <${x.addr}>` : `${x.name || x.addr} <${x.addr}>${x.department ? ` (${x.department})` : ''}`
     const threads = (e.threads || []).map(t => `« ${t.subject} » (${String(t.date || '').slice(0, 10)})`)
     const body = [`${e.domain} › ${e.subdomain} › ${e.title}`,
       `à: ${(e.email_to || []).map(p).join(' ; ') || 'inconnu'}`,
@@ -471,7 +485,7 @@ function peopleBlock(maxBytes, src) {
     const st = stats(p.key)
     const last = st.logs[0]
     return { p, weight: st.logs.length * 3 + (p.phone ? 2 : 0) + (p.location ? 2 : 0) + (p.notes ? 3 : 0) + p.handles.length, body: [
-      `clé: ${p.key}`, p.name || '', p.department || '', p.location ? `lieu: ${p.location}` : '',
+      `clé: ${p.key}`, isMe(p.addr) ? meLabel(p) : '', p.name || '', p.department || '', p.location ? `lieu: ${p.location}` : '',
       `whatsapp: ${p.phone ? 'oui' : 'non'}`, p.notes ? `notes de l'utilisateur: ${p.notes}` : '',
       st.logs.length ? `évaluations de l'utilisateur: ${statsText(p.key)}` : '',
       last ? `dernier contact: ${CHANNELS[last.channel]} → ${OUTCOMES[last.outcome] || ''} il y a ${Math.round((now - new Date(last.at)) / 86400000)} j` : '',
@@ -556,7 +570,8 @@ function archBlock(maxBytes, query, src) {
 }
 
 const SOURCE_RULES = `SOURCES (obligatoire) : chaque ligne de données commence par un identifiant entre crochets : [E3] annuaire appris des emails (avec les sujets des emails), [D2 p.14] document d'architecture (page si indiquée), [P5] fiche personne (notes et évaluations de l'utilisateur), [C1] cas précédent, [B1] démarche (étapes habituelles notées par l'utilisateur), [F1] dossier en cours (état de chaque étape), [N] notes d'architecture de l'utilisateur, [S] la situation saisie, [U1] une précision ajoutée, [V] vérifications cochées.
-Pour chaque affirmation, mets dans "sources" les identifiants exacts qui la justifient (garde la page pour un document, ex. "D2 p.14"). Une affirmation sans donnée qui la justifie a "sources": [] et son texte commence par « Supposition : ». N'utilise jamais un identifiant absent des données. N'affirme jamais un nom de personne, une adresse, un téléphone, un serveur ou un composant qui n'apparaît pas dans les données ou la situation. Si les données ne permettent pas de répondre, dis-le.`
+Pour chaque affirmation, mets dans "sources" les identifiants exacts qui la justifient (garde la page pour un document, ex. "D2 p.14"). Une affirmation sans donnée qui la justifie a "sources": [] et son texte commence par « Supposition : ». N'utilise jamais un identifiant absent des données. N'affirme jamais un nom de personne, une adresse, un téléphone, un serveur ou un composant qui n'apparaît pas dans les données ou la situation. Si les données ne permettent pas de répondre, dis-le.
+Une personne marquée VOUS est l'utilisateur lui-même (y compris quand il a repris le rôle de quelqu'un) : ne la propose jamais comme contact à solliciter. Si les données disent que c'est elle qui traite la demande, dis clairement que c'est à l'utilisateur de la traiter, et propose les personnes qu'il doit solliciter pour le faire (approbation, équipes qui exécutent, copies).`
 
 const ASK_RULES = `Tu assistes un chef de projet IT d'un opérateur télécom au Maroc. Il reçoit un email, un appel ou une demande. Avant de déranger l'équipe suivante, il doit (1) comprendre précisément le problème, (2) juger s'il est réel ou si c'est une fausse alerte, (3) vérifier qu'il a assez d'éléments pour que l'équipe suivante puisse agir sans revenir vers lui, puis (4) savoir QUI contacter, PAR QUEL CANAL, avec quelle CONFIANCE.
 
@@ -691,6 +706,7 @@ function verifyResult(r, src, prompt) {
   })
   ;(r.suggestions || []).forEach(s => {
     claim(`Contact « ${s.qui} »`, s.sources, s.pourquoi)
+    if (isMe(s.email) || isMe(s.cle)) issues.push({ level: 'warn', text: `Contact « ${s.qui} » : c’est vous (${S.settings.me?.name || 'vos adresses'}) : la demande vous revient` })
     if (s.email && !data.includes(String(s.email).toLowerCase())) {
       issues.push({ level: 'bad', text: `Contact « ${s.qui} » : l’adresse ${s.email} n’existe pas dans vos données, elle a été retirée` })
       s.email_retiree = s.email; s.email = null
@@ -1450,6 +1466,8 @@ function entryView(e) {
   const all = people()
   return h('div', { class: 'entry' },
     h('div', { class: 'row' }, h('strong', { text: e.title }), e.example ? h('span', { class: 'pill ex', text: 'exemple' }) : null, h('span', { class: 'pill ' + (e.confidence === 'high' ? 'good' : e.confidence === 'medium' ? 'warn' : ''), text: `${e.thread_count || 0} fil${(e.thread_count || 0) > 1 ? 's' : ''}` })),
+    to && isMe(to.addr) ? h('p', { class: 'small' }, h('strong', { text: '→ Vous' }), h('span', { class: 'muted', text: meAddrs()[0] === to.addr.toLowerCase() ? '' : ` (rôle repris de ${to.name || to.addr})` }),
+      e.email_to.length > 1 ? h('span', { class: 'muted', text: ' · aussi : ' + e.email_to.slice(1).map(x => x.name || x.addr).join(', ') }) : null) :
     to ? h('p', { class: 'small' }, '→ ', h('button', { type: 'button', class: 'ghost', text: to.name || to.addr, onclick: () => personSheet(all.get(personKey(to.addr))) }), to.department ? h('span', { class: 'muted', text: ` (${to.department})` }) : null) : h('p', { class: 'small muted', text: 'Contact inconnu' }),
     e.approval?.length ? h('p', { class: 'small muted', text: 'Approbation : ' + e.approval.map(p => p.name || p.addr).join(', ') }) : null,
     e.include?.length ? h('p', { class: 'small muted', text: 'Inclure : ' + e.include.map(n => n.text).join(' ; ') }) : null,
@@ -1573,6 +1591,13 @@ $('#save-notes').addEventListener('click', async () => {
   if (!db) return
   await db.doc('config/settings').set({ ...S.settings, arch_notes: notesArea.value })
   delete notesArea.dataset.dirty; $('#notes-state').textContent = 'Enregistré'
+})
+
+$('#save-me').addEventListener('click', async () => {
+  if (!db) return
+  const addrs = $('#me-addrs').value.split(/[\s,;]+/).map(a => a.trim().toLowerCase()).filter(a => a.includes('@'))
+  await db.doc('config/settings').set({ ...S.settings, me: { name: $('#me-name').value.trim(), addrs } })
+  $('#me-state').textContent = 'Enregistré'
 })
 
 const LIBS = {
@@ -1791,7 +1816,7 @@ let projOpen = null   // id of the project shown in the Dossiers tab
 
 const hasOwner = o => !!(o && (o.name || o.addr))
 const ownerText = o => !hasOwner(o) ? 'vous' : [o.name || o.addr, o.team, o.location].filter(Boolean).join(' · ')
-const ownerLine = o => !hasOwner(o) ? 'le chef de projet' : `${o.name || ''}${o.addr ? ` <${o.addr}>` : ''}${o.team ? ` (${o.team})` : ''}${o.location ? ` · ${o.location}` : ''}`
+const ownerLine = o => !hasOwner(o) ? 'le chef de projet' : isMe(o.addr) ? meLabel(o) : `${o.name || ''}${o.addr ? ` <${o.addr}>` : ''}${o.team ? ` (${o.team})` : ''}${o.location ? ` · ${o.location}` : ''}`
 /** The step owner as a person card: the known card when the address is known, else a temporary one. */
 function ownerPerson(o) {
   if (!hasOwner(o) || o.name === TBD) return null
