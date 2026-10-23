@@ -238,6 +238,8 @@ export async function foldAll(db: DB, runner: Runner, opts: { window: 'month' | 
   }
   const totals = { windows: windows.size, created: 0, failed: 0 }
   for (const k of [...windows.keys()].sort()) {
+    // Months are replayed in order: after a usage limit, stop and resume from this month next time.
+    if (runner.stopped) break
     const r = await foldWindow(db, runner, k, windows.get(k)!, opts.log)
     totals.created += r.created
     totals.failed += r.failed

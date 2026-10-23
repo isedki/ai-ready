@@ -1,5 +1,7 @@
 import Anthropic           from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
+import { spawn, spawnSync } from 'node:child_process'
+import { tmpdir }          from 'node:os'
 import type { z }          from 'zod'
 import type { DB }         from './db'
 
@@ -26,6 +28,8 @@ export type JobResult<T> = { ok: true; value: T } | { ok: false; error: string }
 
 export interface Runner {
   run<T>(kind: string, label: string, jobs: Job<T>[]): Promise<Map<string, JobResult<T>>>
+  /** Set when the runner gave up for good (usage limit): jobs not run are absent from the results. */
+  stopped?: string
 }
 
 /* ── pricing, $ per million tokens (list prices; batch is 50% off) ────── */
@@ -154,5 +158,77 @@ export class AnthropicRunner implements Runner {
       }
     }
     this.db.prepare("UPDATE batches SET status = 'collected' WHERE id = ?").run(batchId)
+  }
+}
+
+/* ── Claude subscription, through the Claude Code CLI ──────────────────────
+ * No API key: each job is one `claude -p` call, billed to the Claude plan the CLI is logged in with
+ * (counts toward its usage limits). No tools, no MCP servers, no settings or CLAUDE.md: only the
+ * job's own instructions, and the answer is checked against the same JSON schema.
+ */
+const CLAUDE_BIN = process.env.KB_CLAUDE_BIN ?? (process.platform === 'win32' ? 'claude.cmd' : 'claude')
+const LIMIT = /usage limit|limit reached|rate.?limit|429|quota|out of (extra )?usage|credit balance/i
+
+export function claudeCliStatus(): string | null {
+  const r = spawnSync(CLAUDE_BIN, ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' })
+  return r.status === 0 ? r.stdout.trim() : null
+}
+
+export class ClaudeCodeRunner implements Runner {
+  stopped?: string
+
+  constructor(private db: DB, private log: (s: string) => void = console.log) {}
+
+  private call<T>(kind: string, job: Job<T>): Promise<JobResult<T> & { limit?: boolean }> {
+    const { schema } = zodOutputFormat(job.schema as z.ZodType<T> & z.ZodObject)
+    const args = ['-p', '--output-format', 'json', '--model', job.model, '--system-prompt', job.system,
+      '--json-schema', JSON.stringify(schema), '--tools', '', '--strict-mcp-config', '--setting-sources', '', '--no-session-persistence']
+    return new Promise(resolve => {
+      // Run from an empty folder so no project CLAUDE.md is picked up.
+      const child = spawn(CLAUDE_BIN, args, { cwd: tmpdir(), stdio: ['pipe', 'pipe', 'pipe'], shell: process.platform === 'win32' })
+      let out = '', err = ''
+      const timer = setTimeout(() => child.kill(), Number(process.env.KB_CALL_TIMEOUT_S ?? 300) * 1000)
+      child.stdout.on('data', d => { out += d })
+      child.stderr.on('data', d => { err += d })
+      child.on('error', e => { clearTimeout(timer); resolve({ ok: false, error: `cannot start ${CLAUDE_BIN}: ${e.message}` }) })
+      child.on('close', code => {
+        clearTimeout(timer)
+        let res: { is_error?: boolean; subtype?: string; result?: string; structured_output?: unknown; usage?: Record<string, number>; modelUsage?: Record<string, unknown> } | null = null
+        try { res = JSON.parse(out) } catch { /* not JSON: an error message */ }
+        if (!res || res.is_error || code !== 0) {
+          const msg = (res?.result || err || out || `exit ${code}`).toString().trim().slice(0, 300)
+          return resolve({ ok: false, error: msg, limit: LIMIT.test(msg) })
+        }
+        const u = res.usage ?? {}
+        this.db.prepare(`INSERT INTO llm_calls(kind, model, batch, input_tokens, output_tokens, cache_read, cache_write, created_at)
+          VALUES (?, ?, 0, ?, ?, ?, ?, ?)`).run(kind, `${job.model} (abonnement)`, u.input_tokens ?? 0, u.output_tokens ?? 0,
+          u.cache_read_input_tokens ?? 0, u.cache_creation_input_tokens ?? 0, new Date().toISOString())
+        const parsed = job.schema.safeParse(res.structured_output ?? (() => { try { return JSON.parse(res!.result ?? '') } catch { return undefined } })())
+        resolve(parsed.success ? { ok: true, value: parsed.data } : { ok: false, error: parsed.error.message.slice(0, 300) })
+      })
+      child.stdin.end(job.user)
+    })
+  }
+
+  async run<T>(kind: string, _label: string, jobs: Job<T>[]): Promise<Map<string, JobResult<T>>> {
+    const out = new Map<string, JobResult<T>>()
+    if (this.stopped) return out
+    const concurrency = Number(process.env.KB_CONCURRENCY ?? 4)
+    let next = 0, done = 0
+    const worker = async () => {
+      while (next < jobs.length && !this.stopped) {
+        const job = jobs[next++]
+        const r = await this.call(kind, job)
+        if (r.limit) {
+          // Leave this job and the rest unanswered: they stay pending and run on the next attempt.
+          this.stopped = r.ok ? 'usage limit' : r.error
+          break
+        }
+        out.set(job.id, r.ok ? { ok: true, value: r.value } : { ok: false, error: r.error })
+        if (++done % 25 === 0) this.log(`  ${done}/${jobs.length}`)
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, worker))
+    return out
   }
 }

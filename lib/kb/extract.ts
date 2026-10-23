@@ -31,15 +31,17 @@ export async function extractThreads(db: DB, runner: Runner, threads: ThreadRow[
   const results = await runner.run('extract', 'extract', jobs)
   const save   = db.prepare('INSERT OR REPLACE INTO extractions(thread_id, json, model, created_at) VALUES (?, ?, ?, ?)')
   const status = db.prepare('UPDATE threads SET status = ? WHERE id = ?')
-  const counts = { relevant: 0, irrelevant: 0, failed: 0, items: 0 }
+  const counts = { relevant: 0, irrelevant: 0, failed: 0, items: 0, notRun: 0 }
   const errors: string[] = []
 
   tx(db, () => {
     for (const t of threads) {
       const r = results.get(t.id)
-      if (!r || !r.ok) {
+      // Not run (the runner stopped at a usage limit): stays pending for the next run.
+      if (!r) { counts.notRun++; continue }
+      if (!r.ok) {
         counts.failed++
-        errors.push(`${t.id}: ${r ? r.error : 'missing result'}`)
+        errors.push(`${t.id}: ${r.error}`)
         status.run('failed', t.id)
         continue
       }

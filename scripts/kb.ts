@@ -1,6 +1,9 @@
 /**
  * Email → "who to ask for what" directory, clustered by domain / subdomain.
  *
+ * Uses your Claude subscription through the Claude Code CLI (`claude`, logged in once), or the API
+ * when ANTHROPIC_API_KEY is set (.env.local). KB_BACKEND=claude|api forces one.
+ *
  *   npm run kb -- run dump.pst               everything in one go (asks before spending); also for later updates
  *   npm run ask                              open the "qui contacter pour quoi ?" page
  *
@@ -9,7 +12,7 @@
  *   npm run kb -- teams teams.json           optional: force departments for addresses / @domains
  *   npm run kb -- estimate                   token count and cost estimate before spending anything
  *   npm run kb -- extract --sample 150 --sync   trial run on a random sample
- *   npm run kb -- extract                    pass 1 over every pending thread (Batch API, 50% off)
+ *   npm run kb -- extract                    pass 1 over every pending thread (API: Batch API, 50% off)
  *   npm run kb -- fold                       pass 2: replay month by month into directory entries
  *   npm run kb -- render --out kb-out        README.md by domain, directory.csv, contacts.md, kb.json
  *   npm run kb -- stats                      progress and spend so far
@@ -23,14 +26,14 @@ import { buildThreads, unifyExchangeAddresses } from '../lib/kb/threads'
 import { extractThreads, selectPending } from '../lib/kb/extract'
 import { foldAll }                  from '../lib/kb/fold'
 import { renderAll }                from '../lib/kb/render'
-import { AnthropicRunner, MODELS, costOf, knownPrice } from '../lib/kb/llm'
+import { AnthropicRunner, ClaudeCodeRunner, claudeCliStatus, MODELS, costOf, knownPrice, type Runner } from '../lib/kb/llm'
 import { estimateTokens }           from '../lib/kb/clean'
 import { extractSystem }            from '../lib/kb/prompts'
 import { loadTaxonomy }             from '../lib/kb/taxonomy'
 
 const USAGE = readFileSync(__filename, 'utf8').split('*/')[0].replace(/^\/\*\*\n/, '').replace(/^ \* ?/gm, '')
 
-// The API key lives in .env.local (shared with `npm run ask`).
+// An API key, if you use one, lives in .env.local (shared with `npm run ask`).
 if (existsSync('.env.local')) process.loadEnvFile('.env.local')
 
 const [cmd, ...rest] = process.argv.slice(2)
@@ -51,11 +54,22 @@ async function confirm(question: string): Promise<boolean> {
 
 async function main() {
   const db = openDb()
-  const runner = () => {
-    if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
-      throw new Error('No API key. Create a file named .env.local in this folder containing:\nANTHROPIC_API_KEY=sk-ant-…')
+  const backend = process.env.KB_BACKEND ?? (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN ? 'api' : 'claude')
+  const subscription = backend !== 'api'
+  let shared: Runner | null = null
+  const runner = (): Runner => {
+    if (shared) return shared
+    if (subscription) {
+      if (!claudeCliStatus()) throw new Error('Claude Code is not installed (it runs the analysis on your Claude subscription). Install it once:\n  npm install -g @anthropic-ai/claude-code\nthen type  claude  and log in with your Claude account (Pro or Max), type /exit, and run this command again.')
+      return (shared = new ClaudeCodeRunner(db, log))
     }
-    return new AnthropicRunner(db, flag('sync') ? 'sync' : 'batch', log)
+    return (shared = new AnthropicRunner(db, flag('sync') ? 'sync' : 'batch', log))
+  }
+  const stoppedNote = () => {
+    if (!runner().stopped) return false
+    log(`\nStopped: your Claude plan's usage limit was reached (${runner().stopped}).`)
+    log('Nothing is lost. Run the same command again once the limit resets (the message from Claude says when): it continues where it stopped.')
+    return true
   }
 
   const ingest = async (paths: string[]) => {
@@ -100,9 +114,9 @@ async function main() {
   const extract = async (sel: { sample?: number; limit?: number } = {}, model = MODELS.extract) => {
     const threads = selectPending(db, sel)
     if (threads.length === 0) return log('nothing new to extract')
-    log(`reading ${threads.length} threads with ${model} (${flag('sync') ? 'immediate' : 'Batch API — usually under an hour'})`)
+    log(`reading ${threads.length} threads with ${model} (${subscription ? 'Claude subscription, several at a time' : flag('sync') ? 'immediate' : 'Batch API — usually under an hour'})`)
     const r = await extractThreads(db, runner(), threads, loadTaxonomy(), model)
-    log(`relevant ${r.relevant} (${r.items} requests), irrelevant ${r.irrelevant}, failed ${r.failed}`)
+    log(`relevant ${r.relevant} (${r.items} requests), irrelevant ${r.irrelevant}, failed ${r.failed}${r.notRun ? `, not yet read ${r.notRun}` : ''}`)
     r.errors.slice(0, 10).forEach(e => log(`  ${e}`))
     if (r.failed) log(`Failed threads can be re-queued with: npm run kb -- retry`)
   }
@@ -110,6 +124,7 @@ async function main() {
   const fold = async () => {
     const window = (opt('window') ?? 'month') as 'month' | 'quarter'
     const r = await foldAll(db, runner(), { window, log })
+    if (runner().stopped) return
     log(`${r.windows} months processed, ${r.created} new entries${r.failed ? `, ${r.failed} threads failed (run again to retry)` : ''}`)
   }
 
@@ -135,14 +150,18 @@ async function main() {
       if (positional.length) await ingest(positional)
       const pending = (db.prepare("SELECT COUNT(*) n FROM threads WHERE status = 'pending'").get() as { n: number }).n
       if (pending > 0) {
-        runner() // fail before asking if there is no API key
-        const cost = estimate(true)
-        if (!(await confirm(`Analyse ${pending} threads for about ${usd(cost)}?`))) { log('Stopped; nothing was spent.'); break }
+        runner() // fail before asking if Claude Code / the API key is missing
+        const question = subscription
+          ? `Analyse ${pending} threads with your Claude subscription (about ${pending} short requests to ${MODELS.extract}; they count toward your plan's usage limits, no extra charge)?`
+          : `Analyse ${pending} threads for about ${usd(estimate(true))}?`
+        if (!(await confirm(question))) { log('Stopped; nothing was used.'); break }
         await extract()
+        if (stoppedNote()) { render(); break }
       }
       await fold()
+      if (stoppedNote()) { render(); break }
       render()
-      log(`total spend so far ≈ ${usd(spend().total)}`)
+      if (!subscription) log(`total spend so far ≈ ${usd(spend().total)}`)
       log(`\nDone. On the phone: open the "Qui contacter" page in the Claude app → Sources → Importer kb.json (file: kb-out/kb.json).`)
       log(`On this laptop: npm run ask`)
       break
@@ -198,9 +217,10 @@ async function main() {
       const { calls, total } = spend()
       for (const c of calls) {
         const cost = costOf(c.model, { input: c.i, output: c.o, cacheRead: c.cr, cacheWrite: c.cw }, c.batch === 1)
-        log(`  ${c.kind.padEnd(8)} ${c.model.padEnd(18)} ${c.batch ? 'batch' : 'sync '} ${String(c.n).padStart(6)} calls  in ${c.i} out ${c.o} cache-read ${c.cr}  ≈ ${knownPrice(c.model) ? usd(cost) : '?'}`)
+        const price = c.model.endsWith('(abonnement)') ? 'Claude subscription' : knownPrice(c.model) ? `≈ ${usd(cost)}` : '?'
+        log(`  ${c.kind.padEnd(8)} ${c.model.padEnd(18)} ${c.batch ? 'batch' : 'sync '} ${String(c.n).padStart(6)} calls  in ${c.i} out ${c.o} cache-read ${c.cr}  ${price}`)
       }
-      log(`spend so far ≈ ${usd(total)} (list prices; questions asked in the assistant are not included)`)
+      if (calls.some(c => !c.model.endsWith('(abonnement)'))) log(`API spend so far ≈ ${usd(total)} (list prices; questions asked in the assistant are not included)`)
       break
     }
 

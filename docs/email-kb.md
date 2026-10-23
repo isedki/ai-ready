@@ -2,11 +2,13 @@
 
 ## Quick start (laptop, ~15 minutes of your time)
 
+It runs on your **Claude subscription** (Pro or Max) through Claude Code. No API key is needed.
+
 **Once:**
 1. Install [Node.js 22 or newer](https://nodejs.org) (LTS).
-2. In this folder: `npm install`
-3. Create a file named `.env.local` in this folder with one line: `ANTHROPIC_API_KEY=sk-ant-…`
-   (key from console.anthropic.com → API keys).
+2. Install Claude Code and log in with your Claude account:
+   `npm install -g @anthropic-ai/claude-code`, then type `claude`, log in, and type `/exit`.
+3. Get this project (GitHub → branch → Code → Download ZIP, or `git clone`), then in its folder: `npm install`
 4. Optional: edit `config/kb-taxonomy.json` so the domains match inwi's organisation.
 
 **Build the directory** (Outlook → File → Open & Export → Import/Export → Export to a file → .pst):
@@ -15,10 +17,17 @@
 npm run kb -- run "C:\path\to\dump.pst"
 ```
 
-It shows the estimated cost and asks before spending (expect $1–3 for ~4,000 emails), then runs on its own
-(usually under an hour; leave the window open).
+Run it **from the project folder**, with the full path to the PST (e.g. `~/Downloads/archive.pst`). It asks
+before starting, then runs on its own (roughly 30–60 minutes for ~4,000 emails; leave the window open). Each
+email thread is one short request to Claude Haiku that counts toward your plan's usage limits, at no extra
+charge. If the limit is reached, it stops cleanly and says so: run the same command again after the reset and
+it continues where it stopped.
 
-**Use it, every day:**
+With an API key instead (`ANTHROPIC_API_KEY=…` in a `.env.local` file), it uses the Batch API (about $1–3 for
+~4,000 emails) and shows the cost before starting. `KB_BACKEND=claude` or `api` forces one or the other.
+
+**Use it, every day:** on the phone page (below), which also uses your subscription. The laptop page
+(`npm run ask`) needs an API key:
 
 ```bash
 npm run ask
@@ -150,7 +159,9 @@ Optional `teams.json` to force departments:
 
 ## Models and cost
 
-Both passes default to `claude-haiku-5-5` (`KB_EXTRACT_MODEL`, `KB_FOLD_MODEL`). Pass 2 only sees short
+On the subscription, each request is a `claude -p` call with no tools, no MCP servers and no settings, only the
+pass's own instructions, and the answer is checked against the same JSON schema (`KB_CONCURRENCY`, default 4
+at a time). Both passes default to `claude-haiku-5-5` (`KB_EXTRACT_MODEL`, `KB_FOLD_MODEL`). Pass 2 only sees short
 extracted items, so switching it to `claude-sonnet-5-5` for better matching costs a few dollars at most.
 For ~4,000 emails expect roughly **$1–3** for a full Haiku run with the Batch API; `estimate` gives a figure
 for your dump and `stats` reports actual spend.
