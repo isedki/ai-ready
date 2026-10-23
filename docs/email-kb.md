@@ -156,6 +156,7 @@ Optional `teams.json` to force departments:
 | `directory.csv` | Same, one row per request, for Excel / SharePoint |
 | `contacts.md` | People and shared mailboxes by department, with what they handle |
 | `kb.json` | Everything as JSON, for a web UI or a chat assistant |
+| `emails.xlsx` | With `npm run kb -- emails`: every email (date, folder, from, to, cc, subject, status, thread, requests learned, start of the text with secrets removed) and every thread, with filters |
 
 ## Models and cost
 

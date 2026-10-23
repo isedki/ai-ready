@@ -16,8 +16,10 @@
  *   npm run kb -- fold                       pass 2: replay month by month into directory entries
  *   npm run kb -- render --out kb-out        README.md by domain, directory.csv, contacts.md, kb.json
  *   npm run kb -- stats                      progress and spend so far
+ *   npm run kb -- emails                     Excel list of every email and thread, and what was learned from it
  */
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
+import { dirname }                  from 'node:path'
 import { createInterface }          from 'node:readline/promises'
 import { openDb, closeDb, tx }      from '../lib/kb/db'
 import { ingestPst }                from '../lib/kb/ingest/pst'
@@ -30,6 +32,7 @@ import { AnthropicRunner, ClaudeCodeRunner, claudeCliStatus, MODELS, costOf, kno
 import { estimateTokens }           from '../lib/kb/clean'
 import { extractSystem }            from '../lib/kb/prompts'
 import { loadTaxonomy }             from '../lib/kb/taxonomy'
+import { exportEmails }             from '../lib/kb/export'
 
 const USAGE = readFileSync(__filename, 'utf8').split('*/')[0].replace(/^\/\*\*\n/, '').replace(/^ \* ?/gm, '')
 
@@ -190,6 +193,14 @@ async function main() {
     case 'estimate':
       estimate()
       break
+
+    case 'emails': {
+      const out = opt('out') ?? 'kb-out/emails.xlsx'
+      mkdirSync(dirname(out), { recursive: true })
+      const r = exportEmails(db, out)
+      log(`${r.emails} emails and ${r.threads} threads → ${out}`)
+      break
+    }
 
     case 'extract':
       await extract({ sample: opt('sample') ? Number(opt('sample')) : undefined, limit: opt('limit') ? Number(opt('limit')) : undefined }, opt('model') ?? MODELS.extract)
