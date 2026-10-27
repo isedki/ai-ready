@@ -4,12 +4,16 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 
 type Source = { ref: string; kind: string; title: string; version: string | null; date: string | null; author: string | null; locator: string | null; heading: string | null; text: string }
 type Check  = { cited: string[]; unknown: string[]; unsourced: boolean }
+type Claim  = { text: string; refs: string[]; verdict: string; note: string }
+type Verification = { model: string; total: number; supported: number; flagged: Claim[] }
 type Qa = {
   question: string
   status:   string
   answer:   string
   sources:  Source[]
   check?:   Check
+  verify?:  Verification | null
+  verifyError?: string
   error?:   string
   meta?:    string
   done:     boolean
@@ -149,8 +153,9 @@ export default function Copilote() {
           else if (ev.type === 'source') update(idx, q => ({ ...q, sources: [...q.sources, ev.source] }))
           else if (ev.type === 'text') update(idx, q => ({ ...q, status: '', answer: q.answer + ev.delta }))
           else if (ev.type === 'error') update(idx, q => ({ ...q, error: ev.message, status: '' }))
+          else if (ev.type === 'verify') update(idx, q => ({ ...q, verify: ev.result, verifyError: ev.error, status: '' }))
           else if (ev.type === 'done') update(idx, q => ({
-            ...q, check: ev.check, done: true, status: '',
+            ...q, check: ev.check, status: '',
             meta: `${ev.model} · ${ev.usage.input.toLocaleString('fr-FR')} jetons lus (${ev.usage.cacheRead.toLocaleString('fr-FR')} en cache) · ${ev.usage.output.toLocaleString('fr-FR')} écrits`,
           }))
         }
@@ -204,6 +209,21 @@ export default function Copilote() {
                   Contrôle des sources : {q.check.unsourced ? 'aucune référence dans la réponse, à vérifier.' : ''}{q.check.unknown.length ? ` références inconnues ${q.check.unknown.join(', ')}.` : ''}
                 </p>
               )}
+              {q.verify && (
+                <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${q.verify.flagged.length ? 'border-amber-800 bg-amber-950/40 text-amber-200' : 'border-emerald-900 bg-emerald-950/40 text-emerald-300'}`}>
+                  <p className="font-medium">
+                    {q.verify.flagged.length
+                      ? `Fiabilité : ${q.verify.supported}/${q.verify.total} affirmations confirmées par leurs sources, ${q.verify.flagged.length} à vérifier`
+                      : `Fiabilité : ${q.verify.total}/${q.verify.total} affirmations confirmées par leurs sources`}
+                  </p>
+                  {q.verify.flagged.map((c, i) => (
+                    <p key={i} className="mt-1">
+                      <span className="uppercase tracking-wide text-amber-400">{c.verdict}</span> · « {c.text} »{c.refs.length ? ` [${c.refs.join(', ')}]` : ''}{c.note ? ` : ${c.note}` : ''}
+                    </p>
+                  ))}
+                </div>
+              )}
+              {q.verifyError && <p className="mt-3 text-xs text-zinc-500">Vérification indisponible : {q.verifyError}</p>}
               {q.meta && <p className="mt-3 font-mono text-[11px] text-zinc-600">{q.meta}</p>}
             </article>
           ))}

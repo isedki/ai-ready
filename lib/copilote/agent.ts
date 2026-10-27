@@ -2,6 +2,7 @@ import Anthropic  from '@anthropic-ai/sdk'
 import { z }      from 'zod'
 import { readAround, search, type Hit } from './search'
 import { openStore, stats, type Store } from './store'
+import { verifyAnswer, verifyEnabled, type Verification } from './verify'
 
 /**
  * The Copilote answers with an agentic retrieval loop: Claude decides what to search
@@ -23,6 +24,7 @@ export type Event =
   | { type: 'source'; source: Source }
   | { type: 'text'; delta: string }
   | { type: 'done'; answer: string; check: Check; model: string; usage: { input: number; output: number; cacheRead: number } }
+  | { type: 'verify'; result: Verification | null; error?: string }
   | { type: 'error'; message: string }
 
 function system(telco: boolean): string {
@@ -34,14 +36,16 @@ Méthode :
 
 Règles de réponse :
 1. Commence par la réponse en une phrase, puis des puces ou un tableau si c'est utile.
-2. Chaque fait sur le projet est suivi de la référence de son passage entre crochets, par exemple [S3] ou [S2, S5]. N'invente jamais un fait, un chiffre, une date, une adresse IP, un nom ou un engagement absent des passages.
-3. Si la base ne répond pas, écris « Pas trouvé dans la base », dis ce qui manque et qui ou quel document pourrait trancher (d'après l'annuaire ou le suivi si possible).
-4. Pour un engagement (contractuel, planning, livraison), distingue ce qui est écrit dans un contrat, un CR ou un document validé de ce qui est seulement dit dans un email ; donne la date et l'auteur.
-5. Si deux passages se contredisent, montre-le avec leurs dates au lieu de choisir ; le plus récent l'emporte seulement s'il le dit.
-6. ${telco
+2. Chaque fait sur le projet est suivi de la référence de son passage entre crochets, par exemple [S3] ou [S2, S5]. N'invente jamais un fait, un chiffre, une date, une adresse IP, un nom ou un engagement absent des passages. Recopie les chiffres, dates, noms et références exactement comme dans le passage.
+3. Croise les sources : une bonne réponse rassemble souvent plusieurs documents, emails et actions du suivi (par exemple un statut dans le suivi, la décision dans un CR, le détail technique dans le DAT). Cite chacun là où il sert.
+4. Tu peux en tirer une conclusion qui n'est écrite nulle part (un risque, une dépendance, une prochaine étape), à condition de l'écrire « Déduction : … », avec les références de ses prémisses et un niveau de confiance (élevé, moyen, faible). Ne présente jamais une déduction comme un fait.
+5. Si la base ne répond pas, écris « Pas trouvé dans la base », dis ce qui manque et qui ou quel document pourrait trancher (d'après l'annuaire ou le suivi si possible). Une réponse partielle dit ce qu'elle couvre et ce qu'elle ne couvre pas.
+6. Pour un engagement (contractuel, planning, livraison), distingue ce qui est écrit dans un contrat, un CR ou un document validé de ce qui est seulement dit dans un email ; donne la date et l'auteur.
+7. Si deux passages se contredisent, montre-le avec leurs dates au lieu de choisir ; le plus récent l'emporte seulement s'il le dit. Signale un fait daté de plus de 15 jours par « (au jj/mm) ».
+8. ${telco
     ? "Tu peux compléter avec tes connaissances générales du métier télécom et billing (définitions, bonnes pratiques) dans une partie séparée intitulée « Pratique telco (hors base) », sans référence."
     : "N'ajoute aucune connaissance extérieure à la base."}
-7. Pas de formules creuses, pas de superlatifs.`
+9. Pas de formules creuses, pas de superlatifs.`
 }
 
 const SearchInput = z.object({
@@ -187,5 +191,17 @@ export async function* answer(question: string, opts: { history?: Turn[]; telco?
     if (text && !text.endsWith('\n')) { text += '\n\n'; yield { type: 'text', delta: '\n\n' } }
   }
 
-  yield { type: 'done', answer: text, check: checkAnswer(text, new Set(sources.keys())), model: MODEL, usage }
+  const check = checkAnswer(text, new Set(sources.keys()))
+  yield { type: 'done', answer: text, check, model: MODEL, usage }
+
+  // Second reader: does each cited passage really say what the answer claims?
+  if (verifyEnabled() && check.cited.length) {
+    yield { type: 'status', text: 'Vérification des affirmations…' }
+    try {
+      const cited = check.cited.map(r => sources.get(r)).filter((s): s is Source => !!s)
+      yield { type: 'verify', result: await verifyAnswer(text, cited, opts.signal) }
+    } catch (err) {
+      if (!opts.signal?.aborted) yield { type: 'verify', result: null, error: (err as Error).message }
+    }
+  }
 }

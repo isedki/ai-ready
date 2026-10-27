@@ -82,6 +82,12 @@ async function main() {
         else if (ev.type === 'source') sources.push(`[${ev.source.ref}] ${ev.source.title}${ev.source.version ? ` v${ev.source.version}` : ''} · ${ev.source.date ?? ''} · ${ev.source.locator ?? ''}`)
         else if (ev.type === 'text') process.stdout.write(ev.delta)
         else if (ev.type === 'error') console.error(`\n${ev.message}`)
+        else if (ev.type === 'verify') {
+          if (ev.result) {
+            console.log(`Fiabilité : ${ev.result.supported}/${ev.result.total} affirmations confirmées (${ev.result.model})`)
+            for (const c of ev.result.flagged) console.log(`  ${c.verdict} · « ${c.text} » [${c.refs.join(', ')}] ${c.note}`)
+          } else console.log(`Vérification indisponible${ev.error ? ` : ${ev.error}` : ''}`)
+        }
         else if (ev.type === 'done') {
           const cited = new Set(ev.check.cited)
           console.log('\n\nSources citées :\n' + sources.filter(s => cited.has(s.slice(1, s.indexOf(']')))).join('\n'))
