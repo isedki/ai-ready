@@ -87,7 +87,9 @@ function Markdown({ text, cite }: { text: string; cite: (ref: string) => void })
 function SourceCard({ s, cited, active }: { s: Source; cited: boolean; active: boolean }) {
   const ref = useRef<HTMLDetailsElement>(null)
   useEffect(() => {
-    if (active && ref.current) { ref.current.open = true; ref.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }
+    if (!active || !ref.current) return
+    ref.current.open = true
+    if (window.matchMedia('(min-width: 1024px)').matches) ref.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [active])
   return (
     <details ref={ref} className={`rounded-lg border bg-zinc-900/60 ${active ? 'border-emerald-500' : cited ? 'border-zinc-700' : 'border-zinc-800 opacity-70'}`}>
@@ -97,8 +99,35 @@ function SourceCard({ s, cited, active }: { s: Source; cited: boolean; active: b
         {s.version && <span className="ml-1 text-zinc-500">v{s.version}</span>}
         <div className="mt-0.5 text-xs text-zinc-500">{[KIND[s.kind] ?? s.kind, s.date, s.locator].filter(Boolean).join(' · ')}</div>
       </summary>
-      <pre className="max-h-72 overflow-auto whitespace-pre-wrap border-t border-zinc-800 px-3 py-2 font-mono text-xs leading-relaxed text-zinc-300">{[s.author, s.heading].filter(Boolean).join(' · ')}{s.author || s.heading ? '\n\n' : ''}{s.text}</pre>
+      <Passage s={s} />
     </details>
+  )
+}
+
+function Passage({ s, tall }: { s: Source; tall?: boolean }) {
+  return (
+    <pre className={`${tall ? 'max-h-[55dvh]' : 'max-h-72'} overflow-auto whitespace-pre-wrap border-t border-zinc-800 px-3 py-2 font-mono text-xs leading-relaxed text-zinc-300`}>{[s.author, s.heading].filter(Boolean).join(' · ')}{s.author || s.heading ? '\n\n' : ''}{s.text}</pre>
+  )
+}
+
+/** On a phone the sources column sits below the answer, so a tapped [Sn] opens its passage in a sheet. */
+function SourceSheet({ s, onClose }: { s: Source; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-20 flex items-end bg-black/60 lg:hidden" onClick={onClose}>
+      <div role="dialog" aria-label={`Source ${s.ref}`} onClick={e => e.stopPropagation()}
+        className="w-full rounded-t-2xl border-t border-zinc-700 bg-zinc-900 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-start justify-between gap-3 px-4 pt-4 pb-2">
+          <div className="min-w-0 text-sm">
+            <span className="mr-2 font-mono text-xs text-emerald-400">{s.ref}</span>
+            <span className="text-zinc-100">{s.title}</span>
+            {s.version && <span className="ml-1 text-zinc-500">v{s.version}</span>}
+            <div className="mt-0.5 text-xs text-zinc-500">{[KIND[s.kind] ?? s.kind, s.date, s.locator].filter(Boolean).join(' · ')}</div>
+          </div>
+          <button onClick={onClose} className="shrink-0 rounded-md border border-zinc-700 px-3 py-1 text-sm text-zinc-300">Fermer</button>
+        </div>
+        <Passage s={s} tall />
+      </div>
+    </div>
   )
 }
 
@@ -132,6 +161,7 @@ export default function Copilote() {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ question, history, telco }), signal: abort.current.signal,
       })
+      if (res.status === 401) { window.location.href = '/copilote/login?next=/copilote'; return }
       if (!res.ok || !res.body) {
         const e = await res.json().catch(() => ({ error: `Erreur ${res.status}` }))
         update(idx, q => ({ ...q, error: e.error, done: true, status: '' }))
@@ -170,15 +200,16 @@ export default function Copilote() {
   }
 
   const last = turns.at(-1)
+  const sheet = active ? turns[active.turn]?.sources.find(s => s.ref === active.ref) : undefined
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 font-sans">
+    <main className="mx-auto max-w-6xl px-4 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] font-sans">
       <header className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">Copilote projet</h1>
           <p className="text-sm text-zinc-400">Réponses sourcées sur les documents, le suivi, l&apos;annuaire et les emails du projet.</p>
         </div>
-        <div className="text-right text-xs text-zinc-500">
+        <div className="text-xs text-zinc-500 sm:text-right">
           {status?.ok
             ? <>{status.sources?.toLocaleString('fr-FR')} sources · {status.chunks?.toLocaleString('fr-FR')} passages{status.embeddings ? ' · recherche hybride' : ' · recherche plein texte'}<br />{status.model}{status.lastIngest ? ` · mise à jour ${status.lastIngest.slice(0, 10)}` : ''}</>
             : status ? <span className="text-amber-400">{status.error}</span> : 'Chargement…'}
@@ -228,12 +259,12 @@ export default function Copilote() {
             </article>
           ))}
 
-          <form onSubmit={e => { e.preventDefault(); ask(input) }} className="sticky bottom-4 rounded-xl border border-zinc-700 bg-zinc-950/95 p-3 shadow-lg backdrop-blur">
+          <form onSubmit={e => { e.preventDefault(); ask(input) }} className="sticky bottom-[max(1rem,env(safe-area-inset-bottom))] rounded-xl border border-zinc-700 bg-zinc-950/95 p-3 shadow-lg backdrop-blur">
             <label htmlFor="q" className="sr-only">Question</label>
             <textarea id="q" value={input} onChange={e => setInput(e.target.value)} rows={2}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(input) } }}
               placeholder={turns.length ? 'Question de suite…' : 'Pose ta question sur le projet…'}
-              className="w-full resize-none bg-transparent text-sm text-zinc-100 outline-none placeholder:text-zinc-600" />
+              className="w-full resize-none bg-transparent text-base text-zinc-100 sm:text-sm outline-none placeholder:text-zinc-600" />
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <label className="flex items-center gap-2 text-xs text-zinc-400">
                 <input type="checkbox" checked={telco} onChange={e => setTelco(e.target.checked)} className="accent-emerald-500" />
@@ -266,6 +297,7 @@ export default function Copilote() {
           )}
         </aside>
       </div>
+      {sheet && <SourceSheet s={sheet} onClose={() => setActive(null)} />}
     </main>
   )
 }
