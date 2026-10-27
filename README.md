@@ -1,5 +1,9 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Copilote projet
+
+Questions-réponses sourcées sur les documents, le suivi et les emails d'un projet (`/copilote`, `npm run copilote`). Architecture, déploiement Docker et évaluation : [docs/copilote.md](docs/copilote.md).
+
 ## Getting Started
 
 First, run the development server:

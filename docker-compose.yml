@@ -1,0 +1,33 @@
+# Copilote projet: the web app + an indexer that watches a documents folder.
+#
+#   cp .env.example .env      # fill ANTHROPIC_API_KEY, COPILOTE_PASSWORD, DOCS_DIR
+#   docker compose up -d --build
+#   open http://<server>:3000/copilote
+services:
+  web:
+    build:
+      context: .
+      args:
+        EMBEDDINGS: ${EMBEDDINGS:-off}
+    image: copilote:latest
+    env_file: .env
+    environment:
+      COPILOTE_PASSWORD: ${COPILOTE_PASSWORD:?Set COPILOTE_PASSWORD in .env}
+      COPILOTE_EMBEDDINGS: ${EMBEDDINGS:-off}
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+
+  indexer:
+    image: copilote:latest
+    depends_on: [web]
+    env_file: .env
+    environment:
+      COPILOTE_EMBEDDINGS: ${EMBEDDINGS:-off}
+    command: ["npx", "tsx", "scripts/copilote.ts", "watch", "/docs"]
+    volumes:
+      - ./data:/data
+      - ${DOCS_DIR:?Set DOCS_DIR in .env}:/docs:ro
+    restart: unless-stopped

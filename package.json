@@ -8,18 +8,23 @@
     "start": "next start",
     "lint": "eslint",
     "kb": "tsx scripts/kb.ts",
-    "ask": "tsx scripts/ask.ts"
+    "ask": "tsx scripts/ask.ts",
+    "copilote": "tsx scripts/copilote.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.72",
     "@ai-sdk/react": "^3.0.172",
     "@anthropic-ai/sdk": "^0.135.0",
     "ai": "^6.0.169",
+    "exceljs": "^4.4.0",
     "mailparser": "^3.9.40",
+    "mammoth": "^1.11.0",
     "next": "16.2.4",
+    "officeparser": "^5.2.2",
     "pst-extractor": "^1.12.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "unpdf": "^1.3.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {

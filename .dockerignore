@@ -1,0 +1,12 @@
+node_modules
+.next
+data
+kb-out
+.git
+.env
+.env.*
+!.env.example
+*.pst
+eval/*.results.json
+eval/questions.json
+tsconfig.tsbuildinfo
