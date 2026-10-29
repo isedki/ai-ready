@@ -9,8 +9,10 @@ final class ExportTests: XCTestCase {
     }
 
     func testDateTextIsFrenchAndDeterministic() {
+        // Décalage fixe : le test ne dépend pas des règles de fuseau (heure d'été) de la machine.
         let date = Date(timeIntervalSince1970: 1_793_290_016)        // 2026-10-29 16:06:56 UTC
-        XCTAssertEqual(Export.dateText(date, timeZone: TimeZone(identifier: "Africa/Casablanca")!), "29/10/2026 17:06")
+        XCTAssertEqual(Export.dateText(date, timeZone: TimeZone(secondsFromGMT: 3600)!), "29/10/2026 17:06")
+        XCTAssertEqual(Export.dateText(date, timeZone: TimeZone(secondsFromGMT: 0)!), "29/10/2026 16:06")
     }
 
     func testParagraphsSplitOnLanguageChange() {
