@@ -8,13 +8,13 @@ Le compte rendu n'est pas généré dans l'app. On copie la transcription (bouto
 
 ## Ce que fait l'app
 
-- **Enregistrement** en AAC 16 kHz mono (environ 30 Mo par heure).
+- **Enregistrement** en AAC 16 kHz mono dans un fichier CAF (environ 30 Mo par heure). Le CAF reste lisible même si l'app est tuée en plein enregistrement, et la réunion est récupérée au relancement.
   - Continue écran verrouillé et reprend après un appel.
   - Marqueurs « Décision », « Action » et « Point » posés pendant la réunion.
 - **Import** d'un audio existant : export Plaud, Dictaphone, WhatsApp.
 - **Transcription** par tranches d'environ 30 s, coupées sur un silence et non au milieu d'un mot.
   - En mode Auto, chaque tranche est transcrite en français ou en arabe/darija, selon la langue qui y domine.
-- **Jargon Phénix** (`Sources/Glossary.swift`), utilisé de trois façons :
+- **Jargon Phénix** (`Packages/ReunionsCore/Sources/ReunionsCore/Glossary.swift`), utilisé de trois façons :
   1. **Amorce Whisper** : contexte du projet, sigles prioritaires (EB25, BSCS, APIGEE, Wallix, VABF, MGEN…) et **participants de la réunion**, saisis à l'enregistrement.
   2. **Corrections automatiques** des erreurs d'écoute fréquentes, par exemple « Wallis » → Wallix, « a pigée » → APIGEE, « in wi » → inwi, « crédit set » → CreditSet, « Boudrika » → Boudriga. Ajoute chaque erreur récurrente dans `corrections`.
   3. **Glossaire complet** (systèmes, termes projet, sociétés, une quarantaine de personnes) joint à la version « pour Claude », pour que Claude corrige le reste.
@@ -58,15 +58,34 @@ Ouvre le run dans *Actions* et copie-colle l'erreur dans la conversation Claude.
 
 `brew install xcodegen && cd ios/Reunions && xcodegen && open Reunions.xcodeproj`. Ensuite, dans Xcode : *Signing* (ton Apple ID), puis *Run* vers l'iPhone branché.
 
-## Fichiers
+## Tests (automatiques, à chaque modification)
 
-| Fichier | Rôle |
+Le workflow `.github/workflows/ios-ci.yml` tourne sur un Mac GitHub et n'a besoin d'aucun secret :
+
+1. **Tests unitaires** (`Packages/ReunionsCore/Tests`). Ils couvrent :
+   - les corrections du jargon : « Wallis » → Wallix, etc., sans toucher aux mots ordinaires ni à l'arabe ;
+   - l'amorce et le glossaire ;
+   - l'export (horodatage, paragraphes par langue, version Claude) ;
+   - la coupe sur silence ;
+   - le stockage : aller-retour, JSON ancien ou partiel, dossier corrompu ignoré, import.
+2. **Compilation de l'app** pour iPhone (simulateur, sans signature).
+3. **Test de bout en bout** (`E2E/`), qui :
+   1. synthétise une réunion Phénix d'environ 1 min avec les voix système (français truffé de jargon et un passage en arabe) ;
+   2. la transcrit avec **le moteur de l'app** (`reunions-cli`, même code que l'iPhone) et le modèle de production ;
+   3. vérifie la langue détectée par tranche, l'absence de tranche vide et au moins 75 % des termes du jargon écrits exactement.
+
+   Le rapport s'affiche dans le résumé du run GitHub ; l'audio et la transcription sont joints au run.
+
+Limite du test : les voix de synthèse parlent français et arabe standard, pas darija. La qualité sur du vrai darija se vérifie sur une vraie réunion.
+
+## Structure
+
+| Élément | Rôle |
 |---|---|
-| `project.yml` | Définition du projet pour XcodeGen (cible, Info.plist, WhisperKit) |
-| `../../.github/workflows/ios-testflight.yml` | Build cloud et envoi sur TestFlight |
-| `Sources/Glossary.swift` | Jargon Phénix : amorce, corrections, glossaire pour Claude |
-| `Sources/Transcriber.swift` | Transcription par tranches coupées sur les silences, langue par tranche |
-| `Sources/Recorder.swift` | Enregistrement, pause, marqueurs, reprise après appel |
-| `Sources/MeetingStore.swift` | Données et stockage (un dossier par réunion) |
-| `Sources/Export.swift` | Texte partagé et version « pour Claude » |
-| `Sources/*View.swift` | Écrans : liste, enregistrement, détail, réglages |
+| `project.yml` | Projet Xcode (XcodeGen) : app + paquets locaux |
+| `App/` | Interface iPhone : liste, enregistrement, détail, réglages, état observable |
+| `Packages/ReunionsCore` | Logique pure testée : modèles, glossaire Phénix, export, coupe audio, stockage |
+| `Packages/ReunionsEngine` | Moteur WhisperKit (tranches, langue par tranche, amorce, corrections) + `reunions-cli` |
+| `E2E/` | Test de bout en bout (synthèse vocale, transcription, contrôle) |
+| `../../.github/workflows/ios-ci.yml` | Tests, build, bout en bout |
+| `../../.github/workflows/ios-testflight.yml` | Build signé et envoi sur TestFlight |

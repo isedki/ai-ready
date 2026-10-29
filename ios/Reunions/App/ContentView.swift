@@ -1,3 +1,4 @@
+import ReunionsCore
 import SwiftUI
 import UniformTypeIdentifiers
 

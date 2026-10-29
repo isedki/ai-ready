@@ -1,10 +1,11 @@
+import ReunionsCore
 import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @AppStorage(Settings.modelKey) private var model = Settings.defaultModel
+    @AppStorage(Settings.modelKey) private var model = WhisperModels.default
     @AppStorage(Settings.languageKey) private var language = LanguageMode.auto.rawValue
-    @AppStorage(Settings.vocabularyKey) private var vocabulary = Settings.defaultVocabulary
+    @AppStorage(Settings.vocabularyKey) private var vocabulary = ""
 
     var body: some View {
         NavigationStack {
@@ -22,7 +23,7 @@ struct SettingsView: View {
 
                 Section {
                     Picker("Modèle", selection: $model) {
-                        ForEach(Settings.models, id: \.id) { Text($0.label).tag($0.id) }
+                        ForEach(WhisperModels.all, id: \.id) { Text($0.label).tag($0.id) }
                     }
                 } header: {
                     Text("Modèle Whisper")

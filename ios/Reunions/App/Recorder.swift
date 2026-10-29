@@ -1,3 +1,4 @@
+import ReunionsCore
 import AVFoundation
 import Observation
 

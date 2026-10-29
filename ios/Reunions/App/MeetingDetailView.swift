@@ -1,3 +1,4 @@
+import ReunionsCore
 import SwiftUI
 import UIKit
 
@@ -6,9 +7,9 @@ struct MeetingDetailView: View {
 
     @Environment(MeetingStore.self) private var store
     @Environment(Transcriber.self) private var transcriber
-    @AppStorage(Settings.modelKey) private var model = Settings.defaultModel
+    @AppStorage(Settings.modelKey) private var model = WhisperModels.default
     @AppStorage(Settings.languageKey) private var language = LanguageMode.auto.rawValue
-    @AppStorage(Settings.vocabularyKey) private var vocabulary = Settings.defaultVocabulary
+    @AppStorage(Settings.vocabularyKey) private var vocabulary = ""
     @State private var copied = false
 
     var body: some View {
@@ -25,6 +26,12 @@ struct MeetingDetailView: View {
                 LabeledContent("Date", value: m.date.formatted(date: .abbreviated, time: .shortened))
                 LabeledContent("Durée", value: Export.clock(m.duration))
                 if !m.participants.isEmpty { LabeledContent("Participants", value: m.participants) }
+                if let used = m.transcriptionModel {
+                    LabeledContent("Transcrite avec", value: "\(used.replacingOccurrences(of: "large-v3-v20240930_", with: "large-v3 ")) · \(m.transcriptionMode?.rawValue ?? "auto")")
+                }
+                if let error = store.lastError {
+                    Text(error).font(.caption).foregroundStyle(.red)
+                }
             }
 
             Section {

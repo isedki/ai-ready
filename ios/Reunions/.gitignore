@@ -1,5 +1,9 @@
 # Généré par xcodegen à partir de project.yml
 Reunions.xcodeproj/
-Sources/Info.plist
+App/Info.plist
 DerivedData/
 xcuserdata/
+.build/
+.swiftpm/
+Package.resolved
+E2E/out/

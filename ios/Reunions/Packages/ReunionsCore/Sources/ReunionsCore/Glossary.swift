@@ -4,22 +4,22 @@ import Foundation
 /// 1. L'amorce Whisper (vocabulaire prioritaire + participants de la réunion) : Whisper écrit mieux ce qu'il connaît.
 /// 2. Les corrections automatiques des erreurs d'écoute fréquentes, appliquées à chaque passage.
 /// 3. La consigne envoyée à Claude, qui corrige le reste à partir du glossaire complet.
-enum Glossary {
+public enum Glossary {
     /// Termes les plus fréquents en réunion. L'amorce Whisper est limitée (~200 jetons), donc cette liste reste courte.
-    static let priority = [
+    public static let priority = [
         "Phénix", "inwi", "Atos", "Inetum", "Ericsson", "EB25", "BSCS", "OCS", "SDP", "SOA", "OSB Noor",
         "APIGEE", "API Digital", "Wallix", "VABF", "MEP", "PROD", "MGEN", "MC", "LLD", "DAT", "COPIL",
         "CreditSet", "Lagrange", "Kafka", "FlowOne", "Salesforce", "dry run", "cutover", "Bill Compare",
     ]
 
-    static let systems = [
+    public static let systems = [
         "EB25", "EB24", "BSCS", "IMX", "OCS", "SDP", "SOA", "OSB Noor", "OSB Legacy", "APIGEE", "API Digital", "API façade",
         "Wallix", "VPN", "Kafka", "Lagrange", "CreditSet", "Caméléon", "Flexi", "Salesforce B2C", "Salesforce B2B", "Vlocity",
         "PowerCard", "USSD", "IVR", "SAP", "DCX", "AX", "CX", "DMH", "BCH", "FlowOne", "SFTP", "OpenShift", "Veritas InfoScale",
         "ServiceNow", "Agile", "Elastic", "Grafana", "NeLS", "load balancer", "VIP",
     ]
 
-    static let projectTerms = [
+    public static let projectTerms = [
         "VABF", "UAT", "VSR", "MEP", "Go/No Go", "go-live", "cutover", "dry run", "DR Simulation", "Bill Compare", "sanity check",
         "big bang", "rollback", "MGEN", "MC", "EB", "EID", "HLD", "LLD", "DAT", "D-Arch", "PAQ", "matrice de flux", "MdF",
         "DMSI", "DSSI", "Support Sécurité", "Stream Sécurité", "COPIL", "COPROJ", "Weekly IT", "point dépendances",
@@ -27,7 +27,7 @@ enum Glossary {
         "INC", "REQ", "ticket", "flux any to any", "firewall", "TMA", "garantie",
     ]
 
-    static let people = [
+    public static let people = [
         "Salah Gharmili", "Amine Benchekroun", "Mohammed Dalal", "Ghizlane Akouz", "Younes Eliklil", "Issam Sedki",
         "Mohamed Ali Boudriga", "Mohamed El Ali", "Abdellah Saoudi", "Redouane Tourabi", "Saad Krouit", "Mounir Mabchour",
         "Mustapha Khatar", "Imane Taoufik", "Seddik Bourma", "Karim El Basbassi", "Badr Jbari", "Faris Hajji",
@@ -37,11 +37,11 @@ enum Glossary {
         "Narjis Baji", "Soukaina El Abdellaoui", "Badr Wahby", "Issam Benatik",
     ]
 
-    static let companies = ["inwi", "Atos", "Inetum", "Ericsson", "Xelops", "BearingPoint", "Waroom", "Lagrange Systems"]
+    public static let companies = ["inwi", "Atos", "Inetum", "Ericsson", "Xelops", "BearingPoint", "Waroom", "Lagrange Systems"]
 
     /// Erreurs d'écoute fréquentes → forme correcte. Mots entiers, insensible à la casse.
     /// Ajouter ici chaque erreur récurrente repérée dans les transcriptions.
-    static let corrections: [(pattern: String, replacement: String)] = [
+    public static let corrections: [(pattern: String, replacement: String)] = [
         (#"ph[ée]nix|phoenix|f[ée]nix"#, "Phénix"),
         (#"in ?wi|inoui|inwy|in oui"#, "inwi"),
         (#"atoss?e?"#, "Atos"),
@@ -85,7 +85,7 @@ enum Glossary {
     }
 
     /// Applique les corrections (passages en français ; l'écriture arabe n'est pas touchée).
-    static func correct(_ text: String) -> String {
+    public static func correct(_ text: String) -> String {
         var out = text
         for (re, replacement) in compiled {
             out = re.stringByReplacingMatches(in: out, range: NSRange(out.startIndex..., in: out),
@@ -96,7 +96,7 @@ enum Glossary {
 
     /// Amorce Whisper. Si elle est trop longue, c'est le début qui est coupé (on garde la fin) :
     /// l'ordre va donc du moins au plus important, participants de la réunion en dernier.
-    static func prompt(participants: String, extra: String) -> String {
+    public static func prompt(participants: String, extra: String) -> String {
         let names = participants.split(whereSeparator: { ",;\n".contains($0) })
             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         var parts = ["Réunion du projet Phénix chez inwi, en français et en darija.", priority.joined(separator: ", ") + "."]
@@ -107,7 +107,7 @@ enum Glossary {
     }
 
     /// Glossaire complet pour la consigne envoyée à Claude.
-    static var fullText: String {
+    public static var fullText: String {
         """
         Systèmes : \(systems.joined(separator: ", ")).
         Termes projet : \(projectTerms.joined(separator: ", ")).

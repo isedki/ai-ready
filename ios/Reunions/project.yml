@@ -1,25 +1,28 @@
 # Projet Xcode généré par XcodeGen (`xcodegen` dans ce dossier).
-# Construit et publié sur TestFlight par .github/workflows/ios-testflight.yml : aucun Mac nécessaire.
+# CI : .github/workflows/ios-ci.yml (tests + build + test de bout en bout) et ios-testflight.yml (TestFlight).
 name: Reunions
 options:
   bundleIdPrefix: com.issamsedki
   deploymentTarget:
     iOS: "17.0"
 packages:
-  argmax-oss-swift:
-    url: https://github.com/argmaxinc/argmax-oss-swift
-    from: 1.0.0
+  ReunionsCore:
+    path: Packages/ReunionsCore
+  ReunionsEngine:
+    path: Packages/ReunionsEngine
 targets:
   Reunions:
     type: application
     platform: iOS
-    sources: [Sources]
+    sources: [App]
     dependencies:
-      - package: argmax-oss-swift
-        product: WhisperKit
+      - package: ReunionsCore
+        product: ReunionsCore
+      - package: ReunionsEngine
+        product: ReunionsEngine
     scheme: {}
     info:
-      path: Sources/Info.plist
+      path: App/Info.plist
       properties:
         CFBundleDisplayName: Réunions
         CFBundleShortVersionString: $(MARKETING_VERSION)

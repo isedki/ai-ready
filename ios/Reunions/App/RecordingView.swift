@@ -1,3 +1,4 @@
+import ReunionsCore
 import SwiftUI
 
 /// Saisie du titre, puis enregistrement plein écran avec marqueurs.

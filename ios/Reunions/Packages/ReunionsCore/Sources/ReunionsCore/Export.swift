@@ -1,21 +1,21 @@
 import Foundation
 
 /// Mise en forme de la transcription pour la lecture, le partage et l'envoi à Claude.
-enum Export {
-    struct Paragraph: Identifiable {
-        let id: Int
-        let start: TimeInterval
-        let language: String
-        let text: String
+public enum Export {
+    public struct Paragraph: Identifiable, Equatable, Sendable {
+        public let id: Int
+        public let start: TimeInterval
+        public let language: String
+        public let text: String
     }
 
-    static func clock(_ t: TimeInterval) -> String {
+    public static func clock(_ t: TimeInterval) -> String {
         let s = Int(t.rounded())
         return String(format: "%02d:%02d:%02d", s / 3600, s % 3600 / 60, s % 60)
     }
 
     /// Regroupe les passages consécutifs de même langue (un changement de langue ouvre un paragraphe).
-    static func paragraphs(_ m: Meeting) -> [Paragraph] {
+    public static func paragraphs(_ m: Meeting) -> [Paragraph] {
         var out: [Paragraph] = []
         var start: TimeInterval = 0
         var language = ""
@@ -38,9 +38,21 @@ enum Export {
         return out
     }
 
-    static func text(_ m: Meeting) -> String {
+    /// Date au format français (« 29/10/2026 17:05 »), dans le fuseau du téléphone.
+    public static func dateText(_ date: Date, timeZone: TimeZone = .current) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR")
+        f.timeZone = timeZone
+        f.dateFormat = "dd/MM/yyyy HH:mm"
+        return f.string(from: date)
+    }
+
+    public static func text(_ m: Meeting) -> String {
         var out = "# \(m.title)\n"
-        out += "Date : \(m.date.formatted(date: .numeric, time: .shortened)) · Durée : \(clock(m.duration))\n"
+        out += "Date : \(dateText(m.date)) · Durée : \(clock(m.duration))\n"
+        if let model = m.transcriptionModel {
+            out += "Transcription : Whisper \(model), mode \(m.transcriptionMode?.rawValue ?? "auto")\n"
+        }
         if !m.participants.isEmpty { out += "Participants : \(m.participants)\n" }
         if !m.markers.isEmpty {
             out += "\nMarqueurs posés pendant la réunion :\n"
@@ -52,7 +64,7 @@ enum Export {
     }
 
     /// Texte prêt à coller dans la conversation Claude du projet.
-    static func forClaude(_ m: Meeting) -> String {
+    public static func forClaude(_ m: Meeting) -> String {
         """
         Transcription d'une réunion Phénix (darija et français, transcription automatique : noms, sigles et passages en darija peuvent être déformés).
         Prépare :
