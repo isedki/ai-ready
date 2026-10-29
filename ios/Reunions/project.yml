@@ -1,0 +1,36 @@
+# Projet Xcode généré par XcodeGen : `brew install xcodegen && xcodegen` dans ce dossier.
+name: Reunions
+options:
+  bundleIdPrefix: com.issamsedki
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  argmax-oss-swift:
+    url: https://github.com/argmaxinc/argmax-oss-swift
+    from: 1.0.0
+targets:
+  Reunions:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    dependencies:
+      - package: argmax-oss-swift
+        product: WhisperKit
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: Réunions
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        NSMicrophoneUsageDescription: Enregistrer les réunions pour en préparer le compte rendu.
+        UIBackgroundModes: [audio]
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.issamsedki.reunions
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_STYLE: Automatic
