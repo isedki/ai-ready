@@ -22,6 +22,10 @@ let package = Package(
                 .product(name: "WhisperKit", package: "argmax-oss-swift"),
             ]
         ),
+        .testTarget(
+            name: "ReunionsEngineTests",
+            dependencies: ["ReunionsEngine"]
+        ),
         .executableTarget(
             name: "reunions-cli",
             dependencies: [

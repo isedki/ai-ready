@@ -35,7 +35,8 @@ guard let path = args.first, !path.hasPrefix("--") else {
 }
 let model = value("--model", in: args) ?? WhisperModels.default
 let mode = LanguageMode(rawValue: value("--mode", in: args) ?? "auto") ?? .auto
-let prompt = Glossary.prompt(participants: value("--participants", in: args) ?? "", extra: value("--extra", in: args) ?? "")
+// --no-prompt : sans amorce de vocabulaire (pour mesurer ce qu'elle apporte).
+let prompt = args.contains("--no-prompt") ? "" : Glossary.prompt(participants: value("--participants", in: args) ?? "", extra: value("--extra", in: args) ?? "")
 let url = URL(fileURLWithPath: path)
 let duration = TranscriptionEngine.duration(ofAudioAt: url)
 guard duration > 0 else {
@@ -46,6 +47,7 @@ guard duration > 0 else {
 do {
     FileHandle.standardError.write(Data("Chargement du modèle \(model)…\n".utf8))
     let engine = try await TranscriptionEngine.load(model: model)
+    engine.log = { FileHandle.standardError.write(Data("  · \($0)\n".utf8)) }
     let started = Date()
     var chunks: [Output.Chunk] = []
     try await engine.transcribe(audioURL: url, duration: duration, mode: mode, prompt: prompt) { chunk in

@@ -6,6 +6,8 @@ import sys
 
 path = sys.argv[1]
 expect_arabic = "--expect-arabic" in sys.argv
+report_only = "--report-only" in sys.argv
+label = sys.argv[sys.argv.index("--label") + 1] if "--label" in sys.argv else "transcription"
 result = json.load(open(path, encoding="utf-8"))
 text = result["text"]
 chunks = result["chunks"]
@@ -36,7 +38,7 @@ if recall < THRESHOLD:
 
 speed = result["processingSeconds"] / max(result["audioSeconds"], 1)
 report = [
-    "## Test de bout en bout : transcription Phénix",
+    f"## Test de bout en bout : {label}",
     f"- Modèle : `{result['model']}`, mode `{result['mode']}`",
     f"- Audio : {result['audioSeconds']:.0f} s en {len(chunks)} tranches ; traitement {result['processingSeconds']:.0f} s "
     f"({speed:.2f} × la durée, sur le Mac de CI, sans Neural Engine)",
@@ -48,10 +50,10 @@ report = [
     *[f"- `{c['start']:.1f}-{c['end']:.1f} s · {c['language']}` {c['text']}" for c in chunks],
     "",
     "### Verdict",
-    "OK" if not problems else "ÉCHEC : " + " ; ".join(problems),
+    ("OK" if not problems else "ÉCHEC : " + " ; ".join(problems)) + (" (pour information, non bloquant)" if report_only else ""),
 ]
 print("\n".join(report))
 if os.environ.get("GITHUB_STEP_SUMMARY"):
     with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
         f.write("\n".join(report) + "\n")
-sys.exit(1 if problems else 0)
+sys.exit(1 if problems and not report_only else 0)

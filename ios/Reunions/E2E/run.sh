@@ -1,9 +1,10 @@
 #!/bin/bash
 # Test de bout en bout du moteur de transcription (même code que l'app), sur macOS.
 # 1. Synthétise une « réunion Phénix » : passages en français truffés de jargon + un passage en arabe,
-#    avec les voix système (say), en un seul fichier WAV 16 kHz d'environ 1 min (plusieurs tranches).
-# 2. Lance reunions-cli avec le modèle de production.
-# 3. Vérifie : langues détectées par tranche, termes du jargon correctement écrits (seuil), pas de tranche vide.
+#    avec les voix système (say), en un seul fichier WAV 16 kHz d'environ 1 min 20 (plusieurs tranches).
+# 2. Transcrit avec reunions-cli et le modèle de production, avec puis sans l'amorce de vocabulaire.
+# 3. Vérifie (sur la version avec amorce, celle de l'app) : langue par tranche, pas de tranche vide,
+#    termes du jargon correctement écrits (seuil). La version sans amorce sert de comparaison.
 #
 #   E2E/run.sh <chemin de reunions-cli> [modèle]
 set -euo pipefail
@@ -13,14 +14,23 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="$HERE/out"
 rm -rf "$OUT" && mkdir -p "$OUT"
 
-pick_voice() { say -v '?' | awk -v loc="$1" '$0 ~ loc { print $1; exit }'; }
-FR_VOICE="$(pick_voice 'fr_FR')"
-AR_VOICE="$(pick_voice 'ar_')"
+# Voix naturelles d'abord ; les voix « fantaisie » (Eddy, Flo, Grandma…) déforment la diction.
+pick_voice() { # locale, puis voix préférées
+  local locale="$1"; shift
+  local available
+  available="$(say -v '?' | awk -v loc="$locale" '$0 ~ loc { print $1 }')"
+  for v in "$@"; do
+    if grep -qx "$v" <<<"$available"; then echo "$v"; return; fi
+  done
+  head -n1 <<<"$available"
+}
+FR_VOICE="$(pick_voice 'fr_FR' Thomas Amélie Audrey Aurélie Marie)"
+AR_VOICE="$(pick_voice 'ar_' Majed Maged Tarik Laila)"
 [ -n "$FR_VOICE" ] || { echo "Aucune voix française installée"; exit 1; }
 echo "Voix : français=$FR_VOICE arabe=${AR_VOICE:-aucune}"
 
 speak() { # voix fichier texte
-  say -v "$1" -r 165 -o "$OUT/$2.aiff" "$3"
+  say -v "$1" -r 160 -o "$OUT/$2.aiff" "$3"
   afconvert -f WAVE -d LEI16@16000 -c 1 "$OUT/$2.aiff" "$OUT/$2.wav"
 }
 
@@ -36,8 +46,11 @@ PARTS="$PARTS fr3"
 
 python3 "$HERE/concat.py" "$OUT/meeting.wav" $(for p in $PARTS; do echo "$OUT/$p.wav"; done)
 
-"$CLI" "$OUT/meeting.wav" --model "$MODEL" --mode auto \
-  --participants "Badr Jbari, Mohamed Ali Boudriga, Faris Hajji" \
-  --json "$OUT/result.json" | tee "$OUT/transcript.txt"
+PARTICIPANTS="Badr Jbari, Mohamed Ali Boudriga, Faris Hajji"
+echo "=== Sans amorce (comparaison) ==="
+"$CLI" "$OUT/meeting.wav" --model "$MODEL" --mode auto --no-prompt --json "$OUT/result-sans-amorce.json" | tee "$OUT/transcript-sans-amorce.txt"
+echo "=== Avec amorce Phénix (comme dans l'app) ==="
+"$CLI" "$OUT/meeting.wav" --model "$MODEL" --mode auto --participants "$PARTICIPANTS" --json "$OUT/result.json" | tee "$OUT/transcript.txt"
 
-python3 "$HERE/check.py" "$OUT/result.json" ${AR_VOICE:+--expect-arabic}
+python3 "$HERE/check.py" "$OUT/result-sans-amorce.json" --label "sans amorce" --report-only ${AR_VOICE:+--expect-arabic}
+python3 "$HERE/check.py" "$OUT/result.json" --label "avec amorce Phénix (app)" ${AR_VOICE:+--expect-arabic}

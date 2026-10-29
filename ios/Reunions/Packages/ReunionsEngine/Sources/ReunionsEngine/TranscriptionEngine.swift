@@ -24,6 +24,8 @@ public final class TranscriptionEngine {
 
     public let pipe: WhisperKit
     public let model: String
+    /// Journal de diagnostic (langue détectée par tranche…) ; nil dans l'app.
+    public var log: ((String) -> Void)?
 
     public init(pipe: WhisperKit, model: String) {
         self.pipe = pipe
@@ -78,6 +80,9 @@ public final class TranscriptionEngine {
                     promptTokens: promptTokens
                 )
                 let results = try await pipe.transcribe(audioArray: samples, decodeOptions: options)
+                if results.allSatisfy({ $0.segments.isEmpty }) {
+                    log?("tranche \(Int(start))-\(Int(end)) s : aucun segment renvoyé (langue \(language))")
+                }
                 for result in results {
                     for s in result.segments {
                         var text = Self.clean(s.text)
@@ -102,8 +107,34 @@ public final class TranscriptionEngine {
         case .ar: return "ar"
         case .auto:
             let detection = try await pipe.detectLangauge(audioArray: samples)   // sic : nom de la méthode dans WhisperKit
-            return (detection.langProbs["ar"] ?? 0) > (detection.langProbs["fr"] ?? 0) ? "ar" : "fr"
+            let choice = Self.pickLanguage(detected: detection.language, probabilities: detection.langProbs)
+            if let log {
+                let top = detection.langProbs.sorted { $0.value > $1.value }.prefix(3)
+                    .map { "\($0.key)=\(String(format: "%.2f", $0.value))" }.joined(separator: " ")
+                log("langue : détectée \(detection.language) [\(top)] → \(choice)")
+            }
+            return choice
         }
+    }
+
+    /// Garde la langue détectée si c'est le français ou l'arabe ; sinon (darija pris pour une autre langue,
+    /// anglais sur des sigles…) compare les probabilités des deux, en tolérant les clés « <|ar|> ».
+    static func pickLanguage(detected: String, probabilities: [String: Float]) -> String {
+        func code(_ raw: String) -> String {
+            raw.trimmingCharacters(in: CharacterSet(charactersIn: "<|>")).lowercased()
+        }
+        let main = code(detected)
+        if main == "fr" || main == "ar" { return main }
+        var ar: Float = 0
+        var fr: Float = 0
+        for (key, p) in probabilities {
+            switch code(key) {
+            case "ar": ar = max(ar, p)
+            case "fr": fr = max(fr, p)
+            default: break
+            }
+        }
+        return ar > fr ? "ar" : "fr"
     }
 
     /// Amorce encodée, limitée aux ~200 derniers jetons (Whisper accepte au plus 224 jetons d'amorce ;

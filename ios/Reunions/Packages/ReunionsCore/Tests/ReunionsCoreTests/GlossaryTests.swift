@@ -48,16 +48,26 @@ final class GlossaryTests: XCTestCase {
 
     func testPromptPutsParticipantsLast() {
         let prompt = Glossary.prompt(participants: "Salah Gharmili, Faris Hajji\nAnas El Jadidi", extra: "MGEN3918, lettrage")
-        XCTAssertTrue(prompt.hasPrefix("Réunion du projet Phénix"))
-        XCTAssertTrue(prompt.hasSuffix("Participants : Salah Gharmili, Faris Hajji, Anas El Jadidi."))
-        XCTAssertTrue(prompt.contains("MGEN3918, lettrage"))
+        XCTAssertTrue(prompt.hasPrefix("Bonjour à tous"))
+        XCTAssertTrue(prompt.hasSuffix("Sont présents Salah Gharmili, Faris Hajji, Anas El Jadidi."))
+        XCTAssertTrue(prompt.contains("On parle aussi de MGEN3918, lettrage."))
         XCTAssertTrue(prompt.contains("Wallix"))
     }
 
-    func testPromptWithoutParticipantsOrExtra() {
-        let prompt = Glossary.prompt(participants: "  ", extra: "")
-        XCTAssertFalse(prompt.contains("Participants"))
-        XCTAssertTrue(prompt.hasSuffix(Glossary.priority.joined(separator: ", ") + "."))
+    /// Whisper imite le style de l'amorce : elle doit ressembler à des phrases, pas à une liste de sigles.
+    func testPromptReadsAsSentences() {
+        let prompt = Glossary.prompt(participants: "", extra: "")
+        XCTAssertFalse(prompt.contains("Sont présents"))
+        let sentences = prompt.split(separator: ".").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        XCTAssertGreaterThanOrEqual(sentences.count, 3)
+        for sentence in sentences {
+            let words = sentence.split(separator: " ")
+            let commas = sentence.filter { $0 == "," }.count
+            XCTAssertLessThan(commas, words.count / 3, "trop proche d'une liste : \(sentence)")
+        }
+        for term in ["Phénix", "VABF", "Wallix", "APIGEE", "EB25", "MGEN", "CreditSet", "OCS", "SOA"] {
+            XCTAssertTrue(prompt.contains(term), term)
+        }
     }
 
     func testFullTextListsAllPeople() {

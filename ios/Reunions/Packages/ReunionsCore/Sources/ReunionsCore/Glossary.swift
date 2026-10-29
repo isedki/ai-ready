@@ -94,15 +94,22 @@ public enum Glossary {
         return out
     }
 
-    /// Amorce Whisper. Si elle est trop longue, c'est le début qui est coupé (on garde la fin) :
-    /// l'ordre va donc du moins au plus important, participants de la réunion en dernier.
+    /// Amorce Whisper : Whisper imite le style de l'amorce (une liste de mots séparés par des virgules
+    /// le pousse à produire une liste de mots en majuscules, constaté en test). L'amorce est donc écrite
+    /// comme une transcription française normale, qui cite les termes du projet dans des phrases.
+    /// Si elle est trop longue, le début est coupé : les participants, les plus utiles, sont à la fin.
     public static func prompt(participants: String, extra: String) -> String {
         let names = participants.split(whereSeparator: { ",;\n".contains($0) })
             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        var parts = ["Réunion du projet Phénix chez inwi, en français et en darija.", priority.joined(separator: ", ") + "."]
+        var parts = [
+            "Bonjour à tous, on fait le point sur le projet Phénix avec inwi, Atos et Inetum.",
+            "Le flux entre la SOA et l'OCS est bloqué sur la VABF, il faut une validation de la matrice de flux.",
+            "Les accès Wallix, APIGEE et la base BSCS sont prêts pour la recette sur EB25.",
+            "Le chiffrage de la MGEN est validé, CreditSet passe en production et Lagrange édite les factures.",
+        ]
         let extraText = extra.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !extraText.isEmpty { parts.append(extraText) }
-        if !names.isEmpty { parts.append("Participants : " + names.joined(separator: ", ") + ".") }
+        if !extraText.isEmpty { parts.append("On parle aussi de \(extraText).") }
+        if !names.isEmpty { parts.append("Sont présents \(names.joined(separator: ", ")).") }
         return parts.joined(separator: " ")
     }
 

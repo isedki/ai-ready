@@ -52,7 +52,7 @@ jobs:
 
   e2e:
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 80
     defaults:
       run:
         working-directory: ios/Reunions
@@ -66,6 +66,8 @@ jobs:
         with:
           path: ~/Documents/huggingface
           key: whisperkit-large-v3-v20240930_626MB
+      - name: Tests unitaires du moteur
+        run: swift test --package-path Packages/ReunionsEngine
       - name: Compiler reunions-cli (moteur de l'app)
         run: swift build -c release --package-path Packages/ReunionsEngine --product reunions-cli
       - name: Transcrire la réunion de test et vérifier
