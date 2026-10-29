@@ -29,12 +29,15 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    TextEditor(text: $vocabulary).frame(minHeight: 120)
-                    Button("Rétablir le vocabulaire Phénix") { vocabulary = Settings.defaultVocabulary }
+                    TextEditor(text: $vocabulary).frame(minHeight: 100)
                 } header: {
-                    Text("Vocabulaire")
+                    Text("Termes supplémentaires")
                 } footer: {
-                    Text("Noms, sigles et systèmes cités en réunion : Whisper les écrit mieux s'il les connaît.")
+                    Text("Le glossaire Phénix (systèmes, sigles, équipes) et les participants de la réunion sont déjà fournis à Whisper. Ajoute ici un sujet ou un nom propre à une réunion (ex. « MGEN3918, lettrage, Oxygène »).")
+                }
+
+                Section("Glossaire Phénix intégré") {
+                    Text(Glossary.fullText).font(.caption).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Réglages")

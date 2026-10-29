@@ -59,7 +59,10 @@ enum Export {
         1. le compte rendu au style Issam (contexte, décisions, actions avec porteur et date) ;
         2. les mises à jour du suivi (actions A-0xx existantes ou nouvelles) ;
         3. la liste des points incertains à vérifier.
-        Ne déduis rien qui ne soit pas dit ; signale les passages inaudibles ou douteux.
+        Corrige les noms et sigles déformés à l'aide du glossaire ci-dessous. Ne déduis rien qui ne soit pas dit ; signale les passages inaudibles ou douteux.
+
+        Glossaire Phénix :
+        \(Glossary.fullText)
 
         \(text(m))
         """

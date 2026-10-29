@@ -52,13 +52,19 @@ final class Transcriber {
             m.status = .transcribing
             store.save(m)
 
-            let prompt = promptTokens(pipe, vocabulary)
+            let prompt = promptTokens(pipe, Glossary.prompt(participants: m.participants, extra: vocabulary))
             var start = m.transcribedUntil
             while start < total - 0.5 {
                 try Task.checkCancellation()
                 phase = .transcribing(total > 0 ? start / total : 0)
-                let end = min(start + chunkSeconds, total)
-                let samples = try AudioProcessor.loadAudioAsFloatArray(fromPath: url.path, startTime: start, endTime: end)
+                let windowEnd = min(start + chunkSeconds, total)
+                var samples = try AudioProcessor.loadAudioAsFloatArray(fromPath: url.path, startTime: start, endTime: windowEnd)
+                var end = windowEnd
+                // Couper sur un silence plutôt qu'au milieu d'un mot : les mots coupés sont la première source d'erreurs aux jointures.
+                if windowEnd < total, let cut = Self.quietestCut(samples) {
+                    samples = Array(samples[..<cut])
+                    end = start + Double(cut) / Double(WhisperKit.sampleRate)
+                }
                 if !samples.isEmpty {
                     let language = try await chooseLanguage(pipe, samples, mode)
                     let options = DecodingOptions(
@@ -73,8 +79,9 @@ final class Transcriber {
                     let results = try await pipe.transcribe(audioArray: samples, decodeOptions: options)
                     for result in results {
                         for s in result.segments {
-                            let text = Self.clean(s.text)
+                            var text = Self.clean(s.text)
                             guard !text.isEmpty else { continue }
+                            if language == "fr" { text = Glossary.correct(text) }
                             m.segments.append(Segment(start: start + Double(s.start), end: start + Double(s.end), language: language, text: text))
                         }
                     }
@@ -124,6 +131,27 @@ final class Transcriber {
         guard !text.isEmpty, let tokenizer = pipe.tokenizer else { return nil }
         let ids = tokenizer.encode(text: " " + text).filter { $0 < tokenizer.specialTokens.specialTokenBegin }
         return ids.isEmpty ? nil : Array(ids.suffix(200))   // Whisper accepte au plus ~224 jetons d'amorce
+    }
+
+    /// Point le plus calme entre 22 s et la fin de la fenêtre (trames de 0,1 s), en nombre d'échantillons.
+    private static func quietestCut(_ samples: [Float]) -> Int? {
+        let rate = WhisperKit.sampleRate
+        let frame = rate / 10
+        let from = 22 * rate
+        guard samples.count > from + frame else { return nil }
+        var bestEnergy = Float.greatestFiniteMagnitude
+        var bestIndex = samples.count
+        var i = from
+        while i + frame <= samples.count {
+            var energy: Float = 0
+            for j in i..<(i + frame) { energy += samples[j] * samples[j] }
+            if energy < bestEnergy {
+                bestEnergy = energy
+                bestIndex = i + frame / 2
+            }
+            i += frame
+        }
+        return bestIndex
     }
 
     private static func clean(_ text: String) -> String {

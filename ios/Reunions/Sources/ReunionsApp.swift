@@ -29,8 +29,8 @@ enum Settings {
         ("large-v3-v20240930_turbo", "Large v3 Turbo complet (plus lourd)"),
     ]
 
-    /// Amorce de vocabulaire : aide Whisper à écrire correctement les noms et sigles du projet.
-    static let defaultVocabulary = "Réunion projet Phénix chez inwi avec Atos et Inetum. EB25, BSCS, OCS, SOA, APIGEE, Wallix, VABF, MGEN, CreditSet, Lagrange, Kafka. Salah, Amine, Boudriga, Badr Jbari, Faris, Saoudi, Redouane, Ghizlane."
+    /// Termes ajoutés à l'amorce Whisper, en plus du glossaire Phénix (Glossary.swift) et des participants.
+    static let defaultVocabulary = ""
 }
 
 enum LanguageMode: String, CaseIterable, Identifiable {
