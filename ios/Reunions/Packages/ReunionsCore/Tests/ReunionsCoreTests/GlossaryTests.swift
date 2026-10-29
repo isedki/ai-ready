@@ -16,6 +16,18 @@ final class GlossaryTests: XCTestCase {
         XCTAssertEqual(Glossary.correct("le dry run et le cut over"), "le dry run et le cutover")
     }
 
+    /// Erreurs relevées dans le test de bout en bout (voix de synthèse, modèle large-v3 turbo).
+    func testCorrectsErrorsSeenInEndToEndRun() {
+        XCTAssertEqual(
+            Glossary.correct("C'est le Weekly Hit. WallX pour Inetum, MGN-4007 validé. Badrjbari et le support sécurité."),
+            "C'est le Weekly IT. Wallix pour Inetum, MGEN-4007 validé. Badr Jbari et le Support Sécurité."
+        )
+        XCTAssertEqual(
+            Glossary.correct("Action pour Fari Adji sur Exabi25 et E-B 25. Crédit 7 passe en production, et Apig expose le service."),
+            "Action pour Faris Hajji sur EB25 et EB25. CreditSet passe en production, et APIGEE expose le service."
+        )
+    }
+
     func testDoesNotTouchOrdinaryWords() {
         let ordinary = [
             "La gentillesse de l'équipe est un atout.",

@@ -22,8 +22,8 @@ recall = len(found) / len(JARGON)
 problems = []
 if len(chunks) < 2:
     problems.append(f"une seule tranche ({len(chunks)}) : le découpage n'a pas été exercé")
-if any(not c["text"].strip() for c in chunks[:-1]):
-    problems.append("tranche vide au milieu de l'audio")
+if any(not c["text"].strip() and c["end"] - c["start"] > 4 for c in chunks[:-1]):
+    problems.append("passage de plus de 4 s vide au milieu de l'audio")
 fr_chunks = [c for c in chunks if c["language"] == "fr"]
 if not fr_chunks:
     problems.append("aucune tranche détectée en français")
@@ -42,7 +42,7 @@ report = [
     f"- Modèle : `{result['model']}`, mode `{result['mode']}`",
     f"- Audio : {result['audioSeconds']:.0f} s en {len(chunks)} tranches ; traitement {result['processingSeconds']:.0f} s "
     f"({speed:.2f} × la durée, sur le Mac de CI, sans Neural Engine)",
-    f"- Langues par tranche : {', '.join(c['language'] for c in chunks)}",
+    f"- Langues par passage : {', '.join(c['language'] for c in chunks)}",
     f"- Jargon correct : **{len(found)}/{len(JARGON)} ({recall:.0%})**",
     f"- Manquants : {', '.join(missing) if missing else 'aucun'}",
     "",

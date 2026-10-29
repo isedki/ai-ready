@@ -3,20 +3,28 @@ import Foundation
 import ReunionsCore
 import WhisperKit
 
-/// Résultat d'une tranche : la langue choisie et les passages transcrits (horodatés depuis le début de l'audio).
-public struct ChunkResult: Sendable {
+/// Une suite de passages dans la même langue à l'intérieur d'une tranche (horodatée depuis le début de l'audio).
+public struct LanguageRun: Sendable, Equatable {
     public let start: TimeInterval
     public let end: TimeInterval
     public let language: String
+}
+
+/// Résultat d'une tranche : ses suites de langue et les passages transcrits (horodatés depuis le début de l'audio).
+public struct ChunkResult: Sendable {
+    public let start: TimeInterval
+    public let end: TimeInterval
+    public let runs: [LanguageRun]
     public let segments: [Segment]
 }
 
 /// Transcription hors ligne avec WhisperKit.
 ///
 /// Whisper ne détecte la langue qu'une fois par fichier. Pour suivre l'alternance darija / français,
-/// l'audio est découpé en tranches d'environ 30 s, coupées sur un silence. Chaque tranche reçoit sa langue
-/// (français ou arabe), puis est transcrite avec l'amorce de vocabulaire Phénix ; les passages en français
-/// passent ensuite par les corrections du glossaire.
+/// l'audio est découpé en tranches d'environ 30 s, coupées sur un silence ; chaque tranche est redécoupée
+/// en morceaux d'environ 8 s (une à deux phrases) dont on détecte la langue. Les morceaux consécutifs de même
+/// langue sont transcrits ensemble, avec l'amorce de vocabulaire Phénix ; les passages en français passent
+/// ensuite par les corrections du glossaire.
 public final class TranscriptionEngine {
     public static let chunkSeconds: TimeInterval = 30
     /// Une tranche plus courte que ça (bruit de fin de fichier) n'est pas envoyée à Whisper.
@@ -66,37 +74,70 @@ public final class TranscriptionEngine {
                 samples = Array(samples[..<cut])
                 end = start + Double(cut) / Double(rate)
             }
-            var language = mode == .ar ? "ar" : "fr"
+            var runs: [LanguageRun] = []
             var segments: [Segment] = []
             if Double(samples.count) / Double(rate) >= Self.minimumChunkSeconds {
-                language = try await chooseLanguage(samples, mode: mode)
-                let options = DecodingOptions(
-                    task: .transcribe,
-                    language: language,
-                    temperature: 0,
-                    usePrefillPrompt: true,
-                    detectLanguage: false,
-                    skipSpecialTokens: true,
-                    promptTokens: promptTokens
-                )
-                let results = try await pipe.transcribe(audioArray: samples, decodeOptions: options)
-                if results.allSatisfy({ $0.segments.isEmpty }) {
-                    log?("tranche \(Int(start))-\(Int(end)) s : aucun segment renvoyé (langue \(language))")
-                }
-                for result in results {
-                    for s in result.segments {
-                        var text = Self.clean(s.text)
-                        guard !text.isEmpty, !Self.isHallucination(text) else { continue }
-                        if language == "fr" { text = Glossary.correct(text) }
-                        segments.append(Segment(start: start + Double(s.start), end: start + Double(s.end), language: language, text: text))
+                for run in try await languageRuns(samples, mode: mode) {
+                    let runStart = start + Double(run.range.lowerBound) / Double(rate)
+                    let runEnd = start + Double(run.range.upperBound) / Double(rate)
+                    runs.append(LanguageRun(start: runStart, end: runEnd, language: run.language))
+                    let options = DecodingOptions(
+                        task: .transcribe,
+                        language: run.language,
+                        temperature: 0,
+                        usePrefillPrompt: true,
+                        detectLanguage: false,
+                        skipSpecialTokens: true,
+                        // L'amorce est française : elle n'aide pas l'arabe et peut l'en détourner.
+                        promptTokens: run.language == "fr" ? promptTokens : nil
+                    )
+                    let results = try await pipe.transcribe(audioArray: Array(samples[run.range]), decodeOptions: options)
+                    if results.allSatisfy({ $0.segments.isEmpty }) {
+                        log?("passage \(Int(runStart))-\(Int(runEnd)) s : aucun segment renvoyé (langue \(run.language))")
+                    }
+                    for result in results {
+                        for s in result.segments {
+                            var text = Self.clean(s.text)
+                            guard !text.isEmpty, !Self.isHallucination(text) else { continue }
+                            if run.language == "fr" { text = Glossary.correct(text) }
+                            segments.append(Segment(start: runStart + Double(s.start), end: runStart + Double(s.end), language: run.language, text: text))
+                        }
                     }
                 }
             }
             // Garantit l'avancement même si le fichier est plus court que la durée annoncée.
             end = max(end, start + Self.minimumChunkSeconds)
-            try await onChunk(ChunkResult(start: start, end: end, language: language, segments: segments))
+            try await onChunk(ChunkResult(start: start, end: end, runs: runs, segments: segments))
             start = end
         }
+    }
+
+    /// Langue de chaque morceau (~8 s, coupé sur les silences), morceaux consécutifs de même langue fusionnés.
+    /// Un morceau trop court pour une détection fiable (< 2 s) prend la langue du précédent.
+    func languageRuns(_ samples: [Float], mode: LanguageMode) async throws -> [(range: Range<Int>, language: String)] {
+        guard mode == .auto else { return [(0..<samples.count, mode == .ar ? "ar" : "fr")] }
+        let rate = WhisperKit.sampleRate
+        var labelled: [(range: Range<Int>, language: String)] = []
+        for piece in AudioCut.pieces(samples, sampleRate: rate) {
+            if piece.count < 2 * rate, let previous = labelled.last {
+                labelled.append((piece, previous.language))
+            } else {
+                labelled.append((piece, try await chooseLanguage(Array(samples[piece]), mode: .auto)))
+            }
+        }
+        return Self.mergeRuns(labelled)
+    }
+
+    static func mergeRuns(_ pieces: [(range: Range<Int>, language: String)]) -> [(range: Range<Int>, language: String)] {
+        var runs: [(range: Range<Int>, language: String)] = []
+        for piece in pieces {
+            if let last = runs.last, last.language == piece.language, last.range.upperBound == piece.range.lowerBound {
+                runs[runs.count - 1] = (last.range.lowerBound..<piece.range.upperBound, last.language)
+            } else {
+                runs.append(piece)
+            }
+        }
+        return runs
     }
 
     /// En mode auto, seul français ou arabe est retenu : le darija est parfois détecté comme une autre langue,
@@ -125,8 +166,9 @@ public final class TranscriptionEngine {
         }
         let main = code(detected)
         if main == "fr" || main == "ar" { return main }
-        var ar: Float = 0
-        var fr: Float = 0
+        // WhisperKit renvoie des log-probabilités (négatives) : une langue absente vaut -∞, pas 0.
+        var ar = -Float.infinity
+        var fr = -Float.infinity
         for (key, p) in probabilities {
             switch code(key) {
             case "ar": ar = max(ar, p)

@@ -51,9 +51,12 @@ do {
     let started = Date()
     var chunks: [Output.Chunk] = []
     try await engine.transcribe(audioURL: url, duration: duration, mode: mode, prompt: prompt) { chunk in
-        let text = chunk.segments.map(\.text).joined(separator: " ")
-        chunks.append(.init(start: chunk.start, end: chunk.end, language: chunk.language, text: text))
-        print("[\(Export.clock(chunk.start))-\(Export.clock(chunk.end)) · \(chunk.language)] \(text)")
+        // Une entrée par suite de même langue (plusieurs par tranche quand on passe du darija au français).
+        for run in chunk.runs {
+            let text = chunk.segments.filter { $0.start >= run.start - 0.01 && $0.start < run.end }.map(\.text).joined(separator: " ")
+            chunks.append(.init(start: run.start, end: run.end, language: run.language, text: text))
+            print("[\(Export.clock(run.start))-\(Export.clock(run.end)) · \(run.language)] \(text)")
+        }
     }
     let output = Output(
         model: model, mode: mode.rawValue, audioSeconds: duration,
