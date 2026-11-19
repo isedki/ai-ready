@@ -9,6 +9,7 @@
  *
  * Individual steps, if needed:
  *   npm run kb -- ingest dump.pst            parse PST (or a folder of .eml), clean, redact, thread
+ *   npm run kb -- pj dump.pst [--out data/pj]   save the attachments (PDF, Office…) once each, for the project index
  *   npm run kb -- teams teams.json           optional: force departments for addresses / @domains
  *   npm run kb -- estimate                   token count and cost estimate before spending anything
  *   npm run kb -- extract --sample 150 --sync   trial run on a random sample
@@ -24,6 +25,7 @@ import { createInterface }          from 'node:readline/promises'
 import { openDb, closeDb, tx }      from '../lib/kb/db'
 import { ingestPst }                from '../lib/kb/ingest/pst'
 import { ingestEmlDir }             from '../lib/kb/ingest/eml'
+import { exportPstAttachments }     from '../lib/kb/ingest/attachments'
 import { buildThreads, unifyExchangeAddresses } from '../lib/kb/threads'
 import { extractThreads, selectPending } from '../lib/kb/extract'
 import { foldAll }                  from '../lib/kb/fold'
@@ -173,6 +175,21 @@ async function main() {
     case 'ingest':
       await ingest(positional)
       break
+
+    case 'pj': {
+      // Attachments only: nothing is read by Claude and the email database is not touched.
+      if (positional.length === 0) throw new Error('usage: kb pj <file.pst> [--out data/pj]')
+      const out = opt('out') ?? 'data/pj'
+      for (const p of positional) {
+        if (!existsSync(p)) throw new Error(`not found: ${p}`)
+        const r = exportPstAttachments(p, out, n => process.stdout.write(`\r  ${n} emails with attachments…`))
+        const mb = (r.bytes / 1024 / 1024).toFixed(1)
+        log(`\n${p}: ${r.written} attachments saved (${mb} MB) in ${out}, ${r.duplicates} duplicates skipped`)
+        log(`  not kept: ${r.skipped.unsupported} images or other formats, ${r.skipped.tooSmall} under 2 KB, ${r.skipped.tooBig} over 40 MB, ${r.skipped.empty} unreadable`)
+      }
+      log(`Next: compress the folder (zip -r -9 pj.zip ${out}) and send it; it is indexed with npm run copilote -- ingest ${out}`)
+      break
+    }
 
     case 'teams': {
       // { "jane.doe@inwi.ma": "Infra Ops / DSI", "@vendor.com": "Vendor X" }  (overrides departments guessed from signatures)

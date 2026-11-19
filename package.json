@@ -13,6 +13,7 @@
     "agent": "tsx scripts/agent.ts",
     "copilote:mcp": "tsx scripts/copilote-mcp.ts",
     "test:agent": "node --import tsx --test lib/agent/*.test.ts",
+    "test:kb": "node --import tsx --test lib/kb/ingest/attachments.test.ts",
     "test:observateur": "node --test observateur/observateur.test.mjs"
   },
   "dependencies": {
