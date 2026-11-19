@@ -45,8 +45,9 @@ plist ma.observateur.semaine  "<string>$DIR/analyse.mjs</string><string>semaine<
 
 echo "Observateur installé."
 echo "1) Réglages Système → Confidentialité et sécurité → Accessibilité : autorise « node » ($NODE)"
-echo "   (sans cela, le titre des fenêtres reste vide). La première fois, macOS demande aussi d'autoriser"
-echo "   node à piloter Safari ou Chrome (Automatisation) : c'est pour lire le domaine de l'onglet."
-echo "2) Journal : ~/.observateur/journal · rapports : ~/Documents/Observateur · réglages : ~/.observateur/config.json"
+echo "   (sans cela, le titre des fenêtres reste vide). macOS demande aussi d'autoriser node à piloter"
+echo "   Safari ou Chrome (domaine de l'onglet) et Mail (tes mails envoyés) : Automatisation."
+echo "2) Journal : ~/.observateur/journal · savoir : ~/.observateur/savoir · rapports : ~/Documents/Observateur"
+echo "   Réglages : ~/.observateur/config.json · lui apprendre : node \"$DIR/analyse.mjs\" note \"…\""
 [ -n "$CLAUDE" ] || echo "3) Claude Code (commande « claude ») introuvable : les rapports n'auront que les statistiques, sans conseils."
 echo "Essai immédiat : node \"$DIR/analyse.mjs\" jour --sans-claude"

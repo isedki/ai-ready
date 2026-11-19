@@ -16,6 +16,7 @@ export function loadConfig(path = process.env.OBSERVATEUR_CONFIG ?? '~/.observat
   const cfg = { ...base, ...own }
   cfg.dossier_donnees = expand(cfg.dossier_donnees)
   cfg.dossier_rapports = expand(cfg.dossier_rapports)
+  cfg.dossier_savoir = expand(cfg.dossier_savoir)
   return cfg
 }
 
@@ -34,30 +35,45 @@ export function domainOf(url) {
   try { return new URL(url).hostname.replace(/^www\./, '') } catch { return '' }
 }
 
-/** Retire d'un titre ce qui n'a pas à quitter le Mac : adresses, numéros, IP, URL, jetons. */
-export function redact(title) {
-  return (title ?? '')
+/** Masque ce qui n'a pas à quitter le Mac : adresses, numéros, IP, URL, jetons (texte long gardé). */
+export function maskText(text) {
+  return (text ?? '')
     .replace(/https?:\/\/[^\s]+/g, u => `[${domainOf(u) || 'lien'}]`)
     .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '[email]')
     .replace(/\b\d{1,3}(\.\d{1,3}){3}\b/g, '[ip]')
     .replace(/\+?\d[\d .-]{7,}\d/g, '[numéro]')
     .replace(/\b[A-Za-z0-9_-]{32,}\b/g, '[jeton]')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 160)
+}
+
+/** Un titre de fenêtre masqué, sur une ligne, 160 caractères au plus. */
+export function redact(title) {
+  return maskText(title).replace(/\s+/g, ' ').trim().slice(0, 160)
 }
 
 /** Un échantillon tel qu'il est écrit dans le journal. */
-export function makeRecord({ now = new Date(), app = '', title = '', url = '', idle = 0 }, cfg) {
+export function makeRecord({ now = new Date(), app = '', title = '', url = '', idle = 0, crashes = [], online = true, boot = null }, cfg) {
   if (cfg.ignorer_apps.includes(app)) return null
   const hidden = cfg.masquer_titre_apps.includes(app)
-  return {
+  const rec = {
     t: now.toISOString(),
     app,
     titre: hidden ? '' : redact(title),
     domaine: hidden ? '' : domainOf(url),
     inactif: idle >= cfg.inactif_apres_secondes,
+    // Secondes depuis la dernière action clavier ou souris : distingue le travail soutenu
+    // (quelques secondes) de la lecture ou de l'hésitation (une minute ou plus).
+    idle_s: idle,
   }
+  if (crashes.length) rec.plantages = crashes
+  if (!online) rec.hors_ligne = true
+  if (boot) rec.demarrage = boot
+  return rec
+}
+
+/** Nom de l'application d'un rapport de plantage macOS (« Microsoft Teams-2026-11-19-101203.ips »). */
+export function crashApp(file) {
+  const m = /^(.+?)[-_]\d{4}-\d{2}-\d{2}-\d{6}.*\.(ips|crash|hang|diag)$/.exec(file)
+  return m ? m[1].replace(/_/g, ' ') : null
 }
 
 /** Catégorie d'un échantillon : domaine d'abord (un onglet Gmail est un email), puis application. */
