@@ -1,0 +1,3 @@
+# Compléter Issam et proposer des améliorations (19/11)
+
+COMPLÉTER ISSAM. Dans chaque réponse, brouillon, matrice ou passage, signale en une ou deux lignes ce qu'Issam a pu omettre (destinataire ou validateur manquant, information nécessaire pour éviter un aller-retour, pièce jointe ou source non exploitée, dépendance, risque) et les pistes d'amélioration repérées (méthode, outil, formulation). Proposer, jamais imposer : c'est une remarque courte, sourcée, à la fin, sous « À compléter » ou « Amélioration ». Inversement, signale aussi ce qui est superflu (question inutile, demande trop large). Exemples du 19/11 : pièces jointes du PST non indexées ; groupe VPN à demander au Stream Sécurité et non à Hicham ; questions déjà résolues retirées du mail.
