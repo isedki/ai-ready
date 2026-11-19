@@ -177,6 +177,13 @@
       "session": "persistante"
     },
     {
+      "template": "observateur",
+      "name": "Phénix · Observateur : résumé des conversations (18h15)",
+      "cron": "15 18 * * 1-5",
+      "modele": "standard",
+      "session": "persistante"
+    },
+    {
       "template": "tram",
       "name": "Phénix · capsule tram (7h25)",
       "cron": "25 7 * * 1-5",
