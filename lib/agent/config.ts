@@ -24,6 +24,12 @@ const Task = z.object({
   /** 5-field cron in the project time zone, or null for a task created on demand. */
   cron:     z.string().nullable(),
   enabled:  z.boolean().default(true),
+  /** Model tier of the task as a whole (see `modeles`). */
+  modele:   z.enum(['leger', 'standard', 'fort']).default('fort'),
+  /** « persistante » fires into the long-running session (its model is that session's
+   *  model: light steps are delegated to a light sub-agent) ; « nouvelle » starts a fresh
+   *  session per run, which can run on its own model tier. */
+  session:  z.enum(['persistante', 'nouvelle']).default('persistante'),
   /** Free values given to the template as {{task.<key>}}. */
   params:   z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
 })
@@ -75,6 +81,15 @@ export const AgentConfig = z.object({
     gmail:    z.string(),
     depuis:   z.string().optional(),
   }),
+  /** Model per tier. Light: sorting, extraction, indexing. Standard: summaries, capsules.
+   *  Strong: decisions, drafts, the day's review. */
+  modeles: z.object({
+    leger:    z.string().default('claude-haiku-5-5'),
+    standard: z.string().default('claude-sonnet-5-5'),
+    fort:     z.string().default('claude-opus-5-5'),
+    /** Short name the Agent tool takes for a light sub-agent. */
+    sous_agent_leger: z.string().default('haiku'),
+  }).default({ leger: 'claude-haiku-5-5', standard: 'claude-sonnet-5-5', fort: 'claude-opus-5-5', sous_agent_leger: 'haiku' }),
   notifications: z.object({
     /** When a task may notify the phone. Everything else stays silent. */
     seulement: z.array(z.string()).default(['urgence', 'escalade à décider', 'imputation nouvelle']),

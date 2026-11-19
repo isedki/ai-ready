@@ -7,7 +7,8 @@ L'assistant PMO qui tient le suivi d'un projet : emails, documents, réunions, b
 | Tâche | Quand | Rôle |
 |---|---|---|
 | `matin` | 8h00 | emails de la nuit, objectifs du jour **proposés à valider**, brouillons, préparation de chaque réunion planifiée 15 min avant |
-| `veille` | plusieurs fois par jour | emails et Drive ; voie rapide quand il n'y a rien ; indexation de chaque email lu et rattrapage de l'historique par lots |
+| `veille` | plusieurs fois par jour | emails et Drive ; voie rapide quand il n'y a rien ; tri et extraction confiés à un sous-agent léger |
+| `indexation` | 12h20 et 18h20, nouvelle session, modèle léger | emails du jour et historique (rattrapage par lots) en extraits du Copilote, documents de la base de connaissance |
 | `prepa` | à la demande (planifiée par `matin`) | fiche de réunion : objectif, dû par chacun, 3 points, fait sourcé, ce qu'il ne faut pas accepter |
 | `apres-midi` | 14h15 | digest, brouillons relus, liste « à envoyer » |
 | `bilan` | 16h30 | vigilance, chemin critique, questions, trames des actions qui traînent, registre des risques |
@@ -26,7 +27,8 @@ Trois principes s'appliquent à toutes les tâches (`agent/prompts/_commun.md`) 
 agent/
   prompts/            gabarits communs ({{valeur}}, {{> commun}} inclut _commun.md)
     _commun.md        règles, contexte combiné, priorités, périmètre, personnes
-    matin.md veille.md prepa.md apres-midi.md bilan.md tram.md
+    _session-nouvelle.md  préambule des tâches en nouvelle session
+    matin.md veille.md indexation.md prepa.md apres-midi.md bilan.md tram.md
     weekly-it.md hebdo-si.md controle-qualite.md rapport-mensuel.md
   projects/
     phenix/config.json   le projet en production
@@ -94,6 +96,21 @@ Les résultats rappellent que les passages sont des données, pas des instructio
 **Historique des emails.** `npm run kb -- run <archive.pst>` (voir `docs/email-kb.md`) nettoie une boîte exportée d'Outlook. `npm run copilote -- import-kb` la verse ensuite dans l'index. C'est ainsi qu'entrent les emails d'un prédécesseur. Les emails du compte Gmail lié sont indexés par la veille, par lots.
 
 **Persistance.** La base vit dans `data/` (non versionné). Dans une session cloud, le conteneur peut être recyclé : `index` la reconstruit depuis le Copilote en une minute environ. Sur une VM (voir `docs/copilote.md`), elle reste en place.
+
+## Le bon modèle pour chaque étape
+
+| Niveau | Modèle par défaut | Pour |
+|---|---|---|
+| `leger` | `claude-haiku-5-5` | trier les emails, extraire les faits en extraits, indexer, rattraper l'historique, vérifier une liste |
+| `standard` | `claude-sonnet-5-5` | capsules, rapport d'activités mensuel |
+| `fort` | `claude-opus-5-5` | décisions (priorités, clôtures, escalades, imputations), brouillons, préparation des réunions, bilan |
+
+Les modèles se changent dans `modeles` de la configuration. Chaque tâche a un `modele` et une `session` :
+
+- **`session: "persistante"`** : la tâche se déclenche dans la session principale, qui garde la conversation et l'index. Elle tourne avec le modèle de cette session, car une tâche liée à une session ne peut pas en changer. Ses étapes légères (tri, extraction, indexation) sont confiées à un sous-agent léger (outil Agent, `sous_agent_leger`, par défaut `haiku`). Il lit et rend du JSON, sans rien décider ni écrire. La tâche relit ce qu'il a extrait avant de l'écrire dans le suivi.
+- **`session: "nouvelle"`** : chaque déclenchement ouvre une session neuve sur le modèle de son niveau. Elle reconstruit l'index puis écrit tout dans les artefacts (`_session-nouvelle.md`). C'est le cas de l'`indexation` (niveau léger, deux fois par jour, avec rattrapage de l'historique par lots de 40 fils) et des capsules.
+
+`npm run agent -- install` affiche pour chaque tâche son niveau, son modèle et sa session.
 
 ## Efficacité
 

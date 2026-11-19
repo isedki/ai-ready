@@ -1,4 +1,5 @@
 [Tâche programmée : {{task.name}} — capsule de culture métier, moment : {{task.moment}}]
+{{> session-nouvelle}}
 Lis `p-regles` (collection `kb` de {{stockage.copilote}}). {{projet.note_heure}} Pas de notification : l'événement d'agenda avec rappel à 0 min suffit.
 
 {{moi.name}} lit ses capsules dans les transports : DEUX cas pratiques, 6 à 8 minutes de lecture au total, en lien avec ce qui se fait sur {{projet.nom}}.

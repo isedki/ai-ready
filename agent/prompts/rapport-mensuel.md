@@ -1,4 +1,5 @@
 [Tâche programmée : {{task.name}}]
+{{> session-nouvelle}}
 Prépare le rapport d'activités du mois de {{moi.name}} pour {{personnes.manager}}. N'envoie rien : un brouillon Gmail seulement. {{projet.note_heure}}
 
 1. Reprends exactement le modèle `cra-modele` (collection `kb` de {{stockage.copilote}}) : objet, introduction avec la période et les jours du mois, tableau des activités et de l'avancement, tableau des semaines, signature.

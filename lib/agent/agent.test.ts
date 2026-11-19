@@ -29,6 +29,20 @@ test('the people to watch are named in every task that loads the common rules', 
   assert.match(matin.prompt, /ne plus prendre en compte\)/)
 })
 
+test('each step runs on the right model: fresh sessions carry their model, the main session keeps its own', () => {
+  const cfg = loadConfig('agent/projects/phenix/config.json')
+  const tasks = renderTasks(cfg)
+  const by = (tpl: string) => tasks.find(t => t.template === tpl)!
+  assert.equal(by('indexation').model, 'claude-haiku-5-5')
+  assert.equal(by('indexation').session, 'nouvelle')
+  assert.match(by('indexation').prompt, /NOUVELLE SESSION/)
+  assert.equal(by('tram').model, 'claude-sonnet-5-5')
+  for (const t of tasks.filter(t => t.session === 'persistante')) assert.equal(t.model, null, t.name)
+  // Light steps inside a strong task go to a light sub-agent.
+  assert.match(by('veille').prompt, /model « haiku »/)
+  assert.match(by('bilan').prompt, /niveau « fort »/)
+})
+
 test('an unknown placeholder or a missing partial is an error', () => {
   const dir = tmp()
   assert.throws(() => renderTemplate('{{projet.inconnu}}', { projet: {} }, dir), /Valeur inconnue/)

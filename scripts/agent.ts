@@ -90,8 +90,8 @@ async function main() {
       mkdirSync(outDir, { recursive: true })
       writeFileSync(join(outDir, 'tasks.json'), JSON.stringify(tasks, null, 2))
       console.log(`Tâches prêtes dans ${join(outDir, 'tasks.json')}. Dans une session Claude Code liée à ce dépôt, demande :`)
-      console.log(`  « Installe les tâches de ${join(outDir, 'tasks.json')} : pour chacune, mets à jour la tâche programmée du même nom (update_trigger) ou crée-la (create_trigger), avec son cron et son prompt ; désactive celles marquées enabled: false. »`)
-      for (const t of tasks) console.log(`  - ${t.name} · ${t.cron ?? 'à la demande'}${t.enabled ? '' : ' (désactivée)'}`)
+      console.log(`  « Installe les tâches de ${join(outDir, 'tasks.json')} : pour chacune, mets à jour la tâche programmée du même nom (update_trigger) ou crée-la (create_trigger), avec son cron et son prompt ; session « persistante » : dans cette session ; session « nouvelle » : create_new_session_on_fire avec son model et les connecteurs Gmail, Google Calendar et Google Drive ; désactive celles marquées enabled: false. »`)
+      for (const t of tasks) console.log(`  - ${t.name} · ${t.cron ?? 'à la demande'} · ${t.modele}${t.model ? ` (${t.model}, nouvelle session)` : ' (session principale)'}${t.enabled ? '' : ' · désactivée'}`)
       break
     }
     default:

@@ -10,7 +10,9 @@ Sinon :
 
 2. DRIVE : MC ou chiffrage → vérification des calculs et Google Doc « Analyse <MC> » dans « Traités » ({{stockage.drive.traites}}) ; architecture, DAT, matrice de flux → résumé dans `docs` de {{stockage.qui_contacter}} ; puis déplace le fichier dans « Traités » avec « Traité le jj/mm : … ».
 
-3. INDEXATION : chaque email du projet lu et chaque document traité entre dans un pack `kb` et dans l'index. RATTRAPAGE : indexe aussi {{task.rattrapage_lot}} fils anciens du projet (requête {{index.gmail}} après {{index.depuis}}), du plus récent au plus ancien, jusqu'à épuisement ; note le dernier fil indexé dans `jour.rattrapage`.
+3. INDEXATION (étape légère, confiée au sous-agent léger) : chaque email du projet lu et chaque document traité entre dans un pack `kb` et dans l'index. L'historique ancien est rattrapé par la tâche « indexation » ; ne le fais pas ici.
+
+Le tri des emails (projet ou non, sujet, action concernée) et l'extraction des faits sont aussi confiés au sous-agent léger ; toi, tu décides de ce qui va dans le suivi, de l'urgence et des brouillons.
 
 4. BROUILLONS : seulement pour un objectif validé du jour ou une urgence, 3 nouveaux par jour au plus (compte ceux de `jour`). Liste les périmés.
 

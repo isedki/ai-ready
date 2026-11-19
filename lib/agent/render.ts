@@ -13,6 +13,11 @@ export type RenderedTask = {
   template: string
   cron:     string | null
   enabled:  boolean
+  /** Model tier and the model it maps to. For a « persistante » task the session's own
+   *  model applies (a task bound to a session cannot change it): `model` is then null. */
+  modele:   'leger' | 'standard' | 'fort'
+  session:  'persistante' | 'nouvelle'
+  model:    string | null
   prompt:   string
 }
 
@@ -35,7 +40,8 @@ export function context(cfg: AgentConfig, task?: AgentConfig['taches'][number]):
       drive: { a_traiter: NC, traites: NC, base_de_connaissance: NC, ...cfg.stockage.drive },
     },
     index:    { depuis: 'le début', ...cfg.index },
-    task:     { name: task?.name ?? '', ...(task?.params ?? {}) },
+    task:     { name: task?.name ?? '', modele: task?.modele ?? 'fort', session: task?.session ?? 'persistante', ...(task?.params ?? {}) },
+    modeles:  cfg.modeles,
     personnes: {
       predecesseur: names('predecesseur'),
       manager:      names('manager'),
@@ -83,7 +89,10 @@ export function renderTasks(cfg: AgentConfig, dir = 'agent/prompts'): RenderedTa
     const file = join(dir, `${t.template}.md`)
     if (!existsSync(file)) throw new Error(`Gabarit introuvable pour « ${t.name} » : ${file}`)
     const prompt = renderTemplate(readFileSync(file, 'utf8').trim(), context(cfg, t), dir)
-    return { name: t.name, template: t.template, cron: t.cron ? `CRON_TZ=${cfg.projet.fuseau} ${t.cron}` : null, enabled: t.enabled, prompt }
+    return {
+      name: t.name, template: t.template, cron: t.cron ? `CRON_TZ=${cfg.projet.fuseau} ${t.cron}` : null, enabled: t.enabled,
+      modele: t.modele, session: t.session, model: t.session === 'nouvelle' ? cfg.modeles[t.modele] : null, prompt,
+    }
   })
 }
 
