@@ -13,7 +13,7 @@ import { fingerprint, logLine, parseDrafts, toCopy }      from './lib.mjs'
 const DIR = join(homedir(), '.passerelle')
 mkdirSync(DIR, { recursive: true, mode: 0o700 })
 const CFG_FILE = join(DIR, 'config.json'), STATE_FILE = join(DIR, 'etat.json'), LOG = join(DIR, 'journal.log')
-const cfg = { compte_gmail: '', compte_waroom: '', adresse_waroom: 'issam.sedki@waroom.ma', jours: 3,
+const cfg = { compte_gmail: '', compte_waroom: '', adresse_waroom: 'issam.sedki@waroom.ma', jours: 1,
   ...(existsSync(CFG_FILE) ? JSON.parse(readFileSync(CFG_FILE, 'utf8')) : {}) }
 const state = existsSync(STATE_FILE) ? JSON.parse(readFileSync(STATE_FILE, 'utf8')) : { copies: {} }
 
@@ -83,7 +83,7 @@ function main() {
   }
   writeFileSync(CFG_FILE, JSON.stringify(cfg, null, 2))
 
-  const raw = execFileSync('osascript', ['-e', DRAFTS_AS(cfg.compte_gmail, cfg.adresse_waroom.toLowerCase(), cfg.jours ?? 3)],
+  const raw = execFileSync('osascript', ['-e', DRAFTS_AS(cfg.compte_gmail, cfg.adresse_waroom.toLowerCase(), cfg.jours ?? 1)],
     { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 660_000 })
   const drafts = parseDrafts(raw.replace(/\n$/, ''), cfg.compte_gmail)
   if (drafts.erreur) { console.error(drafts.erreur); process.exit(1) }
