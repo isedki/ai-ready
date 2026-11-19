@@ -22,3 +22,13 @@ export function toCopy(drafts, state, cfg) {
 export function logLine(now, d, ok, why = '') {
   return `${now.toISOString()} ${ok ? 'copié' : 'ÉCHEC'} « ${d.subject} » → ${d.to.join(', ')}${why ? ` (${why})` : ''}`
 }
+
+/** Lit la sortie de DRAFTS_AS. */
+export function parseDrafts(text, account) {
+  if (text.startsWith('ERREUR\x1f')) return { erreur: `Dossier Brouillons introuvable dans ${account} : ${text.slice(7)}` }
+  const split = s => s.split(',').map(x => x.trim()).filter(Boolean)
+  return text.split('\x1e').filter(r => r.includes('\x1f')).map(r => {
+    const [id, subject, to, cc, ...content] = r.split('\x1f')
+    return { id: id.trim(), account, subject, to: split(to), cc: split(cc), content: content.join('\x1f') }
+  })
+}

@@ -8,12 +8,12 @@ import { execFileSync }                                   from 'node:child_proce
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir }                                        from 'node:os'
 import { join }                                           from 'node:path'
-import { fingerprint, logLine, toCopy }                   from './lib.mjs'
+import { fingerprint, logLine, parseDrafts, toCopy }      from './lib.mjs'
 
 const DIR = join(homedir(), '.passerelle')
 mkdirSync(DIR, { recursive: true, mode: 0o700 })
 const CFG_FILE = join(DIR, 'config.json'), STATE_FILE = join(DIR, 'etat.json'), LOG = join(DIR, 'journal.log')
-const cfg = { compte_gmail: '', compte_waroom: '', adresse_waroom: 'issam.sedki@waroom.ma',
+const cfg = { compte_gmail: '', compte_waroom: '', adresse_waroom: 'issam.sedki@waroom.ma', jours: 3,
   ...(existsSync(CFG_FILE) ? JSON.parse(readFileSync(CFG_FILE, 'utf8')) : {}) }
 const state = existsSync(STATE_FILE) ? JSON.parse(readFileSync(STATE_FILE, 'utf8')) : { copies: {} }
 
@@ -22,15 +22,48 @@ const jxa = (code, arg) => execFileSync('osascript', ['-l', 'JavaScript', '-e', 
 
 // Comptes d'Apple Mail : nom et adresses.
 const ACCOUNTS = `function run(){const M=Application('Mail');return JSON.stringify(M.accounts().map(a=>({nom:a.name(),adresses:a.emailAddresses()})))}`
-// Brouillons du seul compte Gmail, lus en bloc (une requête par propriété, pas une par message) ;
-// le texte n'est lu que pour les brouillons qui copient l'adresse waroom.
-const DRAFTS = `function run(argv){const a=JSON.parse(argv[0]);const M=Application('Mail');const acc=M.accounts.byName(a.account);
-const boxes=acc.mailboxes();const box=boxes.find(b=>/draft|brouillon/i.test(b.name()));
-if(!box)return JSON.stringify({erreur:'Dossier Brouillons introuvable dans '+a.account+' : '+boxes.map(b=>b.name()).join(', ')});
-const ms=box.messages;const ids=ms.messageId(),subj=ms.subject(),to=ms.toRecipients.address(),cc=ms.ccRecipients.address();const out=[];
-for(let i=0;i<ids.length;i++){const all=(to[i]||[]).concat(cc[i]||[]).map(x=>String(x).toLowerCase());if(!all.includes(a.own))continue;
-out.push({id:ids[i],account:a.account,subject:subj[i],content:ms[i].content(),to:to[i]||[],cc:cc[i]||[]})}
-return JSON.stringify(out)}`
+// Brouillons récents du seul compte Gmail, en AppleScript : « with timeout » lève la limite de 2 min
+// des événements Apple, et le filtre « whose » (date, adresse waroom) est appliqué par Mail lui-même.
+// Champs séparés par ASCII 31, brouillons par ASCII 30, adresses par des virgules.
+const DRAFTS_AS = (account, own, days) => `
+with timeout of 600 seconds
+  tell application "Mail"
+    set acc to account "${account.replace(/"/g, '\\"')}"
+    set box to missing value
+    repeat with b in (mailboxes of acc)
+      set n to name of b
+      if n contains "Brouillon" or n contains "Draft" or n contains "brouillon" or n contains "draft" then
+        set box to b
+        exit repeat
+      end if
+    end repeat
+    if box is missing value then
+      set names to ""
+      repeat with b in (mailboxes of acc)
+        set names to names & (name of b) & ", "
+      end repeat
+      return "ERREUR" & (character id 31) & names
+    end if
+    set since to (current date) - (${days} * days)
+    set ms to (messages of box whose date received > since)
+    set out to ""
+    repeat with m in ms
+      set tos to ""
+      repeat with r in (to recipients of m)
+        set tos to tos & (address of r) & ","
+      end repeat
+      set ccs to ""
+      repeat with r in (cc recipients of m)
+        set ccs to ccs & (address of r) & ","
+      end repeat
+      if (tos & ccs) contains "${own}" then
+        set out to out & (message id of m) & (character id 31) & (subject of m) & (character id 31) & tos & (character id 31) & ccs & (character id 31) & (content of m) & (character id 30)
+      end if
+    end repeat
+    return out
+  end tell
+end timeout`
+
 // Crée un brouillon dans le compte waroom (expéditeur = adresse waroom) et l'enregistre sans l'envoyer.
 const CREATE = `function run(argv){const d=JSON.parse(argv[0]);const M=Application('Mail');
 const m=M.OutgoingMessage({subject:d.subject,content:d.content,visible:false,sender:d.sender});M.outgoingMessages.push(m);
@@ -50,7 +83,9 @@ function main() {
   }
   writeFileSync(CFG_FILE, JSON.stringify(cfg, null, 2))
 
-  const drafts = JSON.parse(jxa(DRAFTS, { account: cfg.compte_gmail, own: cfg.adresse_waroom.toLowerCase() }))
+  const raw = execFileSync('osascript', ['-e', DRAFTS_AS(cfg.compte_gmail, cfg.adresse_waroom.toLowerCase(), cfg.jours ?? 3)],
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 660_000 })
+  const drafts = parseDrafts(raw.replace(/\n$/, ''), cfg.compte_gmail)
   if (drafts.erreur) { console.error(drafts.erreur); process.exit(1) }
   const todo = toCopy(drafts, state, cfg)
   if (process.argv.includes('--essai')) {
