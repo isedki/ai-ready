@@ -8,6 +8,7 @@
  *   npm run copilote -- embed                         calcule les vecteurs (COPILOTE_EMBEDDINGS=local)
  *   npm run copilote -- search "<question>"           recherche seule, sans appel à Claude
  *   npm run copilote -- ask "<question>"              réponse sourcée dans le terminal
+ *   npm run copilote -- local "<question>"            mode dégradé : même base, réponse par un modèle local (Ollama), sans Claude
  *   npm run copilote -- eval [eval/questions.json] [--answers]   rappel de la recherche (et réponses si --answers)
  *   npm run copilote -- sources [mot]                 liste les sources indexées
  *   npm run copilote -- prune                         retire les fichiers supprimés du disque
@@ -17,6 +18,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { answer }                   from '../lib/copilote/agent'
+import { localAnswer }              from '../lib/copilote/local'
 import { embedMissing, embeddingsEnabled } from '../lib/copilote/embed'
 import { importEmailKb, ingestPaths, pruneMissing } from '../lib/copilote/ingest'
 import { listSources, search }      from '../lib/copilote/search'
@@ -73,6 +75,12 @@ async function main() {
         console.log(`\n[${i + 1}] ${h.title}${h.version ? ` v${h.version}` : ''} · ${h.kind} · ${h.date ?? ''} · ${h.locator ?? ''}  (score ${h.score.toFixed(2)})`)
         console.log(h.text.slice(0, 300).replace(/\n+/g, ' ') + (h.text.length > 300 ? '…' : ''))
       }
+      break
+    }
+    case 'local': {
+      const { answer: text, sources } = await localAnswer(db, args.join(' '))
+      console.log(text + '\n')
+      sources.forEach((h, i) => console.log(`[S${i + 1}] ${h.title}${h.version ? ` v${h.version}` : ''} · ${h.date ?? ''} · ${h.locator ?? ''}`))
       break
     }
     case 'ask': {
