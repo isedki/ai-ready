@@ -18,13 +18,19 @@ const cfg = { compte_gmail: '', compte_waroom: '', adresse_waroom: 'issam.sedki@
 const state = existsSync(STATE_FILE) ? JSON.parse(readFileSync(STATE_FILE, 'utf8')) : { copies: {} }
 
 const jxa = (code, arg) => execFileSync('osascript', ['-l', 'JavaScript', '-e', code, JSON.stringify(arg ?? null)],
-  { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120_000 }).trim()
+  { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 600_000 }).trim()
 
 // Comptes d'Apple Mail : nom et adresses.
 const ACCOUNTS = `function run(){const M=Application('Mail');return JSON.stringify(M.accounts().map(a=>({nom:a.name(),adresses:a.emailAddresses()})))}`
-// Brouillons de tous les comptes (le dossier Brouillons unifié d'Apple Mail).
-const DRAFTS = `function run(){const M=Application('Mail');return JSON.stringify(M.draftsMailbox().messages().map(m=>{let acc='';try{acc=m.mailbox().account().name()}catch(e){}
-return {id:m.messageId(),account:acc,subject:m.subject(),content:m.content(),to:m.toRecipients().map(r=>r.address()),cc:m.ccRecipients().map(r=>r.address())}}))}`
+// Brouillons du seul compte Gmail, lus en bloc (une requête par propriété, pas une par message) ;
+// le texte n'est lu que pour les brouillons qui copient l'adresse waroom.
+const DRAFTS = `function run(argv){const a=JSON.parse(argv[0]);const M=Application('Mail');const acc=M.accounts.byName(a.account);
+const boxes=acc.mailboxes();const box=boxes.find(b=>/draft|brouillon/i.test(b.name()));
+if(!box)return JSON.stringify({erreur:'Dossier Brouillons introuvable dans '+a.account+' : '+boxes.map(b=>b.name()).join(', ')});
+const ms=box.messages;const ids=ms.messageId(),subj=ms.subject(),to=ms.toRecipients.address(),cc=ms.ccRecipients.address();const out=[];
+for(let i=0;i<ids.length;i++){const all=(to[i]||[]).concat(cc[i]||[]).map(x=>String(x).toLowerCase());if(!all.includes(a.own))continue;
+out.push({id:ids[i],account:a.account,subject:subj[i],content:ms[i].content(),to:to[i]||[],cc:cc[i]||[]})}
+return JSON.stringify(out)}`
 // Crée un brouillon dans le compte waroom (expéditeur = adresse waroom) et l'enregistre sans l'envoyer.
 const CREATE = `function run(argv){const d=JSON.parse(argv[0]);const M=Application('Mail');
 const m=M.OutgoingMessage({subject:d.subject,content:d.content,visible:false,sender:d.sender});M.outgoingMessages.push(m);
@@ -44,7 +50,8 @@ function main() {
   }
   writeFileSync(CFG_FILE, JSON.stringify(cfg, null, 2))
 
-  const drafts = JSON.parse(jxa(DRAFTS))
+  const drafts = JSON.parse(jxa(DRAFTS, { account: cfg.compte_gmail, own: cfg.adresse_waroom.toLowerCase() }))
+  if (drafts.erreur) { console.error(drafts.erreur); process.exit(1) }
   const todo = toCopy(drafts, state, cfg)
   if (process.argv.includes('--essai')) {
     console.log(`${todo.length} brouillon(s) à recopier :`); todo.forEach(d => console.log(`  « ${d.subject} » → ${d.to.join(', ')}`)); return
