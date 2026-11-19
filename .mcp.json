@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "copilote": {
+      "command": "npx",
+      "args": ["tsx", "scripts/copilote-mcp.ts"],
+      "env": { "COPILOTE_DB": "data/copilote.sqlite" }
+    }
+  }
+}

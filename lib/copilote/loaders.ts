@@ -67,7 +67,14 @@ async function loadDocx(buf: Buffer): Promise<Section[]> {
 async function loadXlsx(path: string): Promise<Section[]> {
   const ExcelJS = (await import('exceljs')).default
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.readFile(path)
+  try {
+    await wb.xlsx.readFile(path)
+  } catch {
+    // exceljs fails on some workbooks written by other tools (e.g. Excel tables saved by
+    // openpyxl: "Cannot read properties of undefined (reading 'name')"). Keep the text
+    // rather than losing the file: read it as a plain office document.
+    return loadOffice(path)
+  }
   const sections: Section[] = []
   const ROWS = 40
   wb.eachSheet(ws => {

@@ -9,7 +9,10 @@
     "lint": "eslint",
     "kb": "tsx scripts/kb.ts",
     "ask": "tsx scripts/ask.ts",
-    "copilote": "tsx scripts/copilote.ts"
+    "copilote": "tsx scripts/copilote.ts",
+    "agent": "tsx scripts/agent.ts",
+    "copilote:mcp": "tsx scripts/copilote-mcp.ts",
+    "test:agent": "node --import tsx --test lib/agent/*.test.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.72",

@@ -51,3 +51,6 @@ next-env.d.ts
 /eval/*.results.json
 /docs-projet/
 /models/
+
+# agent PMO : prompts rendus (contiennent des données du projet)
+/dist/
