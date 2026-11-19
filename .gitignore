@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +40,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# email knowledge base (mailbox content, never commit)
+/data/
+/kb-out/
+*.pst
+
+# copilote: private golden set and eval results (project facts)
+/eval/questions.json
+/eval/*.results.json
+/docs-projet/
+/models/
+
+# agent PMO : prompts rendus (contiennent des données du projet)
+/dist/

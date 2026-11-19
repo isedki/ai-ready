@@ -1,0 +1,6 @@
+[
+  { "q": "À quoi sert SOA dans l'architecture, et quand passe-t-on plutôt par APIGEE ?", "expect": ["SOA", "APIGEE"] },
+  { "q": "Quel système remplace l'outil de recouvrement actuel ?", "expect": ["DCX"], "source": "HLD" },
+  { "q": "Qui contacter pour ouvrir un flux réseau vers une base Oracle ?", "expect": ["1521"], "kind": "annuaire" },
+  { "q": "Quelle est la date de signature du contrat de maintenance avec l'éditeur ?", "absent": true }
+]

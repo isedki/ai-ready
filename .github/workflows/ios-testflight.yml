@@ -1,0 +1,89 @@
+# Construit l'app iOS « Réunions » sur un Mac GitHub et l'envoie sur TestFlight.
+# Secrets du dépôt requis (Settings › Secrets and variables › Actions) :
+#   APPLE_TEAM_ID      identifiant d'équipe Apple Developer (10 caractères)
+#   ASC_KEY_ID         identifiant de la clé API App Store Connect
+#   ASC_ISSUER_ID      Issuer ID de la clé API
+#   ASC_KEY_P8         contenu du fichier AuthKey_XXXX.p8 (rôle Admin : la signature cloud crée le certificat)
+# Variable du dépôt : IOS_TESTFLIGHT = on (sans elle, le workflow ne fait rien).
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ios/Reunions/**'
+      - '.github/workflows/ios-testflight.yml'
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: true
+
+jobs:
+  testflight:
+    # Activé une fois les secrets en place : variable de dépôt IOS_TESTFLIGHT = on.
+    if: vars.IOS_TESTFLIGHT == 'on'
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ios/Reunions
+    env:
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Générer le projet Xcode
+        run: |
+          brew install xcodegen
+          xcodegen
+
+      - name: Clé API App Store Connect
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
+
+      - name: Archiver (signature gérée par Apple)
+        run: |
+          xcodebuild archive \
+            -project Reunions.xcodeproj -scheme Reunions -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Reunions.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}"
+
+      - name: Envoyer sur TestFlight
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Reunions.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"

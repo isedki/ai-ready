@@ -6,25 +6,41 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "kb": "tsx scripts/kb.ts",
+    "ask": "tsx scripts/ask.ts",
+    "copilote": "tsx scripts/copilote.ts",
+    "agent": "tsx scripts/agent.ts",
+    "copilote:mcp": "tsx scripts/copilote-mcp.ts",
+    "test:agent": "node --import tsx --test lib/agent/*.test.ts",
+    "test:observateur": "node --test observateur/observateur.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.72",
     "@ai-sdk/react": "^3.0.172",
+    "@anthropic-ai/sdk": "^0.135.0",
     "ai": "^6.0.169",
+    "exceljs": "^4.4.0",
+    "mailparser": "^3.9.40",
+    "mammoth": "^1.11.0",
     "next": "16.2.4",
+    "officeparser": "^5.2.2",
+    "pst-extractor": "^1.12.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "unpdf": "^1.3.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/mailparser": "^3.9.0",
+    "@types/node": "^22.20.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

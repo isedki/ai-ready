@@ -1,0 +1,2271 @@
+<title>Qui contacter</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one phone-width column, a switchboard of five tabs on a bottom bar; confidence drawn as signal bars. */
+:root {
+  --bg: #f3f5f7; --surface: #ffffff; --sunk: #e8ecf0; --line: #d5dce3;
+  --ink: #15202b; --muted: #5a6774; --accent: #1d5fc4; --accent-ink: #ffffff; --accent-soft: #e3ecfa;
+  --good: #23784a; --warn: #a86a12; --bad: #b0352f;
+  --good-soft: #e1f2e8; --warn-soft: #f7ecd9; --bad-soft: #f8e1df;
+  --f-body: "IBM Plex Sans", "Segoe UI", Roboto, system-ui, sans-serif;
+  --f-head: "IBM Plex Sans Condensed", "Arial Narrow", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Menlo, monospace;
+  --r: 10px; --nav-h: 60px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1319; --surface: #161e27; --sunk: #1d2732; --line: #2b3744;
+  --ink: #e5eaf0; --muted: #94a2b0; --accent: #6ea6ff; --accent-ink: #0b1420; --accent-soft: #1b2a40;
+  --good: #5fc48a; --warn: #e2a64a; --bad: #ef7d74;
+  --good-soft: #15301f; --warn-soft: #33270f; --bad-soft: #3a1a18; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1319; --surface: #161e27; --sunk: #1d2732; --line: #2b3744;
+  --ink: #e5eaf0; --muted: #94a2b0; --accent: #6ea6ff; --accent-ink: #0b1420; --accent-soft: #1b2a40;
+  --good: #5fc48a; --warn: #e2a64a; --bad: #ef7d74;
+  --good-soft: #15301f; --warn-soft: #33270f; --bad-soft: #3a1a18; color-scheme: dark }
+
+html, body { background: var(--bg); color: var(--ink); }
+body { font: 15px/1.5 var(--f-body); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 720px; margin: 0 auto; padding-block: 14px calc(var(--nav-h) + 28px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 16px; }
+h1, h2, h3 { font-family: var(--f-head); font-weight: 600; line-height: 1.2; text-wrap: balance; margin: 0; }
+h1 { font-size: 22px; letter-spacing: .01em; }
+h2 { font-size: 18px; }
+h3 { font-size: 15px; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.mono { font-family: var(--f-mono); font-size: 13px; overflow-wrap: anywhere; }
+.label { font-family: var(--f-head); font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.stack { display: grid; gap: 10px; min-width: 0; }
+.top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; gap: 12px; min-width: 0; }
+.banner { border-radius: var(--r); padding: 10px 12px; font-size: 14px; background: var(--warn-soft); color: var(--ink); border: 1px solid var(--warn); }
+
+button, .btn { box-sizing: border-box; font: 500 14px/1 var(--f-body); border-radius: 8px; padding: 10px 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; }
+button:hover, .btn:hover { background: var(--sunk); }
+button:disabled { opacity: .45; cursor: default; }
+.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.primary:hover { background: var(--accent); filter: brightness(1.08); }
+.ghost { border-color: transparent; background: transparent; color: var(--accent); padding-inline: 6px; }
+.danger { color: var(--bad); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input, textarea, select { font: 15px/1.4 var(--f-body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; width: 100%; min-width: 0; box-sizing: border-box; }
+textarea { resize: vertical; }
+#q { min-height: 110px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { min-height: 34px; padding: 7px 10px; font-size: 13px; border-radius: 999px; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.stars button { min-height: 36px; padding: 6px 8px; font-size: 18px; color: var(--muted); }
+.stars button[aria-pressed="true"] { color: var(--warn); }
+
+/* Signal bars: confidence, like phone reception */
+.sig { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; }
+.sig i { width: 4px; background: var(--line); border-radius: 1px; }
+.sig i:nth-child(1) { height: 25%; } .sig i:nth-child(2) { height: 50%; } .sig i:nth-child(3) { height: 75%; } .sig i:nth-child(4) { height: 100%; }
+.sig.l-good i.on { background: var(--good); } .sig.l-warn i.on { background: var(--warn); } .sig.l-bad i.on { background: var(--bad); }
+.conf { display: inline-flex; gap: 6px; align-items: center; font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+.pill { font-size: 12px; border-radius: 999px; padding: 2px 8px; background: var(--sunk); color: var(--muted); white-space: nowrap; }
+.pill.good { background: var(--good-soft); color: var(--good); } .pill.warn { background: var(--warn-soft); color: var(--warn); } .pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.ex { background: var(--accent-soft); color: var(--accent); }
+
+.sugg { border-left: 3px solid var(--line); padding-left: 12px; display: grid; gap: 8px; min-width: 0; }
+.sugg.l-good { border-left-color: var(--good); } .sugg.l-warn { border-left-color: var(--warn); } .sugg.l-bad { border-left-color: var(--bad); }
+.path { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-family: var(--f-mono); font-size: 13px; }
+.path span.node { background: var(--sunk); border-radius: 6px; padding: 3px 7px; }
+.composer { background: var(--sunk); border-radius: 8px; padding: 10px; display: grid; gap: 8px; }
+.composer textarea { background: var(--surface); min-height: 140px; }
+details { border-top: 1px solid var(--line); padding-top: 8px; }
+details > summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+details > summary::-webkit-details-marker { display: none; }
+.entry { padding-block: 8px; border-top: 1px solid var(--line); display: grid; gap: 4px; min-width: 0; }
+.entry:first-of-type { border-top: 0; }
+.item { display: grid; gap: 6px; padding-block: 10px; border-top: 1px solid var(--line); min-width: 0; }
+.item:first-child { border-top: 0; padding-top: 0; }
+.due { color: var(--bad); font-weight: 600; }
+
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px 14px; }
+.fact { display: grid; gap: 2px; min-width: 0; font-size: 14px; }
+.proscons { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.proscons ul, .evidence { margin: 4px 0 0; padding-left: 18px; }
+.good-ink { color: var(--good); font-weight: 600; } .bad-ink { color: var(--bad); font-weight: 600; }
+.evidence { list-style: none; padding-left: 0; display: grid; gap: 6px; }
+.evidence li { display: flex; gap: 8px; align-items: baseline; }
+.evidence .mark { font-family: var(--f-mono); font-weight: 600; width: 1.2em; flex: none; text-align: center; }
+.ev-fourni .mark { color: var(--good); } .ev-manquant .mark { color: var(--bad); } .ev-incertain .mark { color: var(--warn); }
+.gate { border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; border: 1px solid; }
+.gate.ok { background: var(--good-soft); border-color: var(--good); } .gate.hold { background: var(--warn-soft); border-color: var(--warn); }
+.checks { display: grid; gap: 6px; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; cursor: pointer; }
+.check input { width: 20px; height: 20px; padding: 0; flex: none; margin-top: 1px; accent-color: var(--accent); }
+.panel > *, .stack > *, .item > *, details { min-width: 0; }
+.bar { height: 6px; border-radius: 3px; background: var(--sunk); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--good); }
+.step { border-left: 3px solid var(--line); padding: 4px 0 4px 12px; display: grid; gap: 6px; min-width: 0; }
+.step > * { min-width: 0; }
+.step.s-en_cours { border-left-color: var(--warn); } .step.s-attente { border-left-color: var(--bad); } .step.s-fait { border-left-color: var(--good); }
+.step.s-fait > strong, .step.s-fait .top strong { color: var(--muted); }
+.step.blocked { opacity: .8; }
+.warn-ink { color: var(--warn); font-weight: 600; }
+ol.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.report { min-height: 260px; font-family: var(--f-mono); font-size: 12.5px; }
+.tbl { overflow-x: auto; margin-top: 8px; max-width: 100%; }
+.tbl table { border-collapse: collapse; font-size: 12.5px; min-width: 100%; }
+.tbl th, .tbl td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl th { font-family: var(--f-head); font-weight: 500; color: var(--muted); white-space: nowrap; }
+.chat { display: grid; gap: 10px; }
+.msg { display: grid; gap: 4px; min-width: 0; }
+.msg.me { justify-items: end; }
+.bubble { padding: 8px 11px; border-radius: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; max-width: 92%; }
+.bubble.me { background: var(--accent-soft); border-bottom-right-radius: 4px; }
+.bubble.ai { background: var(--sunk); border-bottom-left-radius: 4px; }
+.bubble.err { color: var(--bad); }
+button.tiny { min-height: 28px; padding: 3px 6px; font-size: 13px; }
+.srcs { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; }
+button.src { min-height: 24px; padding: 2px 7px; font: 500 12px/1.2 var(--f-body); border-radius: 6px; background: var(--sunk); color: var(--ink); border: 1px solid var(--line); }
+button.src.k-doc { border-color: var(--accent); }
+button.src.k-email { border-color: var(--good); }
+button.src.k-saisie { border-style: dashed; }
+button.src.bad { border-color: var(--bad); color: var(--bad); }
+span.src.none { font-size: 12px; color: var(--warn); font-style: italic; }
+.quote { white-space: pre-wrap; font-family: var(--f-mono); font-size: 12.5px; background: var(--sunk); border-radius: 8px; padding: 10px; max-height: 50vh; overflow: auto; overflow-wrap: anywhere; }
+.verify { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.verify.v-good { border-color: var(--good); background: var(--good-soft); } .verify.v-warn { border-color: var(--warn); background: var(--warn-soft); } .verify.v-bad { border-color: var(--bad); background: var(--bad-soft); }
+.verify ul { margin: 6px 0; padding-left: 18px; } .i-bad { color: var(--bad); } .i-info { color: var(--muted); }
+nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+nav.tabs .in { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); height: var(--nav-h); }
+nav.tabs button { border: 0; border-radius: 0; background: transparent; flex-direction: column; justify-content: center; gap: 3px; font-family: var(--f-head); font-size: 12px; color: var(--muted); position: relative; min-height: 0; }
+nav.tabs button svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+nav.tabs button[aria-selected="true"] { color: var(--accent); }
+nav.tabs .count { position: absolute; top: 6px; left: calc(50% + 8px); background: var(--bad); color: #fff; font: 600 11px/1 var(--f-body); border-radius: 999px; padding: 3px 5px; }
+
+.sheet-bg { position: fixed; inset: 0; z-index: 30; background: rgb(0 0 0 / .45); display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: var(--surface); width: 100%; max-width: 720px; max-height: 88%; overflow-y: auto; border-radius: 14px 14px 0 0; display: grid; gap: 14px; box-sizing: border-box;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.toast { position: fixed; z-index: 40; left: 50%; transform: translateX(-50%); bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 8px; font-size: 14px; max-width: 90%; }
+@media (prefers-reduced-motion: no-preference) { .sheet { animation: up .18s ease-out; } @keyframes up { from { transform: translateY(24px); opacity: .6; } } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Qui contacter</h1>
+    <span class="small muted" id="status">Connexion…</span>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+
+  <!-- ── Demander ─────────────────────────────────────────── -->
+  <section id="tab-ask" class="stack">
+    <form class="panel" id="ask-form">
+      <label class="label" for="q">Que se passe-t-il ?</label>
+      <textarea id="q" placeholder="Collez l'email reçu ou décrivez l'appel : ce qui se passe, où, depuis quand, qui est touché. Ex : « Le portail client renvoie une erreur 500 en PREPROD depuis ce matin, l'équipe recette est bloquée »"></textarea>
+      <input id="reporter" placeholder="Signalé par (nom, équipe), facultatif" aria-label="Signalé par">
+      <div class="chips" id="src-chips" role="group" aria-label="Origine">
+        <button type="button" class="chip" data-src="email" aria-pressed="true">Email reçu</button>
+        <button type="button" class="chip" data-src="appel" aria-pressed="false">Appel</button>
+        <button type="button" class="chip" data-src="en personne" aria-pressed="false">En personne</button>
+        <button type="button" class="chip" data-src="besoin" aria-pressed="false">Mon besoin</button>
+      </div>
+      <div class="row" id="img-wrap" hidden>
+        <label class="btn" for="img">Capture d'écran…</label>
+        <input id="img" type="file" accept="image/*" hidden>
+        <span class="small muted" id="img-name"></span>
+      </div>
+      <div class="row">
+        <button class="primary" id="ask-btn" type="submit">Analyser</button>
+        <button type="button" id="stop-btn" hidden>Arrêter</button>
+        <span class="small muted" id="ask-note"></span>
+      </div>
+    </form>
+    <div id="result" class="stack"></div>
+    <div class="panel" id="recent-panel" hidden>
+      <h2>Derniers cas</h2>
+      <div id="recent"></div>
+    </div>
+  </section>
+
+  <!-- ── Suivis ───────────────────────────────────────────── -->
+  <section id="tab-follow" class="stack" hidden>
+    <div class="panel"><h2>À relancer</h2><div id="followups"></div></div>
+    <div class="panel"><h2>Cas ouverts</h2><div id="open-cases"></div></div>
+    <div class="panel"><h2>Derniers contacts</h2><div id="history"></div></div>
+  </section>
+
+  <!-- ── Dossiers ─────────────────────────────────────────── -->
+  <section id="tab-proj" class="stack" hidden><div id="proj" class="stack"></div></section>
+
+  <!-- ── Annuaire ─────────────────────────────────────────── -->
+  <section id="tab-dir" class="stack" hidden>
+    <input id="dir-search" type="search" placeholder="Chercher : VM, flux, AD, portail, une personne…" aria-label="Chercher dans l'annuaire">
+    <div id="dir"></div>
+    <div class="panel">
+      <div class="top"><h2>Personnes</h2><button class="ghost" id="add-person" type="button">+ Ajouter</button></div>
+      <div id="people"></div>
+    </div>
+  </section>
+
+  <!-- ── Sources ──────────────────────────────────────────── -->
+  <section id="tab-src" class="stack" hidden>
+    <div class="panel">
+      <h2>Annuaire appris des emails</h2>
+      <p class="small muted" id="kb-info">Pas encore importé.</p>
+      <p class="small muted">Sur l'ordinateur, <span class="mono">npm run kb -- run dump.pst</span> produit <span class="mono">kb-out/kb.json</span>. Importez ce fichier ici (depuis l'ordinateur ou le téléphone).</p>
+      <div class="row"><label class="btn primary" for="kb-file">Importer kb.json</label><input id="kb-file" type="file" accept=".json,application/json" hidden><span class="small muted" id="kb-progress"></span></div>
+    </div>
+    <div class="panel">
+      <h2>Architecture et périmètre</h2>
+      <p class="small muted">HLD, DAT, LLD, matrices de flux, périmètre, exploitation : PDF, Word, PowerPoint, Excel (xlsx, xls, csv), texte, ou photos de schémas. Le texte et les tableaux sont lus sur l'appareil (les mots de passe sont retirés), les schémas des PDF sont lus comme images (jusqu'à 8 par document). Claude en extrait les composants et leurs équipes, les serveurs, les flux, le support et le périmètre. Un gros DAT prend quelques minutes : gardez la page ouverte, de préférence sur ordinateur.</p>
+      <div class="row"><label class="btn primary" for="doc-file">Ajouter des documents</label><input id="doc-file" type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xlsm,.xls,.ods,.csv,.txt,.md,image/*,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden><span class="small muted" id="doc-progress"></span></div>
+      <div id="docs"></div>
+      <label class="label" for="arch-notes">Notes libres</label>
+      <textarea id="arch-notes" rows="5" placeholder="Ex : Le portail client passe par l'API gateway (équipe Intégration) puis le middleware OSB vers le billing. La PREPROD est gérée par l'équipe Run."></textarea>
+      <div class="row"><button type="button" id="save-notes">Enregistrer les notes</button><span class="small muted" id="notes-state"></span></div>
+    </div>
+    <div class="panel">
+      <h2>Autotest de fiabilité</h2>
+      <p class="small muted">Pose 5 questions à Claude sur des données fictives connues (dont des pièges : sujet absent des données, personne inconnue, numéro inexistant) et vérifie automatiquement qu’il ne cite pas de source inexistante, n’invente ni adresse, ni numéro, ni composant, et dit quand il ne sait pas. Environ 3 minutes ; vos données ne sont pas utilisées ni modifiées.</p>
+      <div class="row"><button type="button" class="primary" id="test-btn">Lancer l’autotest</button><span class="small muted" id="test-progress"></span></div>
+      <div id="tests"></div>
+    </div>
+    <div class="panel">
+      <h2>Moi</h2>
+      <p class="small muted">Vos adresses, puis celles des personnes dont vous avez repris le rôle (une par ligne). L’analyse ne vous propose jamais comme contact : quand une demande leur revenait, elle vous dit que c’est à vous, et qui solliciter.</p>
+      <input id="me-name" placeholder="Votre nom" aria-label="Votre nom">
+      <textarea id="me-addrs" rows="3" placeholder="vous@exemple.ma&#10;ancien.titulaire@exemple.ma" aria-label="Adresses"></textarea>
+      <div class="row"><button type="button" id="save-me">Enregistrer</button><span class="small muted" id="me-state"></span></div>
+    </div>
+    <div class="panel" id="examples-panel" hidden>
+      <h2>Données d'exemple</h2>
+      <p class="small muted">L'annuaire contient des exemples fictifs pour essayer la page. Ils disparaissent à l'import de votre kb.json.</p>
+      <div class="row"><button type="button" class="danger" id="clear-examples">Supprimer les exemples</button></div>
+    </div>
+  </section>
+</div>
+
+<nav class="tabs" aria-label="Sections">
+  <div class="in" role="tablist">
+    <button role="tab" data-tab="ask" aria-selected="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M9 10h6"/></svg>Demander</button>
+    <button role="tab" data-tab="follow" aria-selected="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l3 2M9 3h6"/></svg>Suivis<span class="count" id="due-count" hidden></span></button>
+    <button role="tab" data-tab="proj" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13l2.5 2.5L16 11"/></svg>Dossiers</button>
+    <button role="tab" data-tab="dir" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M5 18a2 2 0 0 1 2-2h12M9 8h6"/></svg>Annuaire</button>
+    <button role="tab" data-tab="src" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="18" cy="17" r="2"/></svg>Sources</button>
+  </div>
+</nav>
+<div id="sheet-root"></div>
+
+<script>
+'use strict'
+/* ── helpers ─────────────────────────────────────────────── */
+const $ = s => document.querySelector(s)
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag)
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue
+    if (k === 'class') e.className = v
+    else if (k === 'text') e.textContent = v
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v)
+    else e.setAttribute(k, v === true ? '' : v)
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c instanceof Node ? c : document.createTextNode(String(c)))
+  return e
+}
+const enc = encodeURIComponent
+const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+const fmtDate = d => d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '?'
+const fmtWhen = d => d ? new Date(d).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''
+const bytes = s => new TextEncoder().encode(s).length
+const firstName = n => (String(n || '').trim().split(/\s+/)[0] || '')
+const personKey = addr => String(addr || '').toLowerCase().trim().replace(/[^a-z0-9_\-.~:@+]/g, '_').slice(0, 180)
+const slug = s => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'x'
+let toastTimer
+function toast(msg) {
+  document.querySelector('.toast')?.remove()
+  const t = h('div', { class: 'toast', role: 'status', text: msg })
+  document.body.append(t)
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => t.remove(), 2600)
+}
+async function copy(text, area) {
+  try { await navigator.clipboard.writeText(text); toast('Copié') }
+  catch { if (area) { area.focus(); area.select() } toast('Sélectionné : copiez avec le menu du téléphone') }
+}
+function waNumber(phone) {
+  let d = String(phone || '').replace(/[^\d+]/g, '')
+  if (d.startsWith('+')) return d.slice(1)
+  if (d.startsWith('00')) return d.slice(2)
+  if (/^0[5-7]\d{8}$/.test(d)) return '212' + d.slice(1) // numéro marocain local
+  return d
+}
+const CHANNELS = { email: 'Email', whatsapp: 'WhatsApp', visite: 'Visite', appel: 'Appel' }
+const OUTCOMES = { resolu: 'Résolu', reponse: 'A répondu', lent: 'Lent', sans_reponse: 'Pas de réponse', mauvaise_personne: 'Pas la bonne personne' }
+const OUTCOME_TONE = { resolu: 'good', reponse: 'good', lent: 'warn', sans_reponse: 'bad', mauvaise_personne: 'bad' }
+function level(c) { return c >= 70 ? 'good' : c >= 40 ? 'warn' : 'bad' }
+function signal(c) {
+  const n = c >= 80 ? 4 : c >= 60 ? 3 : c >= 40 ? 2 : c >= 15 ? 1 : 0
+  const bars = h('span', { class: 'sig l-' + level(c), 'aria-hidden': 'true' }, [0, 1, 2, 3].map(i => h('i', { class: i < n ? 'on' : '' })))
+  return h('span', { class: 'conf', title: 'Confiance' }, bars, `${Math.round(c)} %`)
+}
+
+/* ── state ───────────────────────────────────────────────── */
+const S = { entries: [], examples: false, chunks: [], overlay: new Map(), log: [], cases: [], docs: [], settings: {}, playbooks: [], projects: [], ready: false }
+let db = null, sample = null, limits = null, tab = 'ask', askSrc = 'email', ctl = null, current = null
+
+/* You: your own addresses first, then those of people whose role you took over (settings.me). */
+const meAddrs = () => (S.settings.me?.addrs || []).map(a => String(a).toLowerCase().trim()).filter(Boolean)
+const isMe = addr => !!addr && meAddrs().includes(String(addr).toLowerCase().trim())
+const meLabel = x => String(x?.addr || '').toLowerCase().trim() === meAddrs()[0] ? `VOUS (${S.settings.me?.name || 'l’utilisateur'})`
+  : `VOUS (${S.settings.me?.name || 'l’utilisateur'}, rôle repris de ${x?.name || x?.addr})`
+
+/* People = what the emails taught (directory) + what you added (overlay) + what you logged. */
+function people() {
+  const m = new Map()
+  const add = (p, from) => {
+    if (!p?.addr) return
+    const k = personKey(p.addr)
+    const cur = m.get(k) || { key: k, addr: p.addr, name: '', department: '', handles: [] }
+    if (!cur.name && p.name) cur.name = p.name
+    if (!cur.department && p.department) cur.department = p.department
+    if (from) cur.handles.push(from)
+    m.set(k, cur)
+  }
+  for (const e of S.entries) {
+    for (const p of e.email_to || []) add(p, e.title)
+    for (const p of [...(e.approval || []), ...(e.cc || []), ...(e.previously || [])]) add(p, null)
+  }
+  for (const [k, o] of S.overlay) {
+    const cur = m.get(k) || { key: k, addr: o.addr || '', name: '', department: '', handles: [] }
+    m.set(k, { ...cur, ...Object.fromEntries(Object.entries(o).filter(([, v]) => v !== '' && v != null)), key: k })
+  }
+  return m
+}
+function stats(key) {
+  const logs = S.log.filter(l => l.person === key)
+  const by = {}
+  for (const l of logs) {
+    const c = by[l.channel] || (by[l.channel] = { n: 0, sum: 0, rated: 0, answered: 0 })
+    c.n++
+    if (l.rating) { c.sum += l.rating; c.rated++ }
+    if (l.outcome === 'resolu' || l.outcome === 'reponse') c.answered++
+  }
+  let best = null
+  for (const [ch, c] of Object.entries(by)) {
+    const score = c.rated ? c.sum / c.rated : (c.answered / c.n) * 5
+    if (!best || score > best.score) best = { channel: ch, score }
+  }
+  return { logs, by, best }
+}
+function statsText(key) {
+  const { by } = stats(key)
+  return Object.entries(by).map(([ch, c]) => `${CHANNELS[ch] || ch} ${c.rated ? (c.sum / c.rated).toFixed(1) + '/5' : '–'} (${c.n})`).join(', ')
+}
+
+/* ── boot ────────────────────────────────────────────────── */
+async function boot() {
+  if (!window.claude?.use) { banner("Ouvrez cette page dans Claude (application ou claude.ai) pour l'utiliser."); return }
+  ;[db, sample] = await Promise.all([claude.use('db'), claude.use('sample')])
+  if (!db) banner('Le stockage n’est pas disponible dans cette vue : connectez-vous à Claude puis rouvrez la page.')
+  if (!sample) { $('#ask-btn').disabled = true; $('#ask-note').textContent = 'Claude n’est pas disponible dans cette vue.' }
+  else {
+    limits = await sample.limits().catch(() => null)
+    if (limits?.images) { $('#img-wrap').hidden = false; $('#img').accept = limits.images.mediaTypes.join(',') }
+  }
+  if (db) subscribe()
+}
+function banner(msg) { const b = $('#banner'); b.textContent = msg; b.hidden = false; $('#status').textContent = '' }
+function onDbError(e) { if (e?.code === 'revoked') banner('Accès à la page retiré.'); else console.warn(e) }
+
+function subscribe() {
+  // During an autotest S holds fictional data: live updates wait until the test restores the real data.
+  db.collection('directory').onSnapshot(liveOnly(s => {
+    S.chunks = s.docs.map(d => d.data())
+    S.entries = S.chunks.flatMap(c => c.entries || [])
+    S.examples = S.chunks.some(c => c.example)
+    S.ready = true
+    schedule()
+  }), onDbError)
+  db.collection('people').onSnapshot(liveOnly(s => { S.overlay = new Map(s.docs.map(d => [d.id, d.data()])); schedule() }), onDbError)
+  db.collection('log').orderBy('at', 'desc').limit(1000).onSnapshot(liveOnly(s => { S.log = s.docs.map(d => ({ id: d.id, ...d.data() })); schedule() }), onDbError)
+  db.collection('cases').orderBy('at', 'desc').limit(200).onSnapshot(liveOnly(s => { S.cases = s.docs.map(d => ({ id: d.id, ...d.data() })); schedule() }), onDbError)
+  db.collection('docs').onSnapshot(liveOnly(s => { S.docs = s.docs.map(d => ({ id: d.id, ...d.data() })); schedule() }), onDbError)
+  db.collection('playbooks').onSnapshot(liveOnly(s => { S.playbooks = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.runs || 0) - (a.runs || 0) || a.title.localeCompare(b.title)); schedule() }), onDbError)
+  db.collection('projects').onSnapshot(liveOnly(s => { S.projects = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || ''))); schedule() }), onDbError)
+  db.doc('config/settings').onSnapshot(liveOnly(s => {
+    S.settings = s.data() || {}
+    const ta = $('#arch-notes')
+    if (document.activeElement !== ta && !ta.dataset.dirty) ta.value = S.settings.arch_notes || ''
+    if (![$('#me-name'), $('#me-addrs')].includes(document.activeElement)) { $('#me-name').value = S.settings.me?.name || ''; $('#me-addrs').value = (S.settings.me?.addrs || []).join('\n') }
+    schedule()
+  }), onDbError)
+  db.collection('tests').orderBy('at', 'desc').limit(1).onSnapshot(s => { if (s.docs[0]) { S.lastTest = s.docs[0].data(); if (tab === 'src') renderTests() } }, onDbError)
+}
+let raf = 0
+function schedule() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render() }) }
+
+/* ── tabs ────────────────────────────────────────────────── */
+for (const b of document.querySelectorAll('nav.tabs button')) {
+  b.addEventListener('click', () => {
+    tab = b.dataset.tab
+    for (const x of document.querySelectorAll('nav.tabs button')) x.setAttribute('aria-selected', String(x === b))
+    for (const t of ['ask', 'follow', 'proj', 'dir', 'src']) $('#tab-' + t).hidden = t !== tab
+    window.scrollTo(0, 0)
+    render()
+  })
+}
+function goTab(t) { document.querySelector(`nav.tabs button[data-tab="${t}"]`).click() }
+
+function render() {
+  const due = S.log.filter(l => l.followup_at && !l.followup_done && new Date(l.followup_at) <= new Date()).length
+  const dc = $('#due-count'); dc.hidden = !due; dc.textContent = due
+  $('#status').textContent = S.ready ? `${S.entries.length} demandes · ${S.docs.length} doc${S.docs.length > 1 ? 's' : ''}` : 'Connexion…'
+  if (tab === 'ask') renderRecent()
+  if (tab === 'follow') renderFollow()
+  if (tab === 'proj') renderProjects()
+  if (tab === 'dir') renderDir()
+  if (tab === 'src') renderSources()
+}
+
+/* ── ask ─────────────────────────────────────────────────── */
+for (const c of document.querySelectorAll('#src-chips .chip')) {
+  c.addEventListener('click', () => { askSrc = c.dataset.src; for (const x of document.querySelectorAll('#src-chips .chip')) x.setAttribute('aria-pressed', String(x === c)) })
+}
+$('#img').addEventListener('change', e => { $('#img-name').textContent = e.target.files[0]?.name || '' })
+$('#stop-btn').addEventListener('click', () => ctl?.abort())
+$('#ask-form').addEventListener('submit', e => { e.preventDefault(); ask() })
+
+/* ── sources: every line of data sent to Claude carries an id the answer must cite ── */
+function newSources() {
+  const map = {}, count = {}
+  return {
+    map,
+    add(prefix, kind, label, excerpt, extra = {}) {
+      count[prefix] = (count[prefix] || 0) + 1
+      const id = prefix + count[prefix]
+      map[id] = { kind, label, excerpt: String(excerpt || '').slice(0, 1200), ...extra }
+      return id
+    },
+    set(id, kind, label, excerpt, extra = {}) { map[id] = { kind, label, excerpt: String(excerpt || '').slice(0, 2000), ...extra }; return id },
+  }
+}
+const baseId = id => String(id || '').trim().replace(/^\[|\]$/g, '').split(/[\s·,]/)[0].toUpperCase()
+const pageOf = id => (String(id).match(/p\.?\s?(\d+)/i) || [])[1] || null
+const KIND_LABEL = { email: 'Emails', doc: 'Doc', fiche: 'Fiche', note: 'Vos notes', cas: 'Cas', saisie: 'Votre saisie', demarche: 'Démarche', dossier: 'Dossier' }
+
+function directoryBlock(maxBytes, src) {
+  const lines = S.entries.slice().sort((a, b) => (b.thread_count || 0) - (a.thread_count || 0)).map(e => {
+    const p = x => isMe(x.addr) ? `${meLabel(x)} <${x.addr}>` : `${x.name || x.addr} <${x.addr}>${x.department ? ` (${x.department})` : ''}`
+    const threads = (e.threads || []).map(t => `« ${t.subject} » (${String(t.date || '').slice(0, 10)})`)
+    const body = [`${e.domain} › ${e.subdomain} › ${e.title}`,
+      `à: ${(e.email_to || []).map(p).join(' ; ') || 'inconnu'}`,
+      e.approval?.length ? `approbation: ${e.approval.map(p).join(' ; ')}` : '',
+      e.cc?.length ? `cc: ${e.cc.map(p).join(' ; ')}` : '',
+      e.channel && e.channel !== 'email' ? `via: ${e.channel}` : '',
+      e.include?.length ? `inclure: ${e.include.map(n => n.text).join(' ; ')}` : '',
+      e.tips?.length ? `astuces: ${e.tips.map(n => n.text).join(' / ')}` : '',
+      `vu dans ${e.thread_count || 0} fil(s) d'emails, dernier ${String(e.last_seen || '?').slice(0, 10)}`,
+      threads.length ? `emails: ${threads.join(' ; ')}` : (e.example_subject ? `exemple: « ${e.example_subject} »` : ''),
+      e.example ? 'EXEMPLE FICTIF' : '',
+    ].filter(Boolean).join(' | ')
+    return { e, body }
+  })
+  let out = '', used = 0
+  for (const { e, body } of lines) {
+    const id = src.add('E', 'email', `Emails : ${e.title}`, body, { threads: e.threads || [], count: e.thread_count || 0, last: e.last_seen, example: !!e.example })
+    const l = `[${id}] ${body}`
+    const b = bytes(l) + 1
+    if (used + b > maxBytes) { delete src.map[id]; break }
+    out += l + '\n'; used += b
+  }
+  return out
+}
+
+function peopleBlock(maxBytes, src) {
+  const now = Date.now()
+  const rows = [...people().values()].map(p => {
+    const st = stats(p.key)
+    const last = st.logs[0]
+    return { p, weight: st.logs.length * 3 + (p.phone ? 2 : 0) + (p.location ? 2 : 0) + (p.notes ? 3 : 0) + p.handles.length, body: [
+      `clé: ${p.key}`, isMe(p.addr) ? meLabel(p) : '', p.name || '', p.department || '', p.location ? `lieu: ${p.location}` : '',
+      `whatsapp: ${p.phone ? 'oui' : 'non'}`, p.notes ? `notes de l'utilisateur: ${p.notes}` : '',
+      st.logs.length ? `évaluations de l'utilisateur: ${statsText(p.key)}` : '',
+      last ? `dernier contact: ${CHANNELS[last.channel]} → ${OUTCOMES[last.outcome] || ''} il y a ${Math.round((now - new Date(last.at)) / 86400000)} j` : '',
+    ].filter(Boolean).join(' | ') }
+  }).sort((a, b) => b.weight - a.weight)
+  let out = '', used = 0
+  for (const r of rows) {
+    const id = src.add('P', 'fiche', `Fiche : ${r.p.name || r.p.addr}`, r.body)
+    const l = `[${id}] ${r.body}`
+    const b = bytes(l) + 1
+    if (used + b > maxBytes) { delete src.map[id]; break }
+    out += l + '\n'; used += b
+  }
+  return out
+}
+
+const STOP_FR = new Set('les des une pour avec dans sur par est sont pas que qui aux the and for with from this that depuis plus tout tous erreur probleme bonjour merci matin soir depuis nous vous sont etre avoir fait cette'.split(' '))
+function tokensOf(s) { return new Set(norm(s).split(/[^a-z0-9._-]+/).filter(t => t.length >= 3 && !STOP_FR.has(t))) }
+function overlap(text, q) { let n = 0; for (const t of tokensOf(text)) if (q.has(t)) n++; return n }
+
+/**
+ * Architecture context for one situation: every document's header, the components the situation
+ * points at (in full), what depends on them (for impacts) and the servers / flows / support around them.
+ * Newest documents first, so a newer DAT wins over an older HLD when they disagree.
+ * Every line is tagged with its document (and page when the extraction recorded it).
+ */
+function archBlock(maxBytes, query, src) {
+  const q = tokensOf(query)
+  const docs = S.docs.slice().sort((a, b) => String(b.notes?.doc?.date || b.at || '').localeCompare(String(a.notes?.doc?.date || a.at || '')))
+  const heads = [], comps = [], servers = [], flows = [], support = []
+  const docId = new Map()
+  for (const d of docs) {
+    const n = d.notes || {}, m = n.doc || {}
+    const label = `${m.type ? m.type + ' ' : ''}${m.titre || d.name}${m.version ? ` v${m.version}` : ''}`
+    const id = src.add('D', 'doc', label, '', { file: d.name, date: m.date || null, lines: [] })
+    docId.set(d.id || d.name, id)
+    heads.push({ id, text: [`Document « ${d.name} »${m.type ? ` [${m.type}]` : ''}${m.version ? ` v${m.version}` : ''}${m.date ? ` du ${m.date}` : ''} : ${n.summary || ''}`,
+      n.environments?.length ? `Environnements : ${n.environments.join(', ')}` : '',
+      n.scope_in?.length ? `Dans le périmètre : ${n.scope_in.join(' ; ')}` : '',
+      n.scope_out?.length ? `Hors périmètre : ${n.scope_out.join(' ; ')}` : ''].filter(Boolean).join(' | ') })
+    const tag = it => `${id}${it.pages?.length ? ` p.${it.pages.slice(0, 3).join(',')}` : ''}`
+    for (const c of n.components || []) comps.push({ c, tag: tag(c), id, score: overlap(c.name, q) * 3 + overlap(`${c.notes || ''} ${c.type || ''} ${c.environment || ''}`, q) })
+    for (const s of n.servers || []) servers.push({ s, tag: tag(s), id, score: overlap(`${s.host} ${s.ip} ${s.component} ${s.role}`, q) * 2 + overlap(s.environment || '', q) })
+    for (const f of n.flows || []) flows.push({ f, tag: tag(f), id, score: overlap(`${f.from} ${f.to}`, q) * 2 + overlap(`${f.purpose || ''} ${f.port || ''} ${f.protocol || ''}`, q) })
+    for (const s of n.support || []) support.push({ s, tag: tag(s), id })
+  }
+  const hit = new Set(comps.filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 25).map(x => norm(x.c.name)))
+  for (const x of servers) if (x.score > 1 && x.s.component) hit.add(norm(x.s.component))
+  // A flow only names the end the situation mentions; the other end is a downstream candidate below.
+  for (const x of flows) for (const end of [x.f.from, x.f.to]) if (overlap(end, q) > 0) hit.add(norm(end))
+  const impacted = new Set()
+  for (const x of comps) if ((x.c.depends_on || []).some(dep => hit.has(norm(dep)))) impacted.add(norm(x.c.name))
+  for (const x of flows) if (hit.has(norm(x.f.to)) || hit.has(norm(x.f.from))) { impacted.add(norm(x.f.from)); impacted.add(norm(x.f.to)) }
+  for (const k of hit) impacted.delete(k)
+
+  const cline = x => `${x.c.name}${x.c.type ? ` (${x.c.type})` : ''}${x.c.environment ? ` [${x.c.environment}]` : ''}${x.c.owner ? ` · équipe : ${x.c.owner}` : ''}${x.c.support ? ` · support : ${x.c.support}` : ''}${x.c.depends_on?.length ? ` · dépend de : ${x.c.depends_on.join(', ')}` : ''}${x.c.notes ? ` · ${x.c.notes}` : ''}`
+  const byKey = new Map(); for (const x of comps) if (!byKey.has(norm(x.c.name))) byKey.set(norm(x.c.name), x)
+  const tagged = (x, text) => { src.map[x.id]?.lines.push(`${x.tag.replace(x.id, '').trim() ? x.tag.replace(x.id, '').trim() + ' : ' : ''}${text}`); return `[${x.tag}] ${text}` }
+  const sections = [
+    ['Documents (du plus récent au plus ancien ; en cas de contradiction, le plus récent prime)', heads.map(x => { src.map[x.id].excerpt = x.text; return `[${x.id}] ${x.text}` })],
+    ['Composants visés par la situation', [...hit].map(k => byKey.get(k)).filter(Boolean).map(x => tagged(x, cline(x)))],
+    ['Composants en aval ou connectés (impacts possibles)', [...impacted].map(k => byKey.get(k)).filter(Boolean).slice(0, 40).map(x => tagged(x, cline(x)))],
+    ['Serveurs concernés', servers.filter(x => x.score > 0 || hit.has(norm(x.s.component))).sort((a, b) => b.score - a.score).slice(0, 60)
+      .map(x => tagged(x, `${x.s.host || '?'}${x.s.ip ? ` (${x.s.ip})` : ''}${x.s.environment ? ` [${x.s.environment}]` : ''}${x.s.role ? ` · ${x.s.role}` : ''}${x.s.component ? ` · ${x.s.component}` : ''}`))],
+    ['Flux concernés', flows.filter(x => x.score > 0 || hit.has(norm(x.f.from)) || hit.has(norm(x.f.to))).sort((a, b) => b.score - a.score).slice(0, 80)
+      .map(x => tagged(x, `${x.f.from} → ${x.f.to}${x.f.protocol || x.f.port ? ` (${[x.f.protocol, x.f.port].filter(Boolean).join(' ')})` : ''}${x.f.environment ? ` [${x.f.environment}]` : ''}${x.f.purpose ? ` · ${x.f.purpose}` : ''}`))],
+    ['Support et escalade', support.slice(0, 40).map(x => tagged(x, `${x.s.level || '?'} : ${x.s.who}${x.s.contact ? ` (${x.s.contact})` : ''}${x.s.for ? ` · pour ${x.s.for}` : ''}`))],
+    ['Autres composants connus (noms et équipes)', [comps.filter(x => !hit.has(norm(x.c.name)) && !impacted.has(norm(x.c.name))).map(x => `[${x.id}] ${x.c.name}${x.c.owner ? ` (${x.c.owner})` : ''}`).join(' ; ')].filter(Boolean)],
+  ]
+  if (S.settings.arch_notes) { src.set('N', 'note', 'Vos notes d’architecture', S.settings.arch_notes); sections.unshift(['Notes de l’utilisateur', [`[N] ${S.settings.arch_notes}`]]) }
+  let out = ''
+  for (const [title, lines] of sections) {
+    if (!lines.length) continue
+    let chunk = `-- ${title} --\n${lines.join('\n')}\n`
+    const room = maxBytes - bytes(out)
+    if (room < 200) break
+    while (bytes(chunk) > room) chunk = chunk.slice(0, Math.floor(chunk.length * 0.85))
+    out += chunk
+  }
+  for (const id of Object.keys(src.map)) if (src.map[id].kind === 'doc') src.map[id].lines = src.map[id].lines.slice(0, 40)
+  return out
+}
+
+const SOURCE_RULES = `SOURCES (obligatoire) : chaque ligne de données commence par un identifiant entre crochets : [E3] annuaire appris des emails (avec les sujets des emails), [D2 p.14] document d'architecture (page si indiquée), [P5] fiche personne (notes et évaluations de l'utilisateur), [C1] cas précédent, [B1] démarche (étapes habituelles notées par l'utilisateur), [F1] dossier en cours (état de chaque étape), [N] notes d'architecture de l'utilisateur, [S] la situation saisie, [U1] une précision ajoutée, [V] vérifications cochées.
+Pour chaque affirmation, mets dans "sources" les identifiants exacts qui la justifient (garde la page pour un document, ex. "D2 p.14"). Une affirmation sans donnée qui la justifie a "sources": [] et son texte commence par « Supposition : ». N'utilise jamais un identifiant absent des données. N'affirme jamais un nom de personne, une adresse, un téléphone, un serveur ou un composant qui n'apparaît pas dans les données ou la situation. Si les données ne permettent pas de répondre, dis-le.
+Une personne marquée VOUS est l'utilisateur lui-même (y compris quand il a repris le rôle de quelqu'un) : ne la propose jamais comme contact à solliciter. Si les données disent que c'est elle qui traite la demande, dis clairement que c'est à l'utilisateur de la traiter, et propose les personnes qu'il doit solliciter pour le faire (approbation, équipes qui exécutent, copies).`
+
+const ASK_RULES = `Tu assistes un chef de projet IT d'un opérateur télécom au Maroc. Il reçoit un email, un appel ou une demande. Avant de déranger l'équipe suivante, il doit (1) comprendre précisément le problème, (2) juger s'il est réel ou si c'est une fausse alerte, (3) vérifier qu'il a assez d'éléments pour que l'équipe suivante puisse agir sans revenir vers lui, puis (4) savoir QUI contacter, PAR QUEL CANAL, avec quelle CONFIANCE.
+
+Tu disposes de :
+- ANNUAIRE : qui a traité quel type de demande, appris des emails de son prédécesseur, avec les éléments que ces équipes demandent ("inclure").
+- PERSONNES : ses notes (lieu, WhatsApp, notes) et ses évaluations des canaux par personne.
+- ARCHITECTURE & PÉRIMÈTRE (HLD, DAT…) : composants visés par la situation avec leur équipe propriétaire et leur support, composants en aval, serveurs, flux, niveaux de support et d'escalade.
+- CAS PRÉCÉDENTS : cas ouverts (doublons possibles) et cas clos avec leur issue (réel, fausse alerte, doublon).
+- DÉMARCHES ET DOSSIERS : les enchaînements d'étapes habituels (qui fait quoi, dans quel ordre) et les dossiers en cours avec l'état de chaque étape. Si la situation relève d'une démarche ou d'un dossier en cours, dis à quelle étape elle se rattache et qui la porte, en citant [B…] ou [F…].
+
+${SOURCE_RULES}
+
+1. DIAGNOSTIC
+- Reformule le problème en une phrase précise et remplis : quoi, où (composant + environnement), depuis quand, impact, qui est touché. "?" si inconnu.
+- Juge la réalité : "reel", "a_confirmer" ou "fausse_alerte_probable", avec une confiance 0-100, les indices pour et les indices contre, chacun avec ses sources. Indices de fausse alerte typiques : un seul utilisateur, pas de message d'erreur précis, poste ou navigateur de l'utilisateur (cache, VPN, mot de passe expiré, droits), maintenance ou mise en production en cours, données de test en PREPROD/UAT, comportement normal mal compris, doublon d'un cas ouvert, émetteur ou composant ayant déjà eu des fausses alertes. Indices de réalité : plusieurs utilisateurs ou un flux automatique en échec, message d'erreur et heure précis, reproductible, alerte de supervision, impact métier constaté, changement récent sur le chemin.
+- Liste les preuves que l'équipe suivante attendra (utilise "inclure" de l'annuaire pour cette équipe, plus : heure exacte, environnement, identifiant de transaction ou utilisateur concerné, message d'erreur ou capture, étendue, reproductibilité, changement récent). Pour chacune : "fourni", "manquant" ou "incertain", pourquoi elle compte, et ses sources (pour "fourni" : là où elle apparaît, souvent [S] ou [U1]).
+- Propose 2 à 5 vérifications rapides que le chef de projet peut faire lui-même pour confirmer.
+- Décide : "pret_a_escalader" vrai seulement si le problème est réel ou très probable ET que les preuves indispensables sont fournies. "prochaine_etape" : "demander_details", "verifier_moi_meme" ou "escalader". Si l'urgence est haute et l'impact large, on peut escalader en parallèle de la demande de détails : dis-le dans "raison".
+- Impacts : à partir des dépendances et des flux de l'architecture, liste ce qui est ou sera touché en aval, l'effet attendu, l'équipe à prévenir, la certitude ("confirme" si la situation le dit, "probable" si l'architecture l'implique directement, "possible" sinon) et les sources. Un impact large augmente l'urgence.
+- Si des éléments manquent, rédige "message_emetteur" : un message en français à l'émetteur, court, poli, qui liste précisément ce qui manque (en puces).
+
+2. CONTACTS (l'équipe suivante)
+- L'équipe propriétaire ou le support du composant en défaut, d'après l'architecture (et le niveau d'escalade N1/N2/N3 ou éditeur indiqué), est un candidat fort ; croise-la avec l'annuaire pour trouver la bonne personne ou boîte mail. Si l'architecture et l'annuaire divergent, dis-le.
+- 1 à 3 contacts, du plus probable au moins probable : pourquoi, confiance 0-100 et sources. 80-100 seulement si l'annuaire l'a vu plusieurs fois ET une autre source confirme ; 50-79 une source solide ; 20-49 déduction depuis l'architecture ou un seul email ; moins de 20 pure supposition. Ne gonfle pas. Si rien dans les données ne désigne un contact, ne propose pas de nom : dis-le dans "pourquoi" avec "qui": "À identifier".
+- Canal conseillé par contact : d'abord les évaluations de l'utilisateur pour cette personne ; sinon incident urgent → appel, WhatsApp ou visite (si le lieu est connu), demande formelle → email.
+- Pour chaque contact : un email en français (Bonjour…, contexte, constat avec les preuves disponibles, demande précise, Cordialement ; [à compléter] pour l'inconnu) et un message WhatsApp de 2 à 4 phrases (vouvoiement).
+- Si le cas a des PRÉCISIONS, réévalue tout en en tenant compte.
+
+"email" vaut null si l'adresse n'apparaît pas telle quelle dans les données. "cle" reprend exactement la clé d'une fiche PERSONNES ou une adresse de l'ANNUAIRE, sinon null. Les entrées marquées EXEMPLE FICTIF sont des données de démonstration.
+
+Réponds uniquement avec un objet JSON de cette forme :
+{"comprehension":"une phrase","urgence":"haute|normale|basse",
+"diagnostic":{"probleme":"","quoi":"","ou":"","depuis":"","impact":"","qui_est_touche":"",
+ "realite":{"verdict":"reel|a_confirmer|fausse_alerte_probable","confiance":0,"pour":[{"texte":"","sources":["S"]}],"contre":[{"texte":"","sources":[]}]},
+ "preuves":[{"element":"","statut":"fourni|manquant|incertain","pourquoi":"","sources":[]}],
+ "verifications":[""],"pret_a_escalader":false,"prochaine_etape":"demander_details|verifier_moi_meme|escalader","raison":""},
+"impacts":[{"composant":"","effet":"","equipe":"","certitude":"confirme|probable|possible","sources":["D1 p.12"]}],
+"message_emetteur":{"objet":"","texte":""},
+"chemin":[{"composant":"","role":"","sources":[]}],"chemin_confiance":0,
+"suggestions":[{"qui":"","cle":null,"email":null,"equipe":"","pourquoi":"","confiance":0,"sources":["E3","D1 p.12","P2"],"canal":"email|whatsapp|visite|appel","canal_pourquoi":"","objet":"","message_email":"","message_whatsapp":""}],
+"questions":[""]}
+"message_emetteur" vaut null si rien ne manque.`
+
+const RESOLUTIONS = { reel_resolu: 'Réel, résolu', fausse_alerte: 'Fausse alerte', doublon: 'Doublon', abandonne: 'Abandonné' }
+const VERDICTS = { reel: ['Problème réel', 'bad'], a_confirmer: ['À confirmer', 'warn'], fausse_alerte_probable: ['Fausse alerte probable', ''] }
+const NEXT = { demander_details: 'Demander des détails à l’émetteur', verifier_moi_meme: 'Vérifier moi-même', escalader: 'Contacter l’équipe suivante' }
+
+function casesBlock(maxBytes, exceptId, src) {
+  let out = '', used = 0
+  for (const c of S.cases.filter(c => c.id !== exceptId).slice(0, 60)) {
+    const body = [String(c.at || '').slice(0, 10), c.status === 'closed' ? `clos : ${RESOLUTIONS[c.resolution?.kind] || 'sans issue notée'}` : 'OUVERT',
+      c.result?.diagnostic?.probleme || c.result?.comprehension || c.text.slice(0, 120), c.reporter ? `signalé par ${c.reporter}` : '', c.resolution?.note || ''].filter(Boolean).join(' | ')
+    const id = src.add('C', 'cas', `Cas du ${fmtDate(c.at)}`, body)
+    const l = `[${id}] ${body}`
+    const b = bytes(l) + 1
+    if (used + b > maxBytes) { delete src.map[id]; break }
+    out += l + '\n'; used += b
+  }
+  return out
+}
+
+/** Situation, its precisions and ticked checks, tagged [S] / [U1…] / [V]. */
+function situationBlock(c, src, img) {
+  const head = `Origine : ${c.source} · Signalé par : ${c.reporter || 'non précisé'} · Reçu le : ${new Date(c.at).toLocaleString('fr-FR')}`
+  src.set('S', 'saisie', 'Votre saisie (situation)', `${head}\n${c.text}`)
+  let out = `[S] ${head}\n${img ? 'Une capture d’écran est jointe : elle fait partie de la situation [S].\n' : ''}${c.text}\n`
+  ;(c.updates || []).forEach((u, i) => {
+    const id = src.set('U' + (i + 1), 'saisie', `Votre précision du ${fmtWhen(u.at)}`, u.text)
+    out += `\n[${id}] (${new Date(u.at).toLocaleString('fr-FR')}) ${u.text}`
+  })
+  const prev = c.result?.diagnostic
+  if (c.checks?.length && prev?.verifications) {
+    const done = c.checks.map(i => prev.verifications[i]).filter(Boolean).join(' ; ')
+    src.set('V', 'saisie', 'Vos vérifications cochées', done)
+    out += `\n[V] Vérifications faites par l'utilisateur : ${done}`
+  }
+  return out
+}
+
+function buildPrompt(c, img) {
+  const src = newSources()
+  const query = [c.text, c.reporter, ...(c.updates || []).map(u => u.text)].join(' ')
+  // Keep the whole prompt under the 256 KiB input cap: directory first, then people, architecture, past cases.
+  const dir = directoryBlock(95000, src), ppl = peopleBlock(40000, src), arch = archBlock(58000, query, src), past = casesBlock(12000, c.id, src), plays = playbooksBlock(18000, src)
+  const sit = situationBlock(c, src, img)
+  const prev = c.result?.diagnostic
+  const prompt = `${ASK_RULES}
+
+=== ANNUAIRE (${S.entries.length} types de demande) ===
+${dir || '(vide : pas encore importé)'}
+=== PERSONNES ===
+${ppl || '(aucune)'}
+=== ARCHITECTURE & PÉRIMÈTRE ===
+${arch || '(aucun document)'}
+=== CAS PRÉCÉDENTS ===
+${past || '(aucun)'}
+=== DÉMARCHES ET DOSSIERS ===
+${plays || '(aucun)'}
+=== SITUATION ===
+${sit}
+${prev ? `\n=== ANALYSE PRÉCÉDENTE (pour mémoire, pas une source) ===\nVerdict : ${prev.realite?.verdict} (${prev.realite?.confiance}) · Manquait : ${(prev.preuves || []).filter(p => p.statut !== 'fourni').map(p => p.element).join(', ') || 'rien'}` : ''}`
+  return { prompt, src: src.map }
+}
+
+/* ── code-side checks: nothing the model says is trusted without a source in the data sent ── */
+const asItems = list => (list || []).filter(Boolean).map(x => typeof x === 'string' ? { texte: x, sources: [] } : x)
+function verifyResult(r, src, prompt) {
+  const known = new Set(Object.keys(src))
+  const data = prompt.toLowerCase()
+  const dataNorm = norm(prompt)
+  const issues = []
+  let total = 0, sourced = 0
+  const claim = (where, ids, text) => {
+    total++
+    const list = (ids || []).map(String).filter(Boolean)
+    const bad = list.filter(id => !known.has(baseId(id)))
+    if (bad.length) issues.push({ level: 'bad', text: `${where} : cite une source qui n’existe pas (${bad.join(', ')})` })
+    else if (list.length) sourced++
+    else if (!/^supposition/i.test(String(text || '').trim())) issues.push({ level: 'warn', text: `${where} : pas de source (à traiter comme une supposition)` })
+    else issues.push({ level: 'info', text: `${where} : supposition annoncée` })
+  }
+  const d = r.diagnostic || {}
+  asItems(d.realite?.pour).forEach((x, i) => claim(`Indice pour n°${i + 1}`, x.sources, x.texte))
+  asItems(d.realite?.contre).forEach((x, i) => claim(`Indice contre n°${i + 1}`, x.sources, x.texte))
+  ;(d.preuves || []).filter(p => p.statut === 'fourni').forEach(p => claim(`Élément « ${p.element} » (fourni)`, p.sources, ''))
+  ;(r.impacts || []).forEach(x => {
+    claim(`Impact « ${x.composant} »`, x.sources, x.effet)
+    if (x.composant && !dataNorm.includes(norm(x.composant))) issues.push({ level: 'bad', text: `Impact « ${x.composant} » : ce composant n’apparaît ni dans vos documents ni dans la situation` })
+  })
+  ;(r.chemin || []).forEach(n => {
+    if (n.composant && !dataNorm.includes(norm(n.composant))) issues.push({ level: 'warn', text: `Chemin : « ${n.composant} » n’apparaît pas dans les données (déduction)` })
+  })
+  ;(r.suggestions || []).forEach(s => {
+    claim(`Contact « ${s.qui} »`, s.sources, s.pourquoi)
+    if (isMe(s.email) || isMe(s.cle)) issues.push({ level: 'warn', text: `Contact « ${s.qui} » : c’est vous (${S.settings.me?.name || 'vos adresses'}) : la demande vous revient` })
+    if (s.email && !data.includes(String(s.email).toLowerCase())) {
+      issues.push({ level: 'bad', text: `Contact « ${s.qui} » : l’adresse ${s.email} n’existe pas dans vos données, elle a été retirée` })
+      s.email_retiree = s.email; s.email = null
+    }
+    if (s.cle && !data.includes(String(s.cle).toLowerCase())) { s.cle = null }
+    const phone = `${s.message_whatsapp || ''} ${s.message_email || ''}`.match(/(\+?\d[\d .-]{8,}\d)/)
+    if (phone && !data.includes(phone[1].replace(/\s/g, '').slice(-6))) issues.push({ level: 'warn', text: `Contact « ${s.qui} » : un numéro (${phone[1]}) absent des données figure dans le brouillon` })
+  })
+  const cited = new Set()
+  const walk = v => { if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v === 'object') { if (Array.isArray(v.sources)) v.sources.forEach(id => cited.add(baseId(id))); Object.values(v).forEach(walk) } }
+  walk(r)
+  return { total, sourced, issues, cited: [...cited].filter(id => known.has(id)) }
+}
+
+/** Keep only what the case needs to show its sources later: cited entries, plus the situation. */
+function keepSources(src, ids) {
+  const out = {}
+  for (const id of new Set([...ids, 'S', ...Object.keys(src).filter(k => /^U\d+$|^V$/.test(k))])) if (src[id]) out[id] = src[id]
+  return out
+}
+
+async function ask() {
+  const text = $('#q').value.trim()
+  if (!text || !sample) return
+  const c = { text, source: askSrc, reporter: $('#reporter').value.trim(), updates: [], checks: [], at: new Date().toISOString(), status: 'open' }
+  const img = $('#img').files[0]
+  const out = await analyse(c, img)
+  if (!out) return
+  Object.assign(c, out)
+  current = c
+  renderResult(c)
+  if (db) {
+    try { const ref = await db.collection('cases').add(c); c.id = ref.id; renderResult(c) }
+    catch (e) { console.warn(e) }
+  }
+}
+
+async function addInfo(c, info) {
+  if (!info.trim() || !sample) return
+  const updates = [...(c.updates || []), { at: new Date().toISOString(), text: info.trim() }]
+  const out = await analyse({ ...c, updates }, null)
+  if (!out) return
+  Object.assign(c, { updates, ...out, updated_at: new Date().toISOString() })
+  renderResult(c)
+  if (db && c.id) await db.doc('cases/' + c.id).update({ updates, result: c.result, verification: c.verification, sources: c.sources, updated_at: c.updated_at }).catch(e => console.warn(e))
+}
+
+/** One analysis: returns {result, verification, sources} or null (the reason is shown under the form). */
+async function analyse(c, img, opts = {}) {
+  const { prompt, src } = buildPrompt(c, img)
+  ctl = new AbortController()
+  const note = $('#ask-note')
+  for (const b of document.querySelectorAll('#ask-btn, .update-btn')) b.disabled = true
+  $('#stop-btn').hidden = false
+  note.textContent = 'Claude analyse… (20 à 60 s)'
+  try {
+    const result = await sample.json(prompt, { signal: ctl.signal, cache: false, ...(img ? { images: [img] } : {}) })
+    if (!result || !Array.isArray(result.suggestions)) throw { code: 'invalid_json' }
+    const verification = verifyResult(result, src, prompt)
+    note.textContent = ''
+    return { result, verification, sources: keepSources(src, verification.cited), ...(opts.withPrompt ? { prompt } : {}) }
+  } catch (e) {
+    note.textContent = {
+      cancelled: '', not_granted: 'Autorisez la page à utiliser Claude pour obtenir une analyse.', rate_limited: 'Trop de demandes pour le moment : réessayez dans quelques minutes.',
+      prompt_too_large: 'Trop de données : raccourcissez le texte collé.', invalid_json: 'Réponse illisible : relancez l’analyse.', refused: 'Claude a refusé cette demande : reformulez-la.',
+      image_rejected: 'Image refusée : essayez une autre capture.', session_expired: 'Reconnectez-vous à Claude.',
+    }[e?.code] ?? 'La connexion à Claude a échoué : relancez l’analyse.'
+    if (tab !== 'ask') toast(note.textContent || 'Analyse arrêtée')
+    if (opts.throwErrors) throw e
+    return null
+  } finally {
+    for (const b of document.querySelectorAll('#ask-btn, .update-btn')) b.disabled = false
+    $('#stop-btn').hidden = true; ctl = null
+  }
+}
+
+/* ── showing sources ─────────────────────────────────────── */
+function srcChip(c, id) {
+  const base = baseId(id), info = c.sources?.[base], page = pageOf(id)
+  if (!info) return h('button', { type: 'button', class: 'src bad', text: `source ? ${id}`, onclick: () => toast('Cette source n’existe pas dans les données envoyées : affirmation non vérifiée') })
+  let text = KIND_LABEL[info.kind] || info.kind
+  if (info.kind === 'doc') text = `${info.label}${page ? ` p.${page}` : ''}`
+  else if (info.kind === 'email') text = `Emails ×${info.count || '?'}`
+  else if (info.kind === 'fiche') text = info.label.replace('Fiche : ', 'Fiche ')
+  else if (info.kind === 'cas' || info.kind === 'demarche' || info.kind === 'dossier') text = info.label
+  else if (base !== 'S') text = base === 'V' ? 'Vos vérifications' : 'Votre précision'
+  return h('button', { type: 'button', class: 'src k-' + info.kind, text, onclick: () => sourceSheet(c, base, page) })
+}
+function srcChips(c, ids) {
+  const list = [...new Set((ids || []).map(String).filter(Boolean))]
+  if (!list.length) return h('span', { class: 'src none', text: 'sans source' })
+  return h('span', { class: 'srcs' }, list.map(id => srcChip(c, id)))
+}
+function sourceSheet(c, id, page) {
+  const info = c.sources[id]
+  // Document lines are "p.12,13 : text" when the page is known: show that page's lines, plus undated ones.
+  const lines = info.kind === 'doc' ? (info.lines || []).filter(l => !page || !l.startsWith('p.') || l.split(' : ')[0].slice(2).split(',').includes(page)) : []
+  sheet(
+    h('span', { class: 'label', text: { email: 'Appris des emails', doc: 'Document', fiche: 'Fiche personne (vos données)', note: 'Vos notes', cas: 'Cas précédent', saisie: 'Votre saisie' }[info.kind] || 'Source' }),
+    h('h2', { text: info.label + (page ? ` · page ${page}` : '') }),
+    info.kind === 'doc' ? h('p', { class: 'small muted', text: `Fichier : ${info.file}${info.date ? ` · daté du ${info.date}` : ''}` }) : null,
+    info.kind === 'email' && info.threads?.length ? h('div', { class: 'stack' }, h('span', { class: 'label', text: `Emails source (${info.count} fil${info.count > 1 ? 's' : ''})` }),
+      h('ul', { class: 'small' }, info.threads.map(t => h('li', {}, `« ${t.subject} »`, h('span', { class: 'muted', text: ` · ${fmtDate(t.date)}` }))))) : null,
+    info.kind === 'email' && !info.threads?.length ? h('p', { class: 'small muted', text: `${info.count} fil(s) d’emails, dernier le ${fmtDate(info.last)}. Reconstruisez l’annuaire sur l’ordinateur pour voir les sujets des emails.` }) : null,
+    info.example ? h('p', { class: 'small', text: 'Donnée d’exemple fictive.' }) : null,
+    h('span', { class: 'label', text: 'Ce qui a été transmis à Claude' }),
+    h('div', { class: 'quote', text: lines.length ? lines.join('\n') : info.excerpt || '(vide)' }),
+    h('div', { class: 'row' }, h('button', { type: 'button', text: 'Fermer', onclick: closeSheet })))
+}
+function verificationView(c) {
+  const v = c.verification
+  if (!v) return null
+  const bad = v.issues.filter(i => i.level === 'bad'), warn = v.issues.filter(i => i.level === 'warn')
+  const tone = bad.length ? 'bad' : warn.length ? 'warn' : 'good'
+  const title = bad.length ? `${bad.length} affirmation${bad.length > 1 ? 's' : ''} non vérifiable${bad.length > 1 ? 's' : ''} détectée${bad.length > 1 ? 's' : ''}`
+    : warn.length ? `${v.sourced}/${v.total} affirmations sourcées · ${warn.length} sans source`
+    : `${v.sourced}/${v.total} affirmations rattachées à une source vérifiée`
+  return h('details', { class: 'verify v-' + tone, open: bad.length > 0 || null },
+    h('summary', {}, h('strong', { class: 'small', text: 'Contrôle des sources : ' + title })),
+    h('ul', { class: 'small' }, v.issues.length ? v.issues.map(i => h('li', { class: 'i-' + i.level, text: i.text })) : h('li', { text: 'Chaque source citée existe dans les données transmises ; adresses et composants vérifiés.' })),
+    h('p', { class: 'small muted', text: 'Ce contrôle est fait par la page, pas par Claude : il compare la réponse aux données réellement envoyées.' }))
+}
+
+function field(label, value) {
+  return h('div', { class: 'fact' }, h('span', { class: 'label', text: label }), h('span', { class: value && value !== '?' ? '' : 'muted', text: value || '?' }))
+}
+
+function diagnosticView(c) {
+  const r = c.result, d = r.diagnostic || {}
+  const real = d.realite || {}
+  const [vLabel, vTone] = VERDICTS[real.verdict] || ['Non évalué', '']
+  const ready = !!d.pret_a_escalader
+  const missing = (d.preuves || []).filter(p => p.statut !== 'fourni')
+  const item = x => typeof x === 'string' ? { texte: x, sources: null } : x
+  const panel = h('div', { class: 'panel' },
+    verificationView(c),
+    h('div', { class: 'row' }, h('span', { class: 'label', text: 'Diagnostic' }),
+      r.urgence ? h('span', { class: 'pill ' + ({ haute: 'bad', normale: 'warn', basse: '' }[r.urgence] || ''), text: 'Urgence ' + r.urgence }) : null,
+      c.updates?.length ? h('span', { class: 'pill', text: `mis à jour ×${c.updates.length}` }) : null),
+    h('h2', { text: d.probleme || r.comprehension || '' }),
+    h('div', { class: 'facts' }, field('Quoi', d.quoi), field('Où', d.ou), field('Depuis', d.depuis), field('Impact', d.impact), field('Qui est touché', d.qui_est_touche)),
+    h('div', { class: 'stack' },
+      h('div', { class: 'row' }, h('span', { class: 'label', text: 'Le problème est-il réel ?' }), h('span', { class: 'pill ' + vTone, text: vLabel }), signal(real.confiance || 0)),
+      h('div', { class: 'proscons' },
+        h('div', {}, h('span', { class: 'small good-ink', text: 'Indices pour' }), h('ul', { class: 'small' }, (real.pour || []).filter(Boolean).map(item).map(x => h('li', {}, x.texte, ' ', x.sources ? srcChips(c, x.sources) : null)))),
+        h('div', {}, h('span', { class: 'small bad-ink', text: 'Indices contre' }), h('ul', { class: 'small' }, (real.contre || []).filter(Boolean).map(item).map(x => h('li', {}, x.texte, ' ', x.sources ? srcChips(c, x.sources) : null)))))),
+    r.impacts?.length ? h('div', { class: 'stack' },
+      h('span', { class: 'label', text: 'Impacts probables' }),
+      h('ul', { class: 'evidence' }, r.impacts.map(x => h('li', {},
+        h('span', { class: 'pill ' + ({ confirme: 'bad', probable: 'warn' }[x.certitude] || ''), text: x.certitude || '?' }),
+        h('span', {}, h('strong', { text: x.composant }), x.effet ? ` : ${x.effet}` : '', x.equipe ? h('span', { class: 'small muted', text: ` · prévenir ${x.equipe}` }) : null, ' ', x.sources ? srcChips(c, x.sources) : null,
+          h('button', { type: 'button', class: 'ghost tiny', text: 'Approfondir', onclick: () => openChat({ label: `impact sur ${x.composant}`, kind: 'impact' }) })))))) : null,
+    d.preuves?.length ? h('div', { class: 'stack' },
+      h('span', { class: 'label', text: 'Éléments pour l’équipe suivante' }),
+      h('ul', { class: 'evidence' }, d.preuves.map(p => h('li', { class: 'ev-' + (p.statut || 'incertain') },
+        h('span', { class: 'mark', 'aria-label': p.statut, text: p.statut === 'fourni' ? '✓' : p.statut === 'manquant' ? '✗' : '?' }),
+        h('span', {}, h('strong', { text: p.element }), p.pourquoi ? h('span', { class: 'small muted', text: ' · ' + p.pourquoi }) : null, ' ', p.statut === 'fourni' && p.sources ? srcChips(c, p.sources) : null,
+          p.statut !== 'fourni' ? h('button', { type: 'button', class: 'ghost tiny', text: 'Approfondir', onclick: () => openChat({ label: `élément « ${p.element} »`, kind: 'evidence' }) }) : null))))) : null,
+    h('div', { class: 'gate ' + (ready ? 'ok' : 'hold') },
+      h('strong', { text: ready ? 'Prêt à escalader' : `Pas encore : ${missing.length ? `${missing.length} élément${missing.length > 1 ? 's' : ''} à obtenir` : 'réalité à confirmer'}` }),
+      h('p', { class: 'small', text: `Prochaine étape : ${NEXT[d.prochaine_etape] || d.prochaine_etape || '?'}${d.raison ? '. ' + d.raison : ''}` }),
+      h('div', { class: 'row' }, h('button', { type: 'button', class: 'ghost tiny', text: 'Discuter du diagnostic', onclick: () => openChat(null) }))))
+
+  if (d.verifications?.length) {
+    const checks = new Set(c.checks || [])
+    panel.append(h('div', { class: 'stack' }, h('span', { class: 'label', text: 'Vérifications rapides (par vous)' }),
+      h('div', { class: 'checks' }, d.verifications.map((v, i) => {
+        const box = h('input', { type: 'checkbox', id: `chk-${i}` }); box.checked = checks.has(i)
+        box.addEventListener('change', async () => {
+          box.checked ? checks.add(i) : checks.delete(i)
+          c.checks = [...checks].sort((a, b) => a - b)
+          if (db && c.id) await db.doc('cases/' + c.id).update({ checks: c.checks }).catch(e => console.warn(e))
+        })
+        return h('label', { class: 'check', for: `chk-${i}` }, box, h('span', { text: v }))
+      }))))
+  }
+
+  if (r.message_emetteur?.texte) {
+    const composer = h('div', { class: 'composer', hidden: true })
+    const reporter = { key: 'p-' + slug(c.reporter || 'emetteur'), name: c.reporter || '', addr: '', handles: [] }
+    const known = [...people().values()].find(p => c.reporter && norm(`${p.name} ${p.addr}`).includes(norm(c.reporter)))
+    const who = known || reporter
+    panel.append(h('div', { class: 'stack' },
+      h('span', { class: 'label', text: 'Demander les éléments manquants à l’émetteur' }),
+      h('div', { class: 'row' },
+        h('button', { type: 'button', class: d.prochaine_etape === 'demander_details' ? 'primary' : '', text: 'WhatsApp', onclick: () => { composer.hidden = false; composer.replaceChildren(waComposer(r.message_emetteur.texte, who)) } }),
+        h('button', { type: 'button', text: 'Email', onclick: () => { composer.hidden = false; composer.replaceChildren(emailComposer({ objet: r.message_emetteur.objet || `Précisions : ${r.comprehension || ''}`, message_email: r.message_emetteur.texte }, who)) } }),
+        h('button', { type: 'button', text: 'Copier', onclick: () => copy(r.message_emetteur.texte) })),
+      composer))
+  }
+
+  const info = h('textarea', { rows: 3, placeholder: 'Réponse de l’émetteur, résultat de vos vérifications, nouvelle capture décrite…', 'aria-label': 'Nouveaux éléments' })
+  panel.append(h('div', { class: 'stack' },
+    h('span', { class: 'label', text: 'Ajouter des éléments' }), info,
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'update-btn', text: 'Mettre à jour l’analyse', onclick: () => addInfo(c, info.value) }),
+      c.id ? h('button', { type: 'button', class: 'ghost', text: c.status === 'closed' ? `Clos : ${RESOLUTIONS[c.resolution?.kind] || ''}` : 'Clore le cas…', onclick: () => resolveSheet(c) }) : null)))
+  if (c.updates?.length) panel.append(h('details', {}, h('summary', {}, h('span', { class: 'small', text: `Historique du cas (${c.updates.length})` })),
+    h('ul', { class: 'small' }, h('li', {}, h('span', { class: 'muted', text: fmtWhen(c.at) + ' · ' }), c.text.slice(0, 300)), c.updates.map(u => h('li', {}, h('span', { class: 'muted', text: fmtWhen(u.at) + ' · ' }), u.text)))))
+  return panel
+}
+
+function renderResult(c) {
+  const r = c.result, box = $('#result')
+  box.replaceChildren(diagnosticView(c))
+  const d = r.diagnostic || {}
+  const list = h('div', { class: 'panel' },
+    h('h2', { text: 'Qui contacter ensuite' }),
+    d.pret_a_escalader ? null : h('p', { class: 'small muted', text: 'À contacter une fois les éléments réunis (ou en parallèle si c’est urgent).' }),
+    r.chemin?.length ? h('div', { class: 'stack' },
+      h('div', { class: 'row' }, h('span', { class: 'label', text: 'Chemin probable' }), signal(r.chemin_confiance || 0)),
+      h('div', { class: 'path' }, r.chemin.flatMap((n, i) => [i ? h('span', { class: 'muted', text: '→' }) : null, h('span', { class: 'node', title: n.role || '', text: n.composant })])),
+      h('p', { class: 'small muted', text: r.chemin.map(n => n.role ? `${n.composant} : ${n.role}` : '').filter(Boolean).join(' · ') }),
+      r.chemin.some(n => n.sources) ? srcChips(c, r.chemin.flatMap(n => n.sources || [])) : null) : null)
+  for (const s of r.suggestions) list.append(suggestionView(s, c))
+  if (!r.suggestions.length) list.append(h('p', { class: 'muted', text: 'Aucun contact trouvé dans les données.' }))
+  box.append(list)
+  chatAbout = null
+  box.append(chatPanel(c))
+}
+
+function resolveSheet(c) {
+  let kind = c.resolution?.kind || 'reel_resolu'
+  const note = h('textarea', { rows: 3, placeholder: 'Ex : cache navigateur de l’utilisateur ; corrigé par l’équipe Run en redémarrant le service' }); note.value = c.resolution?.note || ''
+  sheet(
+    h('h2', { text: 'Clore le cas' }),
+    h('p', { class: 'small muted', text: c.result?.diagnostic?.probleme || c.result?.comprehension || c.text.slice(0, 120) }),
+    h('span', { class: 'label', text: 'Issue' }), chipGroup(RESOLUTIONS, kind, v => kind = v),
+    h('p', { class: 'small muted', text: 'Les issues notées aident à repérer les fausses alertes et les doublons dans les prochaines analyses.' }),
+    note,
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'primary', text: 'Clore', onclick: async () => {
+        const resolution = { kind, note: note.value.trim(), at: new Date().toISOString() }
+        try {
+          await db.doc('cases/' + c.id).update({ status: 'closed', resolution, closed_at: resolution.at })
+          Object.assign(c, { status: 'closed', resolution })
+          closeSheet(); toast('Cas clos'); if (current === c) renderResult(c)
+        } catch (e) { toast('Impossible de clore : ' + (e?.message || 'réessayez')) }
+      } }),
+      h('button', { type: 'button', text: 'Annuler', onclick: closeSheet })))
+}
+
+function caseBadge(c) {
+  if (c.status === 'closed') return h('span', { class: 'pill', text: RESOLUTIONS[c.resolution?.kind] || 'clos' })
+  const d = c.result?.diagnostic
+  if (!d) return h('span', { class: 'pill warn', text: 'ouvert' })
+  return d.pret_a_escalader ? h('span', { class: 'pill good', text: 'prêt à escalader' }) : h('span', { class: 'pill warn', text: NEXT[d.prochaine_etape] ? NEXT[d.prochaine_etape].toLowerCase() : 'à compléter' })
+}
+
+/* ── follow-up conversation on a case ────────────────────── */
+const CHAT_RULES = `Tu es l'assistant qui a produit l'analyse ci-dessous pour un chef de projet IT d'un opérateur télécom au Maroc. Il pose une question de suivi sur un point de l'analyse, ou il apporte des précisions.
+- Réponds en français, court (5 à 10 lignes), concret, en texte simple (puces avec « - » autorisées, pas de JSON).
+- Explique ton raisonnement en citant tes sources : annuaire (combien de fils, quand), document d'architecture (nom), évaluations, cas précédents. Dis clairement ce qui est supposé.
+- S'il apporte des précisions, dis ce qu'elles changent (verdict, éléments manquants, contacts, impacts, canal) et propose de cliquer « Intégrer à l'analyse ». Si la précision concerne une personne (absence, changement de poste, préférence de canal), propose aussi « Noter sur la personne ».
+- Cite tes sources entre crochets, avec les identifiants des données, juste après l'affirmation : [E3], [D1 p.12], [P2], [C1], [N], [S], [U1]. Une affirmation sans source commence par « Supposition : ».
+- Si les données ne contiennent pas la réponse (un numéro, une personne, un serveur…), dis « Je n'ai pas cette information dans les données » et indique où la trouver ; n'invente jamais de nom, d'adresse, de numéro, de serveur ou de composant.`
+
+const CHIPS = {
+  case: ['Pourquoi ce verdict ?', 'Explique le chemin technique et les impacts', 'Que manque-t-il vraiment pour escalader ?', 'Et si c’était en PROD ?'],
+  person: ['Pourquoi cette personne ?', 'Qui d’autre si elle ne répond pas ?', 'Que dois-je préparer avant de la contacter ?'],
+  impact: ['Pourquoi cet impact ?', 'Comment le vérifier ?', 'Qui prévenir et comment ?'],
+  evidence: ['Pourquoi est-ce nécessaire ?', 'Où trouver cette information ?', 'Peut-on escalader sans ?'],
+}
+let chatAbout = null   // { label, kind, key? } — what the next question is about
+let chatBusy = false
+
+function compactResult(r) {
+  // Ids in a stored analysis may not match this conversation's ids: drop them so the model cites fresh ones.
+  const strip = v => Array.isArray(v) ? v.map(strip) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).filter(([k]) => k !== 'sources').map(([k, x]) => [k, strip(x)])) : v
+  r = strip(r)
+  return { ...r, message_emetteur: r.message_emetteur ? { objet: r.message_emetteur.objet } : null,
+    suggestions: (r.suggestions || []).map(({ message_email: _e, message_whatsapp: _w, ...s }) => s) }
+}
+
+function chatTurns(c) {
+  const src = newSources()
+  const query = [c.text, c.reporter, ...(c.updates || []).map(u => u.text), ...(c.chat || []).filter(m => m.role === 'user').map(m => `${m.about || ''} ${m.text}`)].join(' ')
+  const context = `${CHAT_RULES}
+
+=== ANNUAIRE ===
+${directoryBlock(70000, src) || '(vide)'}
+=== PERSONNES ===
+${peopleBlock(30000, src) || '(aucune)'}
+=== ARCHITECTURE & PÉRIMÈTRE ===
+${archBlock(45000, query, src) || '(aucun document)'}
+=== CAS PRÉCÉDENTS ===
+${casesBlock(8000, c.id, src) || '(aucun)'}
+=== DÉMARCHES ET DOSSIERS ===
+${playbooksBlock(12000, src) || '(aucun)'}
+=== SITUATION ===
+${situationBlock(c, src, false)}
+=== ANALYSE ACTUELLE (résumé, pas une source) ===
+${JSON.stringify(compactResult(c.result)).slice(0, 20000)}
+
+=== CONVERSATION ===`
+  // Keep the last exchanges; drop failed answers so the turns stay a real conversation.
+  const msgs = (c.chat || []).filter(m => !m.error).slice(-12)
+  while (msgs.length && msgs[0].role !== 'user') msgs.shift()
+  const turns = msgs.map(m => ({ role: m.role, content: m.role === 'user' ? `${m.about ? `[À propos de : ${m.about}] ` : ''}${m.text}` : m.text }))
+  turns[0] = { role: 'user', content: `${context}\n${turns[0].content}` }
+  return { turns, src: src.map }
+}
+
+const CITE = /\[((?:[EDPCBF]\d+|[SNV]|U\d+)(?:\s*p\.?\s?\d+(?:,\d+)*)?)\]/g
+/** An answer's text with its [E3] / [D1 p.12] citations turned into source chips. */
+function citedText(c, text, sources) {
+  const ctx = { ...c, sources: { ...(c.sources || {}), ...(sources || {}) } }
+  const out = []
+  let last = 0
+  for (const m of text.matchAll(CITE)) {
+    out.push(text.slice(last, m.index), srcChip(ctx, m[1]))
+    last = m.index + m[0].length
+  }
+  out.push(text.slice(last))
+  return out
+}
+
+function openChat(about) {
+  chatAbout = about
+  const panel = $('#chat-panel')
+  if (!panel) return
+  panel.dispatchEvent(new CustomEvent('about'))
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  setTimeout(() => panel.querySelector('textarea')?.focus({ preventScroll: true }), 350)
+}
+
+function chatPanel(c) {
+  const list = h('div', { class: 'chat' })
+  const aboutRow = h('div', { class: 'row' })
+  const chips = h('div', { class: 'chips' })
+  const input = h('textarea', { rows: 2, placeholder: 'Votre question, ou une précision (« il est en congé », « seulement en PROD »…)', 'aria-label': 'Question ou précision' })
+  const send = h('button', { type: 'button', class: 'primary', text: 'Envoyer' })
+  const panel = h('div', { class: 'panel', id: 'chat-panel' },
+    h('h2', { text: 'Questions et précisions' }),
+    h('p', { class: 'small muted', text: 'Demandez pourquoi, une alternative, ou apportez ce que vous savez. Vous pourrez ensuite l’intégrer à l’analyse.' }),
+    list, aboutRow, chips, input, h('div', { class: 'row' }, send))
+
+  const renderAbout = () => {
+    aboutRow.replaceChildren(...(chatAbout ? [h('span', { class: 'pill ex', text: `À propos de : ${chatAbout.label}` }),
+      h('button', { type: 'button', class: 'ghost', text: 'Tout le cas', onclick: () => { chatAbout = null; renderAbout() } })] : []))
+    chips.replaceChildren(...CHIPS[chatAbout?.kind || 'case'].map(q => h('button', { type: 'button', class: 'chip', 'aria-pressed': 'false', text: q, onclick: () => askChat(q) })))
+  }
+  const renderList = () => {
+    // Questions get an answer; statements are details you may want to keep.
+    const isQuestion = m => /\?\s*$/.test(m.text)
+    list.replaceChildren(...(c.chat || []).map(m => m.role === 'user'
+      ? h('div', { class: 'msg me' },
+          m.about ? h('span', { class: 'small muted', text: `À propos de : ${m.about}` }) : null,
+          h('div', { class: 'bubble me', text: m.text }),
+          isQuestion(m) ? null : h('div', { class: 'row' },
+            m.integrated ? h('span', { class: 'small muted', text: '✓ intégré à l’analyse' })
+              : h('button', { type: 'button', class: 'ghost update-btn', text: 'Intégrer à l’analyse', onclick: async () => {
+                  // Mark first: the re-analysis rebuilds this panel from c.chat.
+                  m.integrated = true; save()
+                  const before = c.updates?.length || 0
+                  await addInfo(c, `${m.about ? `À propos de ${m.about} : ` : ''}${m.text}`)
+                  if ((c.updates?.length || 0) === before) { m.integrated = false; save(); renderList() }
+                } }),
+            m.personKey && !m.noted ? h('button', { type: 'button', class: 'ghost', text: `Noter sur ${m.about}`, onclick: async () => {
+                const p = people().get(m.personKey) || { key: m.personKey, addr: '', name: m.about, transient: true }
+                const prev = S.overlay.get(m.personKey)?.notes || p.notes || ''
+                await savePerson(p, { notes: `${prev ? prev + '\n' : ''}${new Date().toLocaleDateString('fr-FR')} : ${m.text}` })
+                m.noted = true; save(); renderList(); toast('Noté sur la fiche')
+              } }) : m.noted ? h('span', { class: 'small muted', text: '✓ noté sur la fiche' }) : null))
+      : h('div', { class: 'msg ai' }, h('div', { class: 'bubble ai' + (m.error ? ' err' : '') }, ...citedText(c, m.text, m.sources)),
+          m.unknown?.length ? h('span', { class: 'small bad-ink', text: `Source inexistante citée : ${m.unknown.join(', ')}` }) : null)))
+  }
+  const save = () => { if (db && c.id) db.doc('cases/' + c.id).update({ chat: (c.chat || []).slice(-40) }).catch(e => console.warn(e)) }
+
+  async function askChat(text) {
+    text = String(text || '').trim()
+    if (!text || chatBusy) return
+    if (!sample) { toast('Claude n’est pas disponible dans cette vue'); return }
+    chatBusy = true; send.disabled = true
+    c.chat = [...(c.chat || []), { role: 'user', text, about: chatAbout?.label || null, personKey: chatAbout?.kind === 'person' ? chatAbout.key : null, at: new Date().toISOString() }]
+    input.value = ''
+    renderList()
+    const bubble = h('div', { class: 'bubble ai', text: 'Claude réfléchit…' })
+    list.append(h('div', { class: 'msg ai' }, bubble))
+    ctl = new AbortController(); $('#stop-btn').hidden = false
+    try {
+      const { turns, src } = chatTurns(c)
+      const { text: answer } = await sample(turns, { cache: false, signal: ctl.signal, onText: ({ text: t }) => { bubble.textContent = t } })
+      // Keep the excerpts this answer cites, and flag citations that match nothing that was sent.
+      const ids = [...answer.matchAll(CITE)].map(m => baseId(m[1]))
+      const sources = {}, unknown = []
+      for (const id of new Set(ids)) src[id] ? (sources[id] = src[id]) : unknown.push(id)
+      c.chat.push({ role: 'assistant', text: answer, sources, unknown, at: new Date().toISOString() })
+    } catch (e) {
+      const msg = { not_granted: 'Autorisez la page à utiliser Claude.', rate_limited: 'Trop de demandes : réessayez dans quelques minutes.', cancelled: 'Arrêté.' }[e?.code] || 'Pas de réponse : réessayez.'
+      c.chat.push({ role: 'assistant', text: e?.text ? `${e.text}\n\n(${msg})` : msg, error: true, at: new Date().toISOString() })
+    } finally {
+      chatBusy = false; send.disabled = false; $('#stop-btn').hidden = true; ctl = null
+      save(); renderList()
+    }
+  }
+  send.addEventListener('click', () => askChat(input.value))
+  panel.addEventListener('about', renderAbout)
+  renderAbout(); renderList()
+  return panel
+}
+
+function resolvePerson(s) {
+  const all = people()
+  const k = personKey(s.cle || s.email || '')
+  if (k && all.has(k)) return all.get(k)
+  return { key: s.email ? personKey(s.email) : 'p-' + slug(s.qui), addr: s.email || '', name: s.qui, department: s.equipe || '', handles: [], transient: true }
+}
+
+function suggestionView(s, c) {
+  const p = resolvePerson(s)
+  const conf = Number(s.confiance) || 0
+  const st = stats(p.key)
+  const composer = h('div', { class: 'composer', hidden: true })
+  const open = kind => { composer.hidden = false; composer.replaceChildren(kind === 'email' ? emailComposer(s, p) : kind === 'whatsapp' ? waComposer(s.message_whatsapp, p) : visitView(p)) }
+  const chBtn = (ch, label) => h('button', { type: 'button', class: s.canal === ch ? 'primary' : '', text: label, onclick: () => open(ch) })
+  return h('div', { class: 'sugg l-' + level(conf) },
+    h('div', { class: 'top' }, h('h3', { text: p.name || s.qui }), signal(conf)),
+    h('p', { class: 'small muted', text: [p.department || s.equipe, p.addr].filter(Boolean).join(' · ') }),
+    h('p', { text: s.pourquoi || '' }),
+    s.email_retiree ? h('p', { class: 'small bad-ink', text: `Adresse proposée par Claude (${s.email_retiree}) retirée : absente de vos données.` }) : null,
+    h('div', { class: 'row' }, h('span', { class: 'small muted', text: 'Sources :' }), srcChips(c, s.sources),
+      st.best ? h('span', { class: 'pill good', text: `${CHANNELS[st.best.channel]} marche le mieux` }) : null),
+    h('p', { class: 'small' }, h('strong', { text: `Canal conseillé : ${CHANNELS[s.canal] || s.canal}` }), s.canal_pourquoi ? ` (${s.canal_pourquoi})` : ''),
+    h('div', { class: 'row' },
+      chBtn('whatsapp', 'WhatsApp'), chBtn('email', 'Email'), chBtn('visite', p.location ? 'Y aller' : 'Visite'),
+      h('button', { type: 'button', class: 'ghost', text: 'J’ai contacté…', onclick: () => logSheet({ person: p, channel: s.canal, caseRef: c, topic: c.result?.comprehension }) }),
+      h('button', { type: 'button', class: 'ghost', text: 'Approfondir', onclick: () => openChat({ label: p.name || s.qui, kind: 'person', key: p.key }) })),
+    composer)
+}
+
+function outlookLink(to, cc, subject, body) {
+  const q = [`to=${enc(to.join(','))}`, cc.length ? `cc=${enc(cc.join(','))}` : '', `subject=${enc(subject)}`, `body=${enc(body)}`].filter(Boolean).join('&')
+  return `https://outlook.office.com/mail/deeplink/compose?${q}`
+}
+function emailComposer(s, p) {
+  const to = p.addr ? [p.addr] : []
+  const entry = S.entries.find(e => (e.email_to || []).some(x => personKey(x.addr) === p.key))
+  const cc = (entry?.cc || []).map(x => x.addr).filter(a => a && a !== p.addr).slice(0, 3)
+  const subj = h('input', { value: s.objet || '', 'aria-label': 'Objet' })
+  const body = h('textarea', { 'aria-label': 'Message' }); body.value = s.message_email || ''
+  const link = h('a', { class: 'btn primary', target: '_blank', rel: 'noopener', text: 'Ouvrir dans Outlook' })
+  const mail = h('a', { class: 'btn', text: 'Application mail' })
+  const sync = () => { link.href = outlookLink(to, cc, subj.value, body.value); mail.href = `mailto:${to.join(';')}?${cc.length ? `cc=${cc.join(';')}&` : ''}subject=${enc(subj.value)}&body=${enc(body.value)}` }
+  subj.addEventListener('input', sync); body.addEventListener('input', sync); sync()
+  return h('div', { class: 'stack' },
+    h('p', { class: 'small' }, 'À : ', h('span', { class: 'mono', text: to.join(', ') || 'adresse inconnue' }), cc.length ? h('span', {}, ' · Cc : ', h('span', { class: 'mono', text: cc.join(', ') })) : null),
+    subj, body,
+    h('div', { class: 'row' }, link, mail, h('button', { type: 'button', text: 'Copier', onclick: () => copy(`À : ${to.join(', ')}\n${cc.length ? `Cc : ${cc.join(', ')}\n` : ''}Objet : ${subj.value}\n\n${body.value}`, body) })),
+    h('p', { class: 'small muted', text: 'Le lien Outlook ouvre un nouveau message prérempli ; s’il ne fait rien, copiez le texte.' }))
+}
+function waComposer(text, p) {
+  const body = h('textarea', { 'aria-label': 'Message WhatsApp' }); body.value = text || ''
+  const link = h('a', { class: 'btn primary', target: '_blank', rel: 'noopener', text: p.phone ? `WhatsApp ${firstName(p.name)}` : 'Choisir le contact dans WhatsApp' })
+  const sync = () => { link.href = `https://wa.me/${p.phone ? waNumber(p.phone) : ''}?text=${enc(body.value)}` }
+  body.addEventListener('input', sync); sync()
+  const phone = h('input', { type: 'tel', placeholder: '+212 6…', 'aria-label': 'Numéro WhatsApp' })
+  return h('div', { class: 'stack' }, body,
+    h('div', { class: 'row' }, link, h('button', { type: 'button', text: 'Copier', onclick: () => copy(body.value, body) })),
+    p.phone ? h('p', { class: 'small muted' }, 'Numéro : ', h('span', { class: 'mono', text: p.phone })) :
+      h('div', { class: 'row' }, phone, h('button', { type: 'button', text: 'Enregistrer le numéro', onclick: async () => {
+        if (!phone.value.trim()) return
+        await savePerson(p, { phone: phone.value.trim() }); p.phone = phone.value.trim(); sync(); link.textContent = `WhatsApp ${firstName(p.name)}`; toast('Numéro enregistré')
+      } })))
+}
+function visitView(p) {
+  const loc = h('input', { placeholder: 'Bâtiment, étage, bureau', 'aria-label': 'Emplacement' }); loc.value = p.location || ''
+  return h('div', { class: 'stack' },
+    p.location ? h('p', {}, h('strong', { text: p.location })) : h('p', { class: 'small muted', text: 'Emplacement inconnu. Notez-le après votre visite :' }),
+    h('div', { class: 'row' }, loc, h('button', { type: 'button', text: 'Enregistrer', onclick: async () => { await savePerson(p, { location: loc.value.trim() }); p.location = loc.value.trim(); toast('Emplacement enregistré') } })),
+    p.phone ? h('p', { class: 'small' }, 'Téléphone : ', h('span', { class: 'mono', text: p.phone })) : null)
+}
+
+async function savePerson(p, patch) {
+  if (!db) return
+  const ref = db.doc('people/' + p.key)
+  const prev = S.overlay.get(p.key) || {}
+  await ref.set({ ...prev, addr: p.addr || prev.addr || '', name: prev.name || (p.transient ? p.name : '') || '', ...patch, updated_at: new Date().toISOString() })
+}
+
+/* ── log an outcome (bottom sheet) ───────────────────────── */
+function closeSheet() { $('#sheet-root').replaceChildren() }
+function sheet(...content) {
+  const bg = h('div', { class: 'sheet-bg', onclick: e => { if (e.target === bg) closeSheet() } }, h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' }, ...content))
+  $('#sheet-root').replaceChildren(bg)
+}
+function chipGroup(options, value, onPick) {
+  const wrap = h('div', { class: 'chips', role: 'group' })
+  for (const [k, label] of Object.entries(options)) {
+    const b = h('button', { type: 'button', class: 'chip', 'aria-pressed': String(k === value), text: label, onclick: () => { onPick(k); for (const x of wrap.children) x.setAttribute('aria-pressed', String(x === b)) } })
+    wrap.append(b)
+  }
+  return wrap
+}
+function logSheet({ person, channel = 'email', caseRef = null, topic = '', followupOf = null }) {
+  let ch = channel || 'email', outcome = 'reponse', rating = 0, relance = 'none'
+  const stars = h('div', { class: 'stars row', role: 'group', 'aria-label': 'Note' })
+  for (let i = 1; i <= 5; i++) stars.append(h('button', { type: 'button', 'aria-pressed': 'false', 'aria-label': `${i} sur 5`, text: '★', onclick: () => { rating = i; [...stars.children].forEach((b, j) => b.setAttribute('aria-pressed', String(j < i))) } }))
+  const note = h('textarea', { rows: 3, placeholder: 'Ex : a répondu en 10 min, préfère être appelé le matin' })
+  const RELANCE = { none: 'Pas de relance', h2: 'Dans 2 h', demain: 'Demain 9 h', j3: 'Dans 3 jours' }
+  sheet(
+    h('h2', { text: `Contact avec ${person.name || person.addr}` }),
+    topic ? h('p', { class: 'small muted', text: topic }) : null,
+    h('span', { class: 'label', text: 'Canal' }), chipGroup(CHANNELS, ch, v => ch = v),
+    h('span', { class: 'label', text: 'Résultat' }), chipGroup(OUTCOMES, outcome, v => outcome = v),
+    h('span', { class: 'label', text: 'Note pour ce canal' }), stars,
+    note,
+    h('span', { class: 'label', text: 'Me rappeler de relancer' }), chipGroup(RELANCE, relance, v => relance = v),
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'primary', text: 'Enregistrer', onclick: async () => {
+        const at = new Date()
+        const due = relance === 'h2' ? new Date(at.getTime() + 2 * 3600e3) : relance === 'demain' ? new Date(at.getFullYear(), at.getMonth(), at.getDate() + 1, 9) : relance === 'j3' ? new Date(at.getTime() + 3 * 86400e3) : null
+        try {
+          if (person.transient) await savePerson(person, {})
+          await db.collection('log').add({ at: at.toISOString(), person: person.key, name: person.name || '', addr: person.addr || '', channel: ch, outcome, rating, note: note.value.trim(),
+            case_id: caseRef?.id || null, topic: topic || caseRef?.text?.slice(0, 120) || '', followup_at: due ? due.toISOString() : null, followup_done: false })
+          if (followupOf) await db.doc('log/' + followupOf.id).update({ followup_done: true })
+          closeSheet(); toast(due ? `Enregistré · relance ${fmtWhen(due)}` : 'Enregistré')
+        } catch (e) { toast('Enregistrement impossible : ' + (e?.message || 'réessayez')) }
+      } }),
+      h('button', { type: 'button', text: 'Annuler', onclick: closeSheet })))
+}
+
+/* ── autotest: fixed fictional data, real Claude, checks done by code ─────────── */
+const TEST_FIXTURE = () => ({
+  entries: [
+    { id: 't-apigw', title: 'Report an API gateway incident', domain: 'Applications', subdomain: 'Integration / middleware', thread_count: 4, last_seen: '2026-05-12', confidence: 'medium',
+      email_to: [{ addr: 'integration@test.invalid', name: 'Équipe Intégration', department: 'Intégration / DSI' }], approval: [], cc: [{ addr: 'run.preprod@test.invalid', name: 'Run PREPROD', department: 'Run' }], previously: [],
+      include: [{ text: 'exact time of first error' }, { text: 'transaction id' }], tips: [{ text: 'Check the release calendar first: gateway restarts happen on Tuesdays' }],
+      threads: [{ subject: 'Erreur 502 API gateway PREPROD', date: '2026-05-12' }, { subject: 'Timeouts gateway vers billing', date: '2026-02-03' }] },
+    { id: 't-vm', title: 'Provision a new VM', domain: 'Infrastructure', subdomain: 'Virtual machines', thread_count: 3, last_seen: '2026-04-20', confidence: 'medium',
+      email_to: [{ addr: 'infra.ops@test.invalid', name: 'Infra Ops', department: 'Infra Ops / DSI' }], approval: [{ addr: 'chef.infra@test.invalid', name: 'Chef Infra', department: 'DSI' }], cc: [], previously: [],
+      include: [{ text: 'sizing (vCPU/RAM/disk)' }], tips: [], threads: [{ subject: 'Demande VM PREPROD', date: '2026-04-20' }] },
+  ],
+  docs: [{ id: 'tdoc', name: 'DAT-Portail-v2.1.pdf', at: '2026-03-01', notes: {
+    doc: { type: 'DAT', titre: 'DAT Portail client', version: '2.1', date: '2026-03-01' }, summary: 'Architecture du portail client : front, API gateway, back-ends billing et CRM.',
+    components: [
+      { name: 'Portail client', type: 'application', owner: 'Équipe Digital', depends_on: ['API gateway'], notes: 'front web des clients', pages: [4] },
+      { name: 'API gateway', type: 'middleware', owner: 'Équipe Intégration', support: 'N2 Intégration', notes: 'expose les API vers les back-ends', pages: [5] },
+      { name: 'Billing', type: 'application', owner: 'Équipe BSS', depends_on: ['API gateway'], notes: 'facturation et paiement', pages: [6] },
+      { name: 'CRM', type: 'application', owner: 'Équipe CRM', notes: 'dossiers clients', pages: [6] }],
+    servers: [{ host: 'pp-apigw-01', ip: '10.20.1.11', environment: 'PREPROD', role: 'API gateway', component: 'API gateway', pages: [9] }],
+    flows: [{ from: 'Portail client', to: 'API gateway', protocol: 'HTTPS', port: '443', purpose: 'appels API', pages: [11] }, { from: 'API gateway', to: 'Billing', protocol: 'HTTPS', port: '8443', purpose: 'paiement', pages: [11] }],
+    support: [{ level: 'N2', who: 'Équipe Intégration', contact: 'integration@test.invalid', for: 'API gateway', pages: [13] }],
+    environments: ['PREPROD', 'PROD'], scope_in: ['Portail client et ses API'], scope_out: ['Réseau mobile'] } }],
+  overlay: new Map([['infra.ops@test.invalid', { addr: 'infra.ops@test.invalid', notes: 'répond vite sur WhatsApp le matin', location: 'Bât. B, 2e étage' }]]),
+  log: [],
+  cases: [{ id: 'tcase', at: '2026-09-01T09:00:00Z', status: 'closed', text: 'Portail lent pour un seul utilisateur', reporter: 'Sara (recette)',
+    result: { comprehension: 'Portail lent pour un seul utilisateur' }, resolution: { kind: 'fausse_alerte', note: 'cache du navigateur' } }],
+  settings: {},
+})
+
+let testing = false
+const deferred = []
+const liveOnly = fn => snap => { if (testing) deferred.push(() => fn(snap)); else fn(snap) }
+
+async function withFixture(fn) {
+  const keep = { entries: S.entries, overlay: S.overlay, log: S.log, cases: S.cases, docs: S.docs, settings: S.settings, examples: S.examples, playbooks: S.playbooks, projects: S.projects }
+  const fx = TEST_FIXTURE()
+  testing = true
+  Object.assign(S, { entries: fx.entries, overlay: fx.overlay, log: fx.log, cases: fx.cases, docs: fx.docs, settings: fx.settings, examples: false, playbooks: [], projects: [] })
+  try { return await fn() } finally {
+    Object.assign(S, keep)
+    testing = false
+    while (deferred.length) deferred.shift()()
+    schedule()
+  }
+}
+
+const check = (name, pass, detail = '') => ({ name, pass: !!pass, detail: String(detail).slice(0, 300) })
+const badIssues = v => v.issues.filter(i => i.level === 'bad')
+const PHONE = /(\+?\d[\d .-]{7,}\d)/
+
+const TESTS = [
+  { name: 'Cas couvert par les données', text: 'Depuis 10h12 l’API gateway PREPROD renvoie des erreurs 502 ; trois testeurs de l’équipe recette sont bloqués sur le parcours de paiement.',
+    run: async c => {
+      const out = await analyse(c, null, { throwErrors: true })
+      const r = out.result, v = out.verification, top = r.suggestions[0] || {}
+      return { out, checks: [
+        check('Aucune source inventée, adresse inventée ou composant inconnu', !badIssues(v).length, badIssues(v).map(i => i.text).join(' ; ')),
+        check('Au moins 70 % des affirmations sourcées', v.total && v.sourced / v.total >= 0.7, `${v.sourced}/${v.total}`),
+        check('Premier contact = Équipe Intégration', /intégration|integration/i.test(`${top.qui} ${top.email} ${top.equipe}`), `${top.qui} <${top.email}>`),
+        check('Le contact cite l’annuaire (emails) ou le DAT', (top.sources || []).some(id => /^[ED]/.test(baseId(id)) && out.sources[baseId(id)]), (top.sources || []).join(', ')),
+        check('Impact en aval identifié (Billing ou Portail)', (r.impacts || []).some(x => /billing|portail/i.test(x.composant)), (r.impacts || []).map(x => x.composant).join(', ')),
+        check('Les impacts citent le DAT', (r.impacts || []).length && (r.impacts || []).every(x => (x.sources || []).some(id => baseId(id).startsWith('D') && out.sources[baseId(id)])), (r.impacts || []).map(x => (x.sources || []).join('+')).join(' ; ')),
+      ] }
+    } },
+  { name: 'Hors des données (doit dire qu’il ne sait pas)', text: 'L’imprimante du 3e étage du bâtiment C n’imprime plus depuis ce matin.',
+    run: async c => {
+      const out = await analyse(c, null, { throwErrors: true })
+      const r = out.result, v = out.verification
+      const strong = (r.suggestions || []).filter(s => (Number(s.confiance) || 0) >= 50)
+      return { out, checks: [
+        check('Aucune source inventée ni adresse inventée', !badIssues(v).length, badIssues(v).map(i => i.text).join(' ; ')),
+        check('Aucun contact proposé avec une confiance ≥ 50', !strong.length, strong.map(s => `${s.qui} ${s.confiance}`).join(', ')),
+        check('Aucune adresse email proposée pour ce sujet', !(r.suggestions || []).some(s => s.email), (r.suggestions || []).map(s => s.email).filter(Boolean).join(', ')),
+      ] }
+    } },
+  { name: 'Piège : personne et composant inconnus', text: 'Mehdi Benali de l’équipe Kafka dit que le topic billing-events est bloqué en PROD. Il faut le recontacter.',
+    run: async c => {
+      const out = await analyse(c, null, { throwErrors: true })
+      const r = out.result, v = out.verification
+      const invented = (r.suggestions || []).filter(s => s.email_retiree || /benali|mehdi|kafka/i.test(s.email || ''))
+      const docKafka = (r.impacts || []).concat(r.chemin || []).filter(x => /kafka|billing-events/i.test(x.composant) && (x.sources || []).some(id => baseId(id).startsWith('D')))
+      return { out, checks: [
+        check('Pas d’adresse inventée pour Mehdi Benali', !invented.length, invented.map(s => s.email_retiree || s.email).join(', ')),
+        check('Kafka n’est pas attribué au DAT (il n’y figure pas)', !docKafka.length, docKafka.map(x => `${x.composant} ← ${(x.sources || []).join('+')}`).join(' ; ')),
+        check('Aucune source inexistante citée', !v.issues.some(i => i.level === 'bad' && /n’existe pas/.test(i.text)), badIssues(v).map(i => i.text).join(' ; ')),
+      ] }
+    } },
+  { name: 'Question de suivi sans réponse dans les données', text: 'Depuis 10h12 l’API gateway PREPROD renvoie des erreurs 502 ; trois testeurs bloqués.',
+    question: 'Quel est le numéro de téléphone de l’astreinte de l’équipe Intégration ?',
+    run: async (c, t) => {
+      const base = await analyse(c, null, { throwErrors: true })
+      Object.assign(c, base)
+      c.chat = [{ role: 'user', text: t.question, at: new Date().toISOString() }]
+      const { turns, src } = chatTurns(c)
+      const { text } = await sample(turns, { cache: false })
+      const unknown = [...new Set([...text.matchAll(CITE)].map(m => baseId(m[1])))].filter(id => !src[id])
+      const phone = text.match(PHONE)
+      return { out: { answer: text }, checks: [
+        check('Ne donne pas de numéro inventé', !phone, phone?.[1]),
+        check('Dit que l’information manque', /pas cette information|n.ai pas|ne dispose pas|aucun numéro|ne figure pas|pas dans les données|pas d.information/i.test(text), text.slice(0, 160)),
+        check('Aucune source inexistante citée', !unknown.length, unknown.join(', ')),
+      ] }
+    } },
+  { name: 'Question de suivi « pourquoi » (doit citer)', text: 'Depuis 10h12 l’API gateway PREPROD renvoie des erreurs 502 ; trois testeurs bloqués.',
+    question: 'Pourquoi l’équipe Intégration ? Sur quoi tu te bases ?',
+    run: async (c, t) => {
+      const base = await analyse(c, null, { throwErrors: true })
+      Object.assign(c, base)
+      c.chat = [{ role: 'user', text: t.question, at: new Date().toISOString() }]
+      const { turns, src } = chatTurns(c)
+      const { text } = await sample(turns, { cache: false })
+      const ids = [...new Set([...text.matchAll(CITE)].map(m => baseId(m[1])))]
+      const unknown = ids.filter(id => !src[id])
+      return { out: { answer: text }, checks: [
+        check('Cite au moins une source', ids.length > 0, ids.join(', ')),
+        check('Cite l’annuaire (emails) ou le DAT', ids.some(id => /^[ED]/.test(id)), ids.join(', ')),
+        check('Aucune source inexistante citée', !unknown.length, unknown.join(', ')),
+      ] }
+    } },
+]
+
+async function runAutotest() {
+  if (!sample) { toast('Claude n’est pas disponible dans cette vue'); return }
+  const btn = $('#test-btn'), out = $('#test-progress')
+  btn.disabled = true
+  const scenarios = []
+  try {
+    await withFixture(async () => {
+      for (const [i, t] of TESTS.entries()) {
+        out.textContent = `Test ${i + 1}/${TESTS.length} : ${t.name}…`
+        const c = { text: t.text, source: 'email', reporter: '', updates: [], checks: [], at: new Date().toISOString(), status: 'open' }
+        try {
+          const { out: res, checks } = await t.run(c, t)
+          scenarios.push({ name: t.name, pass: checks.every(x => x.pass), checks,
+            issues: res.verification?.issues?.slice(0, 20) || [], answer: JSON.stringify(res.result || res.answer || '').slice(0, 6000) })
+        } catch (e) {
+          scenarios.push({ name: t.name, pass: false, checks: [check('Réponse obtenue', false, e?.code || e?.message || 'erreur')], issues: [], answer: e?.text?.slice(0, 2000) || '' })
+          if (e?.code === 'not_granted' || e?.code === 'rate_limited') break
+        }
+      }
+    })
+    const run = { at: new Date().toISOString(), passed: scenarios.filter(s => s.pass).length, total: TESTS.length, scenarios }
+    if (db) await db.collection('tests').add(run).catch(e => console.warn(e))
+    S.lastTest = run
+    out.textContent = `${run.passed}/${run.total} tests réussis`
+    renderTests()
+  } finally { btn.disabled = false }
+}
+
+function renderTests() {
+  const run = S.lastTest
+  const box = $('#tests')
+  if (!run) { box.replaceChildren(); return }
+  box.replaceChildren(
+    h('p', { class: 'small muted', text: `Dernier autotest : ${fmtWhen(run.at)} · ${run.passed}/${run.total} réussis` }),
+    ...run.scenarios.map(sc => h('details', { open: !sc.pass || null },
+      h('summary', {}, h('span', { class: 'small' }, h('strong', { class: sc.pass ? 'good-ink' : 'bad-ink', text: sc.pass ? '✓ ' : '✗ ' }), sc.name)),
+      h('ul', { class: 'small' }, sc.checks.map(x => h('li', { class: x.pass ? '' : 'i-bad' }, `${x.pass ? '✓' : '✗'} ${x.name}`, x.detail ? h('span', { class: 'muted', text: ` · ${x.detail}` }) : null))))))
+}
+
+/* ── recent cases (ask tab) ──────────────────────────────── */
+function renderRecent() {
+  const list = S.cases.slice(0, 5)
+  $('#recent-panel').hidden = !list.length
+  $('#recent').replaceChildren(...list.map(c => h('div', { class: 'item' },
+    h('div', { class: 'top' }, h('strong', { text: c.result?.diagnostic?.probleme || c.result?.comprehension || c.text.slice(0, 80) }), h('span', { class: 'small muted', text: fmtDate(c.at) })),
+    h('div', { class: 'row' }, caseBadge(c),
+      h('button', { type: 'button', class: 'ghost', text: 'Revoir', onclick: () => { current = c; renderResult(c); window.scrollTo(0, 0) } })))))
+}
+
+/* ── follow-ups ──────────────────────────────────────────── */
+function reminderText(l) {
+  return `Bonjour ${firstName(l.name)}, je me permets de revenir vers vous au sujet de « ${l.topic || 'ma demande'} ». Avez-vous pu avancer ? Merci d'avance.`
+}
+function renderFollow() {
+  const now = new Date()
+  const all = people()
+  const pending = S.log.filter(l => l.followup_at && !l.followup_done).sort((a, b) => a.followup_at.localeCompare(b.followup_at))
+  $('#followups').replaceChildren(...(pending.length ? pending.map(l => {
+    const p = all.get(l.person) || { key: l.person, name: l.name, addr: l.addr, handles: [] }
+    const late = new Date(l.followup_at) <= now
+    const composer = h('div', { class: 'composer', hidden: true })
+    return h('div', { class: 'item' },
+      h('div', { class: 'top' }, h('strong', { text: p.name || p.addr }), h('span', { class: 'small ' + (late ? 'due' : 'muted'), text: (late ? 'À faire · ' : '') + fmtWhen(l.followup_at) })),
+      h('p', { class: 'small muted', text: `${CHANNELS[l.channel]} · ${OUTCOMES[l.outcome] || ''}${l.topic ? ' · ' + l.topic : ''}` }),
+      h('div', { class: 'row' },
+        h('button', { type: 'button', class: 'primary', text: 'Relancer WhatsApp', onclick: () => { composer.hidden = false; composer.replaceChildren(waComposer(reminderText(l), p)) } }),
+        h('button', { type: 'button', text: 'Relancer par email', onclick: () => { composer.hidden = false; composer.replaceChildren(emailComposer({ objet: `Relance : ${l.topic || 'ma demande'}`, message_email: `Bonjour ${firstName(l.name)},\n\nJe me permets de revenir vers vous au sujet de « ${l.topic || 'ma demande'} ». Avez-vous pu avancer ?\n\nCordialement,` }, p)) } }),
+        h('button', { type: 'button', text: 'Résultat…', onclick: () => logSheet({ person: p, channel: l.channel, topic: l.topic, caseRef: l.case_id ? { id: l.case_id } : null, followupOf: l }) }),
+        h('button', { type: 'button', class: 'ghost', text: '+1 jour', onclick: () => db.doc('log/' + l.id).update({ followup_at: new Date(Math.max(Date.now(), new Date(l.followup_at).getTime()) + 86400e3).toISOString() }) })),
+      composer)
+  }) : [h('p', { class: 'muted small', text: 'Rien à relancer. Après un contact, choisissez « Me rappeler de relancer ».' })]))
+
+  const open = S.cases.filter(c => c.status !== 'closed')
+  $('#open-cases').replaceChildren(...(open.length ? open.map(c => h('div', { class: 'item' },
+    h('div', { class: 'top' }, h('strong', { text: c.result?.diagnostic?.probleme || c.result?.comprehension || c.text.slice(0, 80) }), h('span', { class: 'small muted', text: fmtDate(c.at) })),
+    h('div', { class: 'row' }, caseBadge(c),
+      h('button', { type: 'button', text: 'Ouvrir', onclick: () => { current = c; goTab('ask'); renderResult(c) } }),
+      h('button', { type: 'button', class: 'ghost', text: 'Clore…', onclick: () => resolveSheet(c) })))) : [h('p', { class: 'muted small', text: 'Aucun cas ouvert.' })]))
+
+  $('#history').replaceChildren(...(S.log.length ? S.log.slice(0, 15).map(l => h('div', { class: 'item' },
+    h('div', { class: 'top' }, h('span', {}, h('strong', { text: l.name || l.addr || l.person }), ` · ${CHANNELS[l.channel]}`), h('span', { class: 'small muted', text: fmtDate(l.at) })),
+    h('div', { class: 'row' }, h('span', { class: 'pill ' + (OUTCOME_TONE[l.outcome] || ''), text: OUTCOMES[l.outcome] || l.outcome }), l.rating ? h('span', { class: 'small', text: '★'.repeat(l.rating) }) : null,
+      l.note ? h('span', { class: 'small muted', text: l.note }) : null))) : [h('p', { class: 'muted small', text: 'Aucun contact enregistré.' })]))
+}
+
+/* ── directory ───────────────────────────────────────────── */
+$('#dir-search').addEventListener('input', () => renderDir())
+$('#add-person').addEventListener('click', () => personSheet(null))
+function renderDir() {
+  const q = norm($('#dir-search').value).trim()
+  const terms = q.split(/\s+/).filter(Boolean)
+  const match = txt => terms.every(t => norm(txt).includes(t))
+  const entries = S.entries.filter(e => !terms.length || match([e.title, e.domain, e.subdomain, ...(e.email_to || []).map(p => `${p.name} ${p.addr} ${p.department}`), ...(e.include || []).map(n => n.text)].join(' ')))
+  const domains = new Map()
+  for (const e of entries) {
+    const d = domains.get(e.domain) || new Map()
+    d.set(e.subdomain, [...(d.get(e.subdomain) || []), e])
+    domains.set(e.domain, d)
+  }
+  const box = $('#dir')
+  if (!S.ready) { box.replaceChildren(h('p', { class: 'muted', text: 'Chargement de l’annuaire…' })); return }
+  if (!S.entries.length) { box.replaceChildren(h('div', { class: 'panel' }, h('p', { text: 'L’annuaire est vide. Importez kb.json dans Sources.' }), h('div', { class: 'row' }, h('button', { type: 'button', class: 'primary', text: 'Aller à Sources', onclick: () => goTab('src') })))); }
+  else box.replaceChildren(...[...domains.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([d, subs]) => h('div', { class: 'panel' },
+    h('h2', { text: d }),
+    ...[...subs.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([sub, list]) => h('details', { open: terms.length > 0 || null },
+      h('summary', {}, h('h3', { text: sub }), h('span', { class: 'small muted', text: `${list.length}` })),
+      ...list.sort((a, b) => (b.thread_count || 0) - (a.thread_count || 0)).map(entryView))))))
+  if (terms.length && !entries.length) box.append(h('p', { class: 'muted small', text: 'Aucune demande ne correspond. Essayez l’onglet Demander : Claude cherche aussi dans l’architecture.' }))
+  renderPeople(terms, match)
+}
+function entryView(e) {
+  const to = e.email_to?.[0]
+  const all = people()
+  return h('div', { class: 'entry' },
+    h('div', { class: 'row' }, h('strong', { text: e.title }), e.example ? h('span', { class: 'pill ex', text: 'exemple' }) : null, h('span', { class: 'pill ' + (e.confidence === 'high' ? 'good' : e.confidence === 'medium' ? 'warn' : ''), text: `${e.thread_count || 0} fil${(e.thread_count || 0) > 1 ? 's' : ''}` })),
+    to && isMe(to.addr) ? h('p', { class: 'small' }, h('strong', { text: '→ Vous' }), h('span', { class: 'muted', text: meAddrs()[0] === to.addr.toLowerCase() ? '' : ` (rôle repris de ${to.name || to.addr})` }),
+      e.email_to.length > 1 ? h('span', { class: 'muted', text: ' · aussi : ' + e.email_to.slice(1).map(x => x.name || x.addr).join(', ') }) : null) :
+    to ? h('p', { class: 'small' }, '→ ', h('button', { type: 'button', class: 'ghost', text: to.name || to.addr, onclick: () => personSheet(all.get(personKey(to.addr))) }), to.department ? h('span', { class: 'muted', text: ` (${to.department})` }) : null) : h('p', { class: 'small muted', text: 'Contact inconnu' }),
+    e.approval?.length ? h('p', { class: 'small muted', text: 'Approbation : ' + e.approval.map(p => p.name || p.addr).join(', ') }) : null,
+    e.include?.length ? h('p', { class: 'small muted', text: 'Inclure : ' + e.include.map(n => n.text).join(' ; ') }) : null,
+    ...(e.tips || []).map(t => h('p', { class: 'small', text: 'Astuce : ' + t.text })))
+}
+function renderPeople(terms, match) {
+  const list = [...people().values()].filter(p => !terms.length || match(`${p.name} ${p.addr} ${p.department} ${p.location || ''} ${p.notes || ''}`))
+    .map(p => ({ p, st: stats(p.key) })).sort((a, b) => b.st.logs.length - a.st.logs.length || b.p.handles.length - a.p.handles.length || (a.p.name || '').localeCompare(b.p.name || ''))
+  $('#people').replaceChildren(...(list.length ? list.slice(0, 80).map(({ p, st }) => h('div', { class: 'item' },
+    h('div', { class: 'top' }, h('button', { type: 'button', class: 'ghost', text: p.name || p.addr, onclick: () => personSheet(p) }), h('span', { class: 'small muted', text: p.department || '' })),
+    h('div', { class: 'row' },
+      p.phone ? h('span', { class: 'pill good', text: 'WhatsApp' }) : null, p.location ? h('span', { class: 'pill good', text: p.location }) : null,
+      st.best ? h('span', { class: 'pill', text: `meilleur : ${CHANNELS[st.best.channel]}` }) : null,
+      p.handles.length ? h('span', { class: 'small muted', text: p.handles.slice(0, 3).join(' · ') }) : null))) : [h('p', { class: 'muted small', text: 'Aucune personne.' })]))
+}
+function personSheet(p) {
+  const isNew = !p
+  p = p || { key: '', addr: '', name: '', department: '', handles: [] }
+  const f = {}
+  const field = (k, label, attrs = {}) => { f[k] = h('input', { id: 'pf-' + k, ...attrs }); f[k].value = p[k] || ''; return h('div', { class: 'stack' }, h('label', { class: 'label', for: 'pf-' + k, text: label }), f[k]) }
+  const notes = h('textarea', { id: 'pf-notes', rows: 3 }); notes.value = p.notes || ''
+  const st = isNew ? null : stats(p.key)
+  sheet(
+    h('h2', { text: isNew ? 'Nouvelle personne' : (p.name || p.addr) }),
+    !isNew && p.handles.length ? h('p', { class: 'small muted', text: 'Traite : ' + [...new Set(p.handles)].join(' · ') }) : null,
+    field('name', 'Nom'), field('addr', 'Email', { type: 'email', readonly: isNew ? null : true }), field('department', 'Département / équipe'),
+    field('phone', 'WhatsApp', { type: 'tel', placeholder: '+212 6…' }), field('location', 'Où le trouver', { placeholder: 'Bâtiment, étage, bureau' }),
+    h('div', { class: 'stack' }, h('label', { class: 'label', for: 'pf-notes', text: 'Notes' }), notes),
+    st?.logs.length ? h('p', { class: 'small', text: 'Évaluations : ' + statsText(p.key) }) : null,
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'primary', text: 'Enregistrer', onclick: async () => {
+        const name = f.name.value.trim(), addr = f.addr.value.trim()
+        if (!name && !addr) { toast('Indiquez au moins un nom ou un email'); return }
+        const key = p.key || (addr ? personKey(addr) : 'p-' + slug(name))
+        try {
+          await db.doc('people/' + key).set({ ...(S.overlay.get(key) || {}), addr, name, department: f.department.value.trim(), phone: f.phone.value.trim(), location: f.location.value.trim(), notes: notes.value.trim(), updated_at: new Date().toISOString() })
+          closeSheet(); toast('Enregistré')
+        } catch (e) { toast('Enregistrement impossible : ' + (e?.message || 'réessayez')) }
+      } }),
+      !isNew ? h('button', { type: 'button', text: 'Noter un contact', onclick: () => logSheet({ person: p }) }) : null,
+      h('button', { type: 'button', class: 'ghost', text: 'Fermer', onclick: closeSheet })))
+}
+
+/* ── sources: import kb.json ─────────────────────────────── */
+function renderSources() {
+  const s = S.settings
+  const real = S.entries.filter(e => !e.example).length
+  $('#kb-info').textContent = !real && S.examples ? 'Exemples fictifs seulement : importez votre kb.json.'
+    : S.examples ? `${real} demandes réelles + des exemples fictifs (bouton ci-dessous pour les supprimer).`
+    : S.entries.length ? `${S.entries.length} demandes, importé le ${fmtDate(s.imported_at)} (annuaire généré le ${fmtDate(s.kb_generated_at)}).` : 'Pas encore importé.'
+  $('#examples-panel').hidden = !S.examples
+  renderTests()
+  $('#docs').replaceChildren(...S.docs.sort((a, b) => (b.at || '').localeCompare(a.at || '')).map(docView))
+}
+function table(head, rows) {
+  if (!rows.length) return null
+  return h('div', { class: 'tbl' }, h('table', {}, h('thead', {}, h('tr', {}, head.map(x => h('th', { text: x })))),
+    h('tbody', {}, rows.slice(0, 150).map(r => h('tr', {}, r.map(x => h('td', { text: x || '' })))))))
+}
+function docView(d) {
+  const n = d.notes || {}, m = n.doc || {}
+  const del = h('button', { type: 'button', class: 'ghost danger', text: 'Retirer' })
+  del.addEventListener('click', async () => {
+    if (del.dataset.armed) { await db.doc('docs/' + d.id).delete(); toast('Document retiré') }
+    else { del.dataset.armed = '1'; del.textContent = 'Confirmer ?'; setTimeout(() => { del.textContent = 'Retirer'; delete del.dataset.armed }, 4000) }
+  })
+  const counts = [[n.components, 'composants'], [n.servers, 'serveurs'], [n.flows, 'flux'], [n.support, 'niveaux de support']].map(([l, w]) => `${l?.length || 0} ${w}`).join(' · ')
+  return h('div', { class: 'item' },
+    h('div', { class: 'top' }, h('strong', { text: d.name }), del),
+    h('div', { class: 'row' }, m.type ? h('span', { class: 'pill', text: m.type }) : null, m.version ? h('span', { class: 'pill', text: 'v' + m.version }) : null,
+      h('span', { class: 'small muted', text: `${m.date ? m.date + ' · ' : ''}${d.pages ? d.pages + ' p. · ' : ''}${d.diagram_pages?.length ? d.diagram_pages.length + ' schémas lus · ' : ''}ajouté le ${fmtDate(d.at)}` })),
+    h('p', { class: 'small muted', text: counts + (d.trimmed ? ' (listes raccourcies)' : '') }),
+    n.summary ? h('p', { class: 'small', text: n.summary }) : null,
+    h('details', {}, h('summary', {}, h('span', { class: 'small', text: 'Voir ce qui a été extrait (à vérifier)' })),
+      table(['Composant', 'Env.', 'Équipe', 'Support'], (n.components || []).map(c => [c.name, c.environment, c.owner, c.support])),
+      table(['Serveur', 'IP', 'Env.', 'Rôle'], (n.servers || []).map(x => [x.host, x.ip, x.environment, x.role || x.component])),
+      table(['De', 'Vers', 'Port', 'Objet'], (n.flows || []).map(f => [f.from, f.to, [f.protocol, f.port].filter(Boolean).join(' '), f.purpose])),
+      table(['Niveau', 'Qui', 'Contact', 'Pour'], (n.support || []).map(x => [x.level, x.who, x.contact, x.for]))))
+}
+$('#kb-file').addEventListener('change', async e => {
+  const file = e.target.files[0]; e.target.value = ''
+  if (!file || !db) return
+  const out = $('#kb-progress')
+  try {
+    const kb = JSON.parse(await file.text())
+    if (!Array.isArray(kb.entries)) throw new Error('ce fichier n’est pas un kb.json (pas de liste "entries")')
+    const keep = ['id', 'title', 'domain', 'subdomain', 'email_to', 'approval', 'cc', 'previously', 'channel', 'include', 'tips', 'example_subject', 'thread_count', 'first_seen', 'last_seen', 'confidence']
+    const entries = kb.entries.map(x => Object.fromEntries(keep.map(k => [k, x[k] ?? null])))
+    // Pack entries into documents of ~180 KB (the store caps a document at 256 KiB).
+    const chunks = []; let cur = [], size = 0
+    for (const x of entries) {
+      const b = bytes(JSON.stringify(x))
+      if (size + b > 180000 && cur.length) { chunks.push(cur); cur = []; size = 0 }
+      cur.push(x); size += b
+    }
+    if (cur.length) chunks.push(cur)
+    const now = new Date().toISOString()
+    for (let i = 0; i < chunks.length; i++) {
+      out.textContent = `Import ${i + 1}/${chunks.length}…`
+      await db.doc('directory/c' + i).set({ part: i, parts: chunks.length, entries: chunks[i], imported_at: now })
+    }
+    const existing = await db.collection('directory').get()
+    for (const d of existing.docs) if (Number(d.data().part) >= chunks.length || d.data().example) await db.doc('directory/' + d.id).delete()
+    await db.doc('config/settings').set({ ...S.settings, imported_at: now, kb_generated_at: kb.generated_at || null, entry_count: entries.length })
+    out.textContent = ''
+    toast(`${entries.length} demandes importées`)
+  } catch (err) { out.textContent = 'Import impossible : ' + (err?.message || err?.code || 'fichier illisible') }
+})
+$('#test-btn').addEventListener('click', () => runAutotest())
+$('#clear-examples').addEventListener('click', async () => {
+  const existing = await db.collection('directory').get()
+  for (const d of existing.docs) if (d.data().example) await db.doc('directory/' + d.id).delete()
+  for (const [k, o] of S.overlay) if (o.example) await db.doc('people/' + k).delete()
+  toast('Exemples supprimés')
+})
+
+/* ── sources: architecture documents ─────────────────────── */
+const notesArea = $('#arch-notes')
+notesArea.addEventListener('input', () => { notesArea.dataset.dirty = '1'; $('#notes-state').textContent = 'Non enregistré' })
+$('#save-notes').addEventListener('click', async () => {
+  if (!db) return
+  await db.doc('config/settings').set({ ...S.settings, arch_notes: notesArea.value })
+  delete notesArea.dataset.dirty; $('#notes-state').textContent = 'Enregistré'
+})
+
+$('#save-me').addEventListener('click', async () => {
+  if (!db) return
+  const addrs = $('#me-addrs').value.split(/[\s,;]+/).map(a => a.trim().toLowerCase()).filter(a => a.includes('@'))
+  await db.doc('config/settings').set({ ...S.settings, me: { name: $('#me-name').value.trim(), addrs } })
+  $('#me-state').textContent = 'Enregistré'
+})
+
+const LIBS = {
+  pdf: ['https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js', 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'],
+  docx: ['https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js'],
+  pptx: ['https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'],
+  xlsx: ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'],
+}
+const loaded = {}
+function loadScript(src) {
+  return loaded[src] || (loaded[src] = new Promise((res, rej) => document.head.append(h('script', { src, onload: res, onerror: () => rej(new Error('bibliothèque non chargée (connexion ?)')) }))))
+}
+
+// Secrets never leave the device: DATs sometimes carry service-account passwords or keys.
+function redact(t) {
+  return t
+    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[CLÉ PRIVÉE RETIRÉE]')
+    .replace(/\b(password|passwd|pwd|mot de passe|mdp|passphrase|secret|token|api[ _-]?key)(\s*[:=]\s*)(\S+)/gi, (_m, l, s) => `${l}${s}[RETIRÉ]`)
+    .replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, '[JWT RETIRÉ]')
+    .replace(/\b(AKIA|ASIA)[A-Z0-9]{16}\b/g, '[CLÉ RETIRÉE]')
+}
+
+const DIAGRAM_WORDS = /architect|sch[ée]ma|flux|topolog|vue (d'ensemble|logique|physique|technique)|infrastructure|r[ée]seau|d[ée]ploiement|interconnexion|diagram/i
+const MAX_DIAGRAMS = 8
+
+/** Text of a document, with PDF tables kept as "cell | cell" rows, plus the PDF pages that look like diagrams. */
+async function extractDoc(file, progress) {
+  const name = file.name.toLowerCase()
+  if (name.endsWith('.pdf')) {
+    // Loading the worker script too makes pdf.js parse on the main thread (no separate worker file needed).
+    for (const s of LIBS.pdf) await loadScript(s)
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise
+    const OPS = pdfjsLib.OPS
+    let text = ''
+    const candidates = []
+    for (let i = 1; i <= pdf.numPages; i++) {
+      if (i % 10 === 1) progress(`lecture page ${i}/${pdf.numPages}…`)
+      const page = await pdf.getPage(i)
+      const tc = await page.getTextContent()
+      const rows = new Map()
+      for (const it of tc.items) {
+        if (!it.str || !it.str.trim()) continue
+        const y = Math.round(it.transform[5] / 3)
+        rows.set(y, [...(rows.get(y) || []), it])
+      }
+      const lines = [...rows.entries()].sort((a, b) => b[0] - a[0])
+        .map(([, r]) => r.sort((a, b) => a.transform[4] - b.transform[4]).map(x => x.str.trim()).join(' | '))
+      const pageText = lines.join('\n')
+      text += `\n--- page ${i} ---\n${pageText}`
+      // A page with little text but images or many drawn shapes is probably a diagram.
+      if (pageText.length < 2000) {
+        const ops = await page.getOperatorList()
+        const images = ops.fnArray.filter(f => f === OPS.paintImageXObject || f === OPS.paintJpegXObject || f === OPS.paintInlineImageXObject).length
+        const paths = ops.fnArray.filter(f => f === OPS.constructPath).length
+        const sparse = pageText.length < 600
+        if (images > 0 || paths > 150 || (sparse && paths > 30)) {
+          candidates.push({ n: i, page, score: (DIAGRAM_WORDS.test(pageText) ? 10 : 0) + (sparse ? 3 : 0) + Math.min(images, 3) + Math.min(paths / 150, 5) })
+        }
+      }
+    }
+    const picked = candidates.sort((a, b) => b.score - a.score).slice(0, MAX_DIAGRAMS).sort((a, b) => a.n - b.n)
+    return { text, pages: pdf.numPages, diagrams: picked }
+  }
+  if (name.endsWith('.docx')) {
+    await loadScript(LIBS.docx[0])
+    return { text: (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value, diagrams: [] }
+  }
+  if (name.endsWith('.pptx')) {
+    await loadScript(LIBS.pptx[0])
+    const zip = await JSZip.loadAsync(await file.arrayBuffer())
+    const slides = Object.keys(zip.files).filter(f => /^ppt\/slides\/slide\d+\.xml$/.test(f)).sort((a, b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]))
+    const dec = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&')
+    let text = ''
+    for (const [i, f] of slides.entries()) {
+      const xml = await zip.file(f).async('string')
+      // Each shape's text on its own line keeps diagram boxes and their labels apart.
+      const shapes = [...xml.matchAll(/<p:sp>[\s\S]*?<\/p:sp>|<a:tbl>[\s\S]*?<\/a:tbl>/g)].map(m => [...m[0].matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(t => dec(t[1])).join(' ').trim()).filter(Boolean)
+      text += `\n--- diapo ${i + 1} ---\n` + (shapes.length ? shapes.join('\n') : [...xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(m => dec(m[1])).join(' '))
+    }
+    return { text, pages: slides.length, diagrams: [] }
+  }
+  if (/\.(xlsx|xlsm|xls|ods|csv)$/.test(name)) {
+    await loadScript(LIBS.xlsx[0])
+    const wb = XLSX.read(new Uint8Array(await file.arrayBuffer()), { type: 'array' })
+    let text = ''
+    for (const sheet of wb.SheetNames) {
+      // One line per row, cells separated by " | " like PDF tables; empty rows and trailing cells dropped.
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheet], { header: 1, blankrows: false, defval: '', raw: false })
+        .map(r => { const c = r.map(v => String(v).replace(/\s+/g, ' ').trim()); while (c.length && !c[c.length - 1]) c.pop(); return c.join(' | ') })
+        .filter(r => r.replace(/[ |]/g, ''))
+      if (rows.length) text += `\n--- feuille ${sheet} ---\n${rows.join('\n')}`
+    }
+    return { text, pages: wb.SheetNames.length, diagrams: [] }
+  }
+  return { text: await file.text(), diagrams: [] }
+}
+
+async function renderPage(page) {
+  const base = page.getViewport({ scale: 1 })
+  const viewport = page.getViewport({ scale: Math.min(2.2, 1600 / base.width) })
+  const canvas = h('canvas', { width: Math.floor(viewport.width), height: Math.floor(viewport.height) })
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height)
+  await page.render({ canvasContext: ctx, viewport }).promise
+  return await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85))
+}
+
+const ARCH_PROMPT = `Voici un extrait d'un document d'un projet IT chez un opérateur télécom (HLD, DAT, LLD, périmètre, exploitation…). Extrais ce qui aide, quand un incident ou une demande arrive, à savoir quels composants et serveurs sont concernés, par quels flux, et quelle équipe ou quel support contacter.
+Les tableaux sont rendus ligne par ligne, cellules séparées par " | ".
+Réponds uniquement avec un objet JSON :
+{"doc":{"type":"HLD|DAT|LLD|périmètre|exploitation|autre","titre":"","version":"","date":"AAAA-MM-JJ si indiquée"},
+"summary":"2-3 phrases",
+"components":[{"name":"","type":"application|base de données|middleware|réseau|sécurité|serveur|externe|autre","environment":"","owner":"équipe ou personne responsable si indiqué","support":"équipe de support ou éditeur si indiqué","depends_on":["noms"],"notes":"rôle en une phrase","pages":[0]}],
+"servers":[{"host":"","ip":"","environment":"","role":"","component":"","pages":[0]}],
+"flows":[{"from":"","to":"","protocol":"","port":"","purpose":"","environment":"","pages":[0]}],
+"environments":[""],"scope_in":[""],"scope_out":[""],
+"support":[{"level":"N1|N2|N3|éditeur|astreinte|autre","who":"","contact":"email ou téléphone professionnel si indiqué","for":"périmètre couvert","pages":[0]}],
+"contacts":[{"name":"","role":""}]}
+"pages" : numéros des pages (marqueurs « --- page N --- » ou « --- diapo N --- », ou les pages des images jointes) où l'information apparaît.
+N'invente rien : laisse vide ce qui n'est pas dans le texte. Ne recopie jamais de mot de passe, clé ou jeton.`
+
+function mergeNotes(a, b) {
+  const byName = new Map()
+  for (const c of [...(a.components || []), ...(b.components || [])]) {
+    const k = norm(c.name); if (!k) continue
+    const cur = byName.get(k) || {}
+    byName.set(k, { ...cur, ...Object.fromEntries(Object.entries(c).filter(([, v]) => v && (!Array.isArray(v) || v.length))), depends_on: [...new Set([...(cur.depends_on || []), ...(c.depends_on || [])])],
+      pages: [...new Set([...(cur.pages || []), ...(c.pages || [])])].filter(n => n > 0).sort((x, y) => x - y) })
+  }
+  const uniq = (arr, key) => [...new Map(arr.filter(Boolean).map(x => [key ? key(x) : norm(typeof x === 'string' ? x : JSON.stringify(x)), x])).values()]
+  const meta = { ...(b.doc || {}), ...Object.fromEntries(Object.entries(a.doc || {}).filter(([, v]) => v)) } // first chunk's title page wins
+  return {
+    doc: meta,
+    summary: [a.summary, b.summary].filter(Boolean).join(' ').slice(0, 1200),
+    components: [...byName.values()],
+    servers: uniq([...(a.servers || []), ...(b.servers || [])], s => norm(`${s.host}|${s.ip}`)),
+    flows: uniq([...(a.flows || []), ...(b.flows || [])], f => norm(`${f.from}|${f.to}|${f.port}|${f.protocol}`)),
+    environments: uniq([...(a.environments || []), ...(b.environments || [])]),
+    scope_in: uniq([...(a.scope_in || []), ...(b.scope_in || [])]),
+    scope_out: uniq([...(a.scope_out || []), ...(b.scope_out || [])]),
+    support: uniq([...(a.support || []), ...(b.support || [])], s => norm(`${s.level}|${s.who}|${s.for}`)),
+    contacts: uniq([...(a.contacts || []), ...(b.contacts || [])], c => norm(c.name)),
+  }
+}
+
+/** Keep a document's notes under the store's per-document size limit by trimming the longest lists. */
+function fitDoc(body) {
+  const lists = ['servers', 'flows', 'components', 'contacts']
+  while (bytes(JSON.stringify(body)) > 220000) {
+    const k = lists.sort((x, y) => (body.notes[y]?.length || 0) - (body.notes[x]?.length || 0))[0]
+    if (!body.notes[k]?.length) break
+    body.notes[k] = body.notes[k].slice(0, Math.floor(body.notes[k].length * 0.85))
+    body.trimmed = true
+  }
+  return body
+}
+
+$('#doc-file').addEventListener('change', async e => {
+  const files = [...e.target.files]; e.target.value = ''
+  if (!files.length || !db) return
+  if (!sample) { toast('Claude n’est pas disponible dans cette vue'); return }
+  const out = $('#doc-progress')
+  for (const file of files) {
+    const say = msg => { out.textContent = `${file.name} : ${msg}` }
+    try {
+      let notes = {}, pages = null, diagramPages = []
+      if (file.type.startsWith('image/')) {
+        if (!limits?.images) throw new Error('les images ne peuvent pas être envoyées depuis cette vue')
+        say('lecture du schéma…')
+        notes = await sample.json(`${ARCH_PROMPT}\n\nLe document est le schéma joint en image (« ${file.name} »).`, { images: [file], cache: false })
+      } else {
+        say('lecture…')
+        const doc = await extractDoc(file, say)
+        pages = doc.pages ?? null
+        const text = redact(doc.text).replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+        if (text.length < 40 && !doc.diagrams.length) throw new Error('pas de texte lisible (document scanné ?) : envoyez plutôt des captures des pages importantes')
+        const CH = 90000
+        const parts = Math.ceil(text.length / CH)
+        for (let i = 0; i < parts; i++) {
+          say(`analyse du texte ${i + 1}/${parts}…`)
+          const part = await sample.json(`${ARCH_PROMPT}\n\nDocument « ${file.name} », partie ${i + 1}/${parts} :\n\n${text.slice(i * CH, (i + 1) * CH)}`, { cache: false })
+          notes = mergeNotes(notes, part || {})
+        }
+        // Diagrams inside the PDF: render the likely pages and let Claude read them as images.
+        if (doc.diagrams.length && limits?.images) {
+          const per = Math.max(1, Math.min(limits.images.maxCount || 1, 4))
+          for (let i = 0; i < doc.diagrams.length; i += per) {
+            const batch = doc.diagrams.slice(i, i + per)
+            say(`lecture des schémas (pages ${batch.map(d => d.n).join(', ')})…`)
+            const images = []
+            for (const d of batch) { const blob = await renderPage(d.page); if (blob) images.push(blob) }
+            if (!images.length) continue
+            const part = await sample.json(`${ARCH_PROMPT}\n\nLes images jointes sont les pages ${batch.map(d => d.n).join(', ')} du document « ${file.name} » (schémas d'architecture). Lis les boîtes, les liens et les légendes.`, { images, cache: false })
+              .catch(err => { console.warn(err); return null })
+            if (part) { notes = mergeNotes(notes, part); diagramPages.push(...batch.map(d => d.n)) }
+          }
+        }
+      }
+      const body = fitDoc({ name: file.name, at: new Date().toISOString(), size: file.size, pages, diagram_pages: diagramPages, notes })
+      await db.collection('docs').add(body)
+      toast(`${file.name} ajouté${body.trimmed ? ' (listes raccourcies)' : ''}`)
+    } catch (err) {
+      const code = err?.code
+      toast(`${file.name} : ` + (code === 'not_granted' ? 'autorisez la page à utiliser Claude' : code === 'rate_limited' ? 'limite atteinte, réessayez plus tard' : code === 'cancelled' ? 'arrêté' : err?.message || code || 'échec'))
+    }
+  }
+  out.textContent = ''
+})
+
+
+/* ── dossiers: démarches (the usual chain of steps) and live projects ─────────── */
+const STEP_STATUS = { a_faire: 'À faire', en_cours: 'En cours', attente: 'En attente', fait: 'Fait' }
+const STEP_TONE = { a_faire: '', en_cours: 'warn', attente: 'bad', fait: 'good' }
+const TBD = 'À identifier'
+let projOpen = null   // id of the project shown in the Dossiers tab
+
+const hasOwner = o => !!(o && (o.name || o.addr))
+const ownerText = o => !hasOwner(o) ? 'vous' : [o.name || o.addr, o.team, o.location].filter(Boolean).join(' · ')
+const ownerLine = o => !hasOwner(o) ? 'le chef de projet' : isMe(o.addr) ? meLabel(o) : `${o.name || ''}${o.addr ? ` <${o.addr}>` : ''}${o.team ? ` (${o.team})` : ''}${o.location ? ` · ${o.location}` : ''}`
+/** The step owner as a person card: the known card when the address is known, else a temporary one. */
+function ownerPerson(o) {
+  if (!hasOwner(o) || o.name === TBD) return null
+  const k = o.addr ? personKey(o.addr) : 'p-' + slug(o.name)
+  const known = people().get(k)
+  if (known) return { ...known, name: known.name || o.name, department: known.department || o.team || '', location: known.location || o.location || '' }
+  return { key: k, addr: o.addr || '', name: o.name || o.addr, department: o.team || '', location: o.location || '', handles: [], transient: true }
+}
+const stepReady = (p, st) => (st.needs || []).every(k => { const x = p.steps.find(y => y.key === k); return !x || x.status === 'fait' })
+const nextSteps = p => p.steps.filter(s => s.status !== 'fait' && stepReady(p, s))
+function progress(p) { const n = p.steps.length, d = p.steps.filter(s => s.status === 'fait').length; return { n, d, pct: n ? Math.round(d * 100 / n) : 0 } }
+function bar(pct) { const i = h('i'); i.style.width = pct + '%'; return h('div', { class: 'bar', role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100 }, i) }
+const newKey = () => 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
+/** Two taps to delete: no confirm() dialogs inside the page. */
+function dangerButton(label, run) {
+  let armed = false
+  const b = h('button', { type: 'button', class: 'danger', text: label, onclick: async () => {
+    if (!armed) { armed = true; b.textContent = 'Confirmer'; setTimeout(() => { armed = false; b.textContent = label }, 4000); return }
+    await run()
+  } })
+  return b
+}
+
+/** Démarches and open dossiers for the analysis prompts, tagged [B…] / [F…]. */
+function playbooksBlock(maxBytes, src) {
+  const idx = (steps, keys) => (keys || []).map(k => steps.findIndex(x => x.key === k) + 1).filter(Boolean).join(', ')
+  const rows = [
+    ...S.playbooks.map(b => ['B', 'demarche', `Démarche : ${b.title}`, `Démarche « ${b.title} »${b.when ? ` (quand : ${b.when})` : ''} : ` +
+      b.steps.map((s, i) => `${i + 1}. ${s.title} → ${ownerLine(s.owner)}${s.needs?.length ? ` [après ${idx(b.steps, s.needs)}]` : ''}${s.output ? ` · livrable : ${s.output}` : ''}${s.how ? ` · ${s.how}` : ''}`).join(' ; ')]),
+    ...S.projects.filter(p => p.status !== 'done').map(p => ['F', 'dossier', `Dossier : ${p.title}`, `Dossier en cours « ${p.title} »${p.context ? ` (${p.context})` : ''} : ` +
+      p.steps.map((s, i) => `${i + 1}. ${s.title} → ${ownerLine(s.owner)} [${STEP_STATUS[s.status] || s.status}${s.note ? ` : ${s.note}` : ''}]`).join(' ; ')]),
+  ]
+  let out = '', used = 0
+  for (const [prefix, kind, label, body] of rows) {
+    const id = src.add(prefix, kind, label, '')
+    src.map[id].excerpt = body.slice(0, 4000)
+    const l = `[${id}] ${body}`
+    const b = bytes(l) + 1
+    if (used + b > maxBytes) { delete src.map[id]; continue }
+    out += l + '\n'; used += b
+  }
+  return out
+}
+
+/* ── list ── */
+function renderProjects() {
+  const box = $('#proj')
+  if (projOpen) {
+    // A dossier just created shows up with the next database update.
+    const p = S.projects.find(x => x.id === projOpen)
+    box.replaceChildren(p ? projectView(p) : h('div', { class: 'panel' }, h('p', { class: 'muted', text: 'Chargement du dossier…' }),
+      h('div', { class: 'row' }, h('button', { type: 'button', class: 'ghost', text: '← Dossiers', onclick: () => { projOpen = null; renderProjects() } }))))
+    return
+  }
+  const open = S.projects.filter(p => p.status !== 'done'), done = S.projects.filter(p => p.status === 'done')
+  box.replaceChildren(
+    h('div', { class: 'panel' },
+      h('div', { class: 'top' }, h('h2', { text: 'Dossiers en cours' }),
+        h('div', { class: 'row' }, h('button', { type: 'button', text: 'Rapport', onclick: () => reportSheet(null) }), h('button', { type: 'button', class: 'primary', text: '+ Nouveau', onclick: () => newProjectSheet(null) }))),
+      ...(open.length ? open.map(projectItem) : [h('p', { class: 'muted small', text: 'Aucun dossier. « + Nouveau » part d’une démarche connue, ou fait proposer les étapes par Claude.' })])),
+    h('div', { class: 'panel' },
+      h('div', { class: 'top' }, h('h2', { text: 'Démarches' }), h('button', { type: 'button', class: 'ghost', text: '+ Depuis une capture', onclick: captureSheet })),
+      h('p', { class: 'small muted', text: 'Les étapes habituelles d’un type de demande, dans l’ordre, avec qui fait quoi. Elles servent de modèle aux dossiers, et l’analyse (onglet Demander) les connaît.' }),
+      ...(S.playbooks.length ? S.playbooks.map(playbookItem) : [h('p', { class: 'muted small', text: 'Aucune démarche. Ajoutez-en une depuis une capture de Planner, ou « Enregistrer comme démarche » sur un dossier.' })])),
+    done.length ? h('details', { class: 'panel' }, h('summary', {}, h('h2', { text: `Dossiers terminés (${done.length})` })), ...done.map(projectItem)) : null)
+}
+function projectItem(p) {
+  const pr = progress(p), next = nextSteps(p).filter(s => s.status === 'a_faire').slice(0, 2), waiting = p.steps.filter(s => s.status === 'attente')
+  return h('div', { class: 'item' },
+    h('div', { class: 'top' }, h('button', { type: 'button', class: 'ghost', text: p.title, onclick: () => { projOpen = p.id; renderProjects(); window.scrollTo(0, 0) } }), h('span', { class: 'small muted', text: `${pr.d}/${pr.n}` })),
+    bar(pr.pct),
+    waiting.length ? h('p', { class: 'small bad-ink', text: 'En attente : ' + waiting.map(s => `${s.owner?.name || s.owner?.addr || 'vous'} (${s.title})`).join(' ; ') }) : null,
+    next.length && p.status !== 'done' ? h('p', { class: 'small', text: 'À lancer : ' + next.map(s => `${s.title} → ${ownerText(s.owner)}`).join(' ; ') }) : null)
+}
+function playbookItem(b) {
+  return h('div', { class: 'item' },
+    h('div', { class: 'top' }, h('strong', { text: b.title }), h('span', { class: 'small muted', text: `${b.steps.length} étapes${b.runs ? ` · ${b.runs} dossier${b.runs > 1 ? 's' : ''}` : ''}` })),
+    b.when ? h('p', { class: 'small muted', text: b.when }) : null,
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'primary', text: 'Démarrer un dossier', onclick: () => newProjectSheet(b) }),
+      h('button', { type: 'button', text: 'Voir / modifier', onclick: () => playbookSheet(b) })))
+}
+
+/* ── one dossier ── */
+async function saveProject(p, patch, log) {
+  const at = new Date().toISOString()
+  const journal = log ? [{ at, text: log }, ...(p.journal || [])].slice(0, 300) : (p.journal || [])
+  try { await db.doc('projects/' + p.id).update({ ...patch, journal, updated_at: at }) }
+  catch (e) { toast('Enregistrement impossible : ' + (e?.message || 'réessayez')) }
+}
+async function setStepStatus(p, st, v) {
+  if (st.status === v) return
+  const at = new Date().toISOString()
+  const steps = p.steps.map(x => x.key === st.key ? { ...x, status: v, since: at, done_at: v === 'fait' ? at : null } : x)
+  await saveProject(p, { steps }, `${st.title} : ${STEP_STATUS[st.status] || st.status} → ${STEP_STATUS[v]}`)
+}
+function stepMail(p, st, person) {
+  const ready = (st.needs || []).map(k => p.steps.find(x => x.key === k)).filter(x => x && x.status === 'fait')
+  return {
+    objet: `${p.title} – ${st.title}`,
+    message_email: `Bonjour ${firstName(person.name)},\n\nDans le cadre de « ${p.title} »${p.context ? ` (${p.context})` : ''}, pourriez-vous ${st.title.charAt(0).toLowerCase() + st.title.slice(1)} ?\n` +
+      (st.output ? `\nRésultat attendu : ${st.output}\n` : '') +
+      (ready.length ? `\nDéjà disponible : ${ready.map(x => x.title + (x.note ? ` (${x.note})` : '')).join(' ; ')}\n` : '') +
+      `\nMerci d'avance.\n\nCordialement,`,
+  }
+}
+const stepWa = (p, st, person) => `Bonjour ${firstName(person.name)}, pour « ${p.title} », pourriez-vous ${st.title.charAt(0).toLowerCase() + st.title.slice(1)} ? Merci !`
+
+function projectView(p) {
+  const pr = progress(p)
+  const jl = h('input', { placeholder: 'Ajouter au journal (décision, n° de ticket, réunion…)', 'aria-label': 'Entrée de journal' })
+  const back = () => { projOpen = null; renderProjects(); window.scrollTo(0, 0) }
+  return h('div', { class: 'stack' },
+    h('div', { class: 'panel' },
+      h('div', { class: 'row' }, h('button', { type: 'button', class: 'ghost', text: '← Dossiers', onclick: back })),
+      h('h2', { text: p.title }),
+      p.context ? h('p', { class: 'small muted', text: p.context }) : null,
+      bar(pr.pct),
+      h('p', { class: 'small', text: `${pr.d}/${pr.n} étapes faites${p.playbook_title ? ` · démarche : ${p.playbook_title}` : ''}${p.status === 'done' ? ' · terminé' : ''}` }),
+      p.origin === 'claude' ? h('p', { class: 'small warn-ink', text: 'Étapes proposées par Claude : vérifiez-les (les sources sont sous chaque étape).' }) : null,
+      p.checks?.length ? h('ul', { class: 'small' }, p.checks.map(t => h('li', { text: t }))) : null,
+      p.missing?.length ? h('div', { class: 'stack' }, h('span', { class: 'label', text: 'À clarifier' }), h('ul', { class: 'small' }, p.missing.map(t => h('li', { text: t })))) : null,
+      h('div', { class: 'row' },
+        h('button', { type: 'button', text: '+ Étape', onclick: () => stepSheet(p, null, (steps, log) => saveProject(p, { steps }, log), { note: true }) }),
+        h('button', { type: 'button', text: 'Rapport', onclick: () => reportSheet(p) }),
+        h('button', { type: 'button', text: p.playbook_id ? 'Mettre à jour la démarche' : 'Enregistrer comme démarche', onclick: () => saveAsPlaybook(p) }),
+        h('button', { type: 'button', class: 'ghost', text: p.status === 'done' ? 'Rouvrir' : 'Terminer', onclick: () => saveProject(p, { status: p.status === 'done' ? 'open' : 'done' }, p.status === 'done' ? 'Dossier rouvert' : 'Dossier terminé') }),
+        dangerButton('Supprimer', async () => { await db.doc('projects/' + p.id).delete(); back(); toast('Dossier supprimé') }))),
+    h('div', { class: 'panel' }, h('h2', { text: 'Étapes' }),
+      ...(p.steps.length ? p.steps.map((st, i) => stepView(p, st, i)) : [h('p', { class: 'muted small', text: 'Aucune étape : « + Étape ».' })])),
+    h('div', { class: 'panel' }, h('h2', { text: 'Journal' }),
+      h('div', { class: 'row' }, jl, h('button', { type: 'button', text: 'Ajouter', onclick: async () => { const t = jl.value.trim(); if (t) { jl.value = ''; await saveProject(p, {}, t) } } })),
+      ...(p.journal || []).slice(0, 20).map(j => h('p', { class: 'small' }, h('span', { class: 'muted', text: fmtWhen(j.at) + ' · ' }), j.text))))
+}
+function stepView(p, st, i) {
+  const person = ownerPerson(st.owner)
+  const blockers = (st.needs || []).map(k => p.steps.find(x => x.key === k)).filter(x => x && x.status !== 'fait')
+  const composer = h('div', { class: 'composer', hidden: true })
+  const show = node => { composer.hidden = false; composer.replaceChildren(node) }
+  const where = [person?.department, person?.location].filter(Boolean).join(' · ')
+  return h('div', { class: `step s-${st.status}${blockers.length && st.status !== 'fait' ? ' blocked' : ''}` },
+    h('div', { class: 'top' }, h('strong', { text: `${i + 1}. ${st.title}` }), h('span', { class: 'pill ' + (STEP_TONE[st.status] || ''), text: (STEP_STATUS[st.status] || st.status) + (st.status !== 'a_faire' && st.since ? ` · ${fmtDate(st.since)}` : '') })),
+    h('p', { class: 'small' }, '→ ',
+      person ? h('button', { type: 'button', class: 'ghost', text: person.name || person.addr, onclick: () => personSheet(person) }) : h('span', { text: st.owner?.name === TBD ? TBD : 'vous' }),
+      where ? h('span', { class: 'muted', text: ' · ' + where }) : null),
+    blockers.length && st.status !== 'fait' ? h('p', { class: 'small warn-ink', text: 'Attend : ' + blockers.map(b => b.title).join(' ; ') }) : null,
+    st.output ? h('p', { class: 'small muted', text: 'Résultat attendu : ' + st.output }) : null,
+    st.how ? h('p', { class: 'small', text: st.how }) : null,
+    st.note ? h('p', { class: 'small' }, h('strong', { text: 'Note : ' }), st.note) : null,
+    st.src_ids?.length ? h('div', { class: 'row' }, h('span', { class: 'small muted', text: 'Sources :' }), srcChips(p, st.src_ids)) : null,
+    st.from ? h('p', { class: 'small muted', text: 'Source : ' + st.from }) : null,
+    chipGroup(STEP_STATUS, st.status, v => setStepStatus(p, st, v)),
+    h('div', { class: 'row' },
+      person?.addr ? h('button', { type: 'button', text: 'Email', onclick: () => show(emailComposer(stepMail(p, st, person), person)) }) : null,
+      person ? h('button', { type: 'button', text: 'WhatsApp', onclick: () => show(waComposer(stepWa(p, st, person), person)) }) : null,
+      person ? h('button', { type: 'button', class: 'ghost', text: 'J’ai contacté…', onclick: () => logSheet({ person, topic: `${p.title} : ${st.title}` }) }) : null,
+      h('button', { type: 'button', class: 'ghost', text: 'Modifier / note', onclick: () => stepSheet(p, st, (steps, log) => saveProject(p, { steps }, log), { note: true }) })),
+    composer)
+}
+
+/** Edit or add a step of a dossier or a démarche. save(steps, journalText) persists; back(steps) reopens the caller. */
+function stepSheet(target, st, save, opts = {}) {
+  const isNew = !st
+  st = st || { key: newKey(), title: '', owner: {}, needs: [], status: 'a_faire' }
+  const f = {}
+  const inp = (k, label, val, a = {}) => {
+    f[k] = h(a.area ? 'textarea' : 'input', { id: 'sf-' + k, rows: a.area ? 3 : null, type: a.type || null, placeholder: a.ph || null }); f[k].value = val || ''
+    return h('div', { class: 'stack' }, h('label', { class: 'label', for: 'sf-' + k, text: label }), f[k])
+  }
+  const others = target.steps.filter(x => x.key !== st.key)
+  const needs = new Set(st.needs || [])
+  const needWrap = h('div', { class: 'chips' }, others.map(o => {
+    const b = h('button', { type: 'button', class: 'chip', 'aria-pressed': String(needs.has(o.key)), text: o.title.length > 48 ? o.title.slice(0, 46) + '…' : o.title,
+      onclick: () => { needs.has(o.key) ? needs.delete(o.key) : needs.add(o.key); b.setAttribute('aria-pressed', String(needs.has(o.key))) } })
+    return b
+  }))
+  const done = async (steps, log) => { await save(steps, log); if (opts.back) opts.back(steps); else closeSheet() }
+  const idx = target.steps.findIndex(x => x.key === st.key)
+  const move = d => { const steps = target.steps.slice(); const [x] = steps.splice(idx, 1); steps.splice(idx + d, 0, x); return done(steps, null) }
+  sheet(
+    h('h2', { text: isNew ? 'Nouvelle étape' : 'Étape' }),
+    inp('title', 'Étape (verbe à l’infinitif)', st.title, { ph: 'Ex : Faire valider la matrice de flux' }),
+    inp('name', 'Qui (vide = vous)', st.owner?.name), inp('addr', 'Email', st.owner?.addr, { type: 'email' }),
+    inp('team', 'Équipe', st.owner?.team), inp('location', 'Où le trouver', st.owner?.location, { ph: 'Ex : 6e étage' }),
+    inp('output', 'Résultat attendu', st.output, { ph: 'Ex : n° de ticket, adresse IP, DAT validé' }), inp('how', 'Comment / astuces', st.how, { area: true }),
+    opts.note ? inp('note', 'Note (avancement, n° de ticket…)', st.note, { area: true }) : null,
+    others.length ? h('span', { class: 'label', text: 'À faire après' }) : null, others.length ? needWrap : null,
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'primary', text: 'Enregistrer', onclick: async () => {
+        const title = f.title.value.trim()
+        if (!title) { toast('Indiquez l’étape'); return }
+        const owner = { name: f.name.value.trim(), addr: f.addr.value.trim().toLowerCase(), team: f.team.value.trim(), location: f.location.value.trim() }
+        const next = { ...st, title, owner, output: f.output.value.trim(), how: f.how.value.trim(), needs: [...needs], ...(opts.note ? { note: f.note.value.trim() } : {}) }
+        // A location noted on a step also goes on the person's card.
+        const person = ownerPerson(owner)
+        if (person && owner.location && person.location !== owner.location && !S.overlay.get(person.key)?.location) savePerson(person, { location: owner.location })
+        const steps = isNew ? [...target.steps, next] : target.steps.map(x => x.key === st.key ? next : x)
+        await done(steps, isNew ? `Étape ajoutée : ${title}` : opts.note && (next.note || '') !== (st.note || '') ? `${title} : ${next.note}` : null)
+      } }),
+      !isNew && idx > 0 ? h('button', { type: 'button', text: '↑', 'aria-label': 'Monter', onclick: () => move(-1) }) : null,
+      !isNew && idx < target.steps.length - 1 ? h('button', { type: 'button', text: '↓', 'aria-label': 'Descendre', onclick: () => move(1) }) : null,
+      !isNew ? dangerButton('Supprimer', () => done(target.steps.filter(x => x.key !== st.key).map(x => ({ ...x, needs: (x.needs || []).filter(k => k !== st.key) })), `Étape supprimée : ${st.title}`)) : null,
+      h('button', { type: 'button', class: 'ghost', text: 'Annuler', onclick: () => opts.back ? opts.back(target.steps) : closeSheet() })))
+}
+
+/* ── démarches ── */
+const playbookSteps = steps => steps.map(({ key, title, owner, needs, output, how, from }) => ({ key, title, owner: owner || {}, needs: needs || [], output: output || '', how: (how || '').replace(/^Supposition : /, ''), ...(from ? { from } : {}) }))
+async function savePlaybook(b, patch) {
+  const at = new Date().toISOString()
+  try {
+    if (b.id) await db.doc('playbooks/' + b.id).update({ ...patch, updated_at: at })
+    else { const { id: _, ...rest } = b; b.id = slug(patch.title || b.title) + '-' + Date.now().toString(36); await db.doc('playbooks/' + b.id).set({ ...rest, ...patch, updated_at: at }) }
+    return true
+  } catch (e) { toast('Enregistrement impossible : ' + (e?.message || 'réessayez')); return false }
+}
+function playbookSheet(b) {
+  const title = h('input', { 'aria-label': 'Nom de la démarche' }); title.value = b.title || ''
+  const when = h('textarea', { rows: 2, 'aria-label': 'Quand l’utiliser', placeholder: 'Quand l’utiliser (ex : un partenaire externe doit déposer des fichiers chez inwi)' }); when.value = b.when || ''
+  const cur = steps => ({ ...b, title: title.value.trim() || b.title, when: when.value.trim(), steps })
+  const back = steps => playbookSheet(cur(steps))
+  // A draft (from a capture) is only written when "Enregistrer" is tapped.
+  const save = b.id ? steps => savePlaybook(b, { steps }) : async () => {}
+  sheet(
+    h('h2', { text: b.id ? 'Démarche' : 'Nouvelle démarche (à vérifier)' }),
+    title, when,
+    b.note ? h('p', { class: 'small muted', text: b.note }) : null,
+    h('ol', { class: 'plain' }, b.steps.map(st => h('li', {},
+      h('button', { type: 'button', class: 'ghost', text: st.title, onclick: () => stepSheet(cur(b.steps), st, save, { back }) }),
+      h('span', { class: 'small muted', text: ' → ' + ownerText(st.owner) + (st.needs?.length ? ` · après ${st.needs.map(k => b.steps.findIndex(x => x.key === k) + 1).filter(Boolean).join(', ')}` : '') })))),
+    h('div', { class: 'row' },
+      h('button', { type: 'button', text: '+ Étape', onclick: () => stepSheet(cur(b.steps), null, save, { back }) }),
+      h('button', { type: 'button', class: 'primary', text: 'Enregistrer', onclick: async () => {
+        const c = cur(b.steps)
+        if (!c.title) { toast('Donnez un nom à la démarche'); return }
+        if (await savePlaybook(b, { title: c.title, when: c.when, steps: c.steps })) { closeSheet(); toast('Démarche enregistrée') }
+      } }),
+      b.id ? h('button', { type: 'button', text: 'Démarrer un dossier', onclick: () => newProjectSheet(cur(b.steps)) }) : null,
+      b.id ? dangerButton('Supprimer', async () => { await db.doc('playbooks/' + b.id).delete(); closeSheet(); toast('Démarche supprimée') }) : null,
+      h('button', { type: 'button', class: 'ghost', text: 'Fermer', onclick: closeSheet })))
+}
+async function saveAsPlaybook(p) {
+  const linked = p.playbook_id && S.playbooks.find(b => b.id === p.playbook_id)
+  const steps = playbookSteps(p.steps)
+  if (linked) { if (await savePlaybook(linked, { steps })) toast(`Démarche « ${linked.title} » mise à jour`) }
+  else playbookSheet({ id: null, title: p.title, when: p.context || '', steps, note: `Créée depuis le dossier « ${p.title} ».` })
+}
+
+/* ── new dossier ── */
+function newProjectSheet(base) {
+  let chosen = base
+  const title = h('input', { placeholder: 'Nom du dossier, ex : SFTP agence XYZ', 'aria-label': 'Nom du dossier' })
+  const ctx = h('textarea', { rows: 3, placeholder: 'De quoi s’agit-il ? Ex : donner à l’agence XYZ un accès VPN au SFTP pour les fichiers précontentieux' })
+  const note = h('p', { class: 'small muted', 'aria-live': 'polite' })
+  const pbWrap = h('div', { class: 'chips' })
+  const draw = () => {
+    const q = tokensOf(`${title.value} ${ctx.value}`)
+    const list = S.playbooks.slice().sort((x, y) => overlap(`${y.title} ${y.when || ''}`, q) - overlap(`${x.title} ${x.when || ''}`, q))
+    const chip = x => h('button', { type: 'button', class: 'chip', 'aria-pressed': String((chosen?.id || null) === (x?.id || null) && (!!chosen === !!x)), text: x ? x.title : 'Aucune',
+      onclick: () => { chosen = x; draw() } })
+    pbWrap.replaceChildren(...list.map(chip), chip(null))
+  }
+  ctx.addEventListener('change', draw); draw()
+  const create = async withClaude => {
+    const t = title.value.trim() || ctx.value.trim().slice(0, 60)
+    if (!t) { toast('Donnez un nom au dossier'); return }
+    const at = new Date().toISOString()
+    let steps = chosen ? chosen.steps.map(s => ({ ...s, status: 'a_faire', note: '' })) : []
+    let extra = { origin: chosen ? 'demarche' : 'vide' }
+    if (withClaude) {
+      for (const b of sheetButtons) b.disabled = true
+      note.textContent = 'Claude prépare les étapes… (20 à 60 s)'
+      try {
+        const r = await planSteps(t, ctx.value.trim(), chosen)
+        steps = r.steps; extra = { origin: 'claude', sources: r.sources, checks: r.checks, missing: r.missing }
+      } catch (e) {
+        note.textContent = { not_granted: 'Autorisez la page à utiliser Claude.', rate_limited: 'Limite atteinte, réessayez plus tard.', invalid_json: 'Réponse illisible : réessayez.' }[e?.code] || 'Échec : ' + (e?.message || e?.code || 'réessayez')
+        for (const b of sheetButtons) b.disabled = false
+        return
+      }
+    }
+    const id = slug(t) + '-' + Date.now().toString(36)
+    try {
+      await db.doc('projects/' + id).set({ title: t, context: ctx.value.trim(), playbook_id: chosen?.id || null, playbook_title: chosen?.title || null, status: 'open', at, updated_at: at, steps, ...extra,
+        journal: [{ at, text: 'Dossier créé' + (chosen ? ` depuis la démarche « ${chosen.title} »` : '') + (withClaude ? ', étapes proposées par Claude' : '') }] })
+      if (chosen?.id) savePlaybook(chosen, { runs: (chosen.runs || 0) + 1 })
+      closeSheet(); projOpen = id; goTab('proj')
+    } catch (e) { note.textContent = 'Enregistrement impossible : ' + (e?.message || 'réessayez') }
+  }
+  const sheetButtons = [
+    h('button', { type: 'button', class: 'primary', text: 'Créer', onclick: () => create(false) }),
+    sample ? h('button', { type: 'button', text: 'Proposer les étapes avec Claude', onclick: () => create(true) }) : null,
+  ].filter(Boolean)
+  sheet(
+    h('h2', { text: 'Nouveau dossier' }), title, ctx,
+    h('span', { class: 'label', text: 'Démarche de départ' }), pbWrap,
+    h('div', { class: 'row' }, ...sheetButtons, h('button', { type: 'button', class: 'ghost', text: 'Annuler', onclick: closeSheet })),
+    note,
+    h('p', { class: 'small muted', text: '« Créer » copie les étapes de la démarche. « Proposer les étapes avec Claude » l’adapte à ce dossier (ou part de rien) à partir de vos démarches, emails et documents, avec les sources ; vous corrigez ensuite.' }))
+}
+
+const PLAN_RULES = `Tu aides un chef de projet IT d'un opérateur télécom au Maroc à préparer un dossier : la liste ordonnée des étapes que les différentes équipes doivent faire, avec qui fait quoi.
+
+${SOURCE_RULES}
+
+Règles :
+- Si une DÉMARCHE DE BASE est indiquée, pars de ses étapes : garde-les, retire celles qui ne s'appliquent pas, ajoute celles que les données imposent pour ce dossier.
+- Sinon, déduis les étapes des démarches proches [B…], de l'annuaire [E…] (qui a traité quel type de demande, ce qu'il faut inclure) et de l'architecture [D…] (composants, flux, équipes).
+- Une étape = une action concrète avec un résultat attendu (DAT mis à jour, ticket créé, adresse IP, matrice de flux validée…), formulée avec un verbe à l'infinitif.
+- "qui" et "email" viennent uniquement des données, sinon "qui": "${TBD}" et "email": null.
+- "apres" : numéros (à partir de 1) des étapes qui doivent être finies avant.
+- Chaque étape a ses "sources" ; une étape sans source a "sources": [] et son "comment" commence par « Supposition : ».
+- "manques" : ce qu'il faut encore savoir pour lancer le dossier (questions précises).
+
+Réponds uniquement avec un objet JSON :
+{"etapes":[{"titre":"","qui":"","email":null,"equipe":"","resultat":"","comment":"","apres":[1],"sources":["B1","E3"]}],"manques":[""]}`
+
+async function planSteps(title, context, base) {
+  const src = newSources()
+  const query = `${title} ${context} ${base?.title || ''}`
+  src.set('S', 'saisie', 'Votre saisie (dossier)', `${title}\n${context}`)
+  const prompt = `${PLAN_RULES}
+
+=== DÉMARCHES ET DOSSIERS ===
+${playbooksBlock(30000, src) || '(aucun)'}
+=== ANNUAIRE ===
+${directoryBlock(80000, src) || '(vide)'}
+=== PERSONNES ===
+${peopleBlock(30000, src) || '(aucune)'}
+=== ARCHITECTURE & PÉRIMÈTRE ===
+${archBlock(55000, query, src) || '(aucun document)'}
+=== DOSSIER À PRÉPARER ===
+[S] ${title}${context ? ` : ${context}` : ''}${base ? `\nDÉMARCHE DE BASE : « ${base.title} » (voir DÉMARCHES ET DOSSIERS)` : ''}`
+  const r = await sample.json(prompt, { cache: false })
+  if (!r || !Array.isArray(r.etapes)) throw { code: 'invalid_json' }
+  // Same checks as an analysis: cited ids must exist, addresses must be in the data sent.
+  const known = new Set(Object.keys(src.map)), data = prompt.toLowerCase(), checks = [], cited = new Set()
+  const keys = r.etapes.map(() => newKey())
+  const steps = r.etapes.map((e, i) => {
+    if (!e?.titre) return null
+    const ids = (e.sources || []).map(String).filter(id => { const ok = known.has(baseId(id)); if (!ok) checks.push(`Étape ${i + 1} : source inexistante retirée (${id})`); return ok })
+    ids.forEach(id => cited.add(baseId(id)))
+    let addr = e.email ? String(e.email).toLowerCase().trim() : ''
+    if (addr && !data.includes(addr)) { checks.push(`Étape ${i + 1} : adresse ${addr} absente de vos données, retirée`); addr = '' }
+    let how = String(e.comment || '').trim()
+    if (!ids.length && !/^supposition/i.test(how)) how = 'Supposition : ' + how
+    return { key: keys[i], title: String(e.titre).trim(), owner: { name: e.qui || TBD, addr, team: e.equipe || '' }, output: e.resultat || '', how,
+      needs: (e.apres || []).map(n => keys[Number(n) - 1]).filter(k => k && k !== keys[i]), status: 'a_faire', note: '', src_ids: ids }
+  }).filter(Boolean)
+  return { steps, sources: keepSources(src.map, [...cited]), checks, missing: (r.manques || []).filter(Boolean).map(String).slice(0, 8) }
+}
+
+/* ── démarche from a Planner / Trello screenshot or pasted text ── */
+const CAPTURE_RULES = `Les images ou le texte ci-dessous viennent d'un outil de suivi de tâches (Planner, Trello, liste de contrôle…) ou d'un email d'un projet IT chez un opérateur télécom. Ils montrent les tâches réalisées pour un dossier. Extrais-en la démarche réutilisable : les étapes dans l'ordre, avec qui fait quoi.
+- Une étape = une action avec son responsable, formulée avec un verbe à l'infinitif. Les éléments d'une liste de contrôle deviennent des étapes s'ils sont faits par des personnes différentes.
+- "qui", "email", "lieu" (étage, bureau) : seulement s'ils sont écrits, sinon "". Recopie les adresses exactement.
+- "apres" : numéros (à partir de 1) des étapes qui doivent être finies avant, seulement si l'ordre l'impose clairement, sinon [].
+- Retire des titres ce qui est propre à ce dossier (nom du partenaire, étiquette entre crochets) et mets-le dans "exemple".
+- N'invente rien qui ne soit pas visible.
+Réponds uniquement avec un objet JSON :
+{"titre":"nom générique de la démarche","quand":"quand l'utiliser","exemple":"le dossier montré","etapes":[{"titre":"","qui":"","email":"","equipe":"","lieu":"","resultat":"","apres":[]}]}`
+
+function captureSheet() {
+  if (!sample) { toast('Claude n’est pas disponible dans cette vue'); return }
+  const files = h('input', { type: 'file', accept: limits?.images?.mediaTypes?.join(',') || 'image/*', multiple: true, id: 'cap-files', hidden: true })
+  const names = h('span', { class: 'small muted' })
+  files.addEventListener('change', () => { names.textContent = [...files.files].map(f => f.name).join(', ') })
+  const text = h('textarea', { rows: 5, placeholder: 'Ou collez le texte des tâches (copié depuis Planner, un email…)' })
+  const note = h('p', { class: 'small muted', 'aria-live': 'polite' })
+  const go = h('button', { type: 'button', class: 'primary', text: 'Extraire la démarche', onclick: async () => {
+    const imgs = [...files.files].slice(0, limits?.images?.maxCount || 1)
+    if (!imgs.length && !text.value.trim()) { toast('Ajoutez une capture ou du texte'); return }
+    if (imgs.length && !limits?.images) { toast('Les images ne peuvent pas être envoyées depuis cette vue'); return }
+    go.disabled = true; note.textContent = 'Claude lit les tâches… (20 à 60 s)'
+    try {
+      const pasted = redact(text.value.trim())
+      const r = await sample.json(`${CAPTURE_RULES}${pasted ? `\n\nTexte :\n${pasted}` : ''}${imgs.length ? `\n\n${imgs.length} capture(s) jointe(s).` : ''}`, { cache: false, ...(imgs.length ? { images: imgs } : {}) })
+      if (!r || !Array.isArray(r.etapes)) throw { code: 'invalid_json' }
+      const keys = r.etapes.map(() => newKey())
+      const day = new Date().toLocaleDateString('fr-FR')
+      const steps = r.etapes.map((e, i) => {
+        if (!e?.titre) return null
+        let addr = String(e.email || '').toLowerCase().trim()
+        // Pasted text can be checked; an address read on an image is kept for you to verify.
+        if (addr && !imgs.length && !pasted.toLowerCase().includes(addr)) addr = ''
+        return { key: keys[i], title: String(e.titre).trim(), owner: { name: e.qui || '', addr, team: e.equipe || '', location: e.lieu || '' }, output: e.resultat || '',
+          how: '', needs: (e.apres || []).map(n => keys[Number(n) - 1]).filter(k => k && k !== keys[i]), from: `${imgs.length ? 'capture' : 'texte collé'} du ${day}${r.exemple ? ` (${r.exemple})` : ''}` }
+      }).filter(Boolean)
+      playbookSheet({ id: null, title: r.titre || '', when: r.quand || '', steps, note: `Lu par Claude sur ${imgs.length ? 'une capture' : 'le texte collé'} le ${day}${r.exemple ? `, exemple : ${r.exemple}` : ''}. Vérifiez les noms, adresses et l’ordre avant d’enregistrer.` })
+    } catch (e) {
+      go.disabled = false
+      note.textContent = { not_granted: 'Autorisez la page à utiliser Claude.', rate_limited: 'Limite atteinte, réessayez plus tard.', invalid_json: 'Réponse illisible : réessayez.', image_rejected: 'Image refusée : essayez une autre capture.' }[e?.code] || 'Échec : ' + (e?.message || e?.code || 'réessayez')
+    }
+  } })
+  sheet(
+    h('h2', { text: 'Démarche depuis une capture' }),
+    h('p', { class: 'small muted', text: 'Une capture du tableau Planner, d’une carte avec sa liste de contrôle, ou le texte des tâches. Claude en tire les étapes, l’ordre et qui fait quoi ; vous vérifiez avant d’enregistrer.' }),
+    limits?.images ? h('div', { class: 'row' }, h('label', { class: 'btn', for: 'cap-files', text: 'Choisir des captures…' }), files, names) : null,
+    text,
+    h('div', { class: 'row' }, go, h('button', { type: 'button', class: 'ghost', text: 'Annuler', onclick: closeSheet })),
+    note)
+}
+
+/* ── report: built from the recorded statuses only, nothing generated ── */
+function reportText(list, days) {
+  const since = Date.now() - days * 86400e3
+  const recent = d => d && new Date(d).getTime() >= since
+  const who = s => hasOwner(s.owner) && s.owner.name !== TBD ? ` (${s.owner.name || s.owner.addr})` : ''
+  const L = [`Point d'avancement – ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`, '']
+  for (const p of list) {
+    const pr = progress(p)
+    L.push(`■ ${p.title} : ${pr.d}/${pr.n} étapes (${pr.pct} %)${p.status === 'done' ? ', terminé' : ''}`)
+    const block = (title, items, f) => { if (items.length) { L.push(`  ${title} :`); for (const x of items) L.push(`   - ${f(x)}`) } }
+    const note = s => s.note ? ` : ${s.note}` : ''
+    block(`Fait (${days} derniers jours)`, p.steps.filter(s => s.status === 'fait' && recent(s.done_at)), s => `${s.title}${who(s)}${note(s)}`)
+    block('En cours', p.steps.filter(s => s.status === 'en_cours'), s => `${s.title}${who(s)}${note(s)}`)
+    block('En attente', p.steps.filter(s => s.status === 'attente'), s => `${s.title}${who(s)}${s.since ? `, depuis le ${fmtDate(s.since)}` : ''}${note(s)}`)
+    block('Prochaines étapes', nextSteps(p).filter(s => s.status === 'a_faire').slice(0, 4), s => `${s.title}${who(s)}`)
+    block('À clarifier', p.missing || [], t => t)
+    L.push('')
+  }
+  const cases = S.cases.filter(c => c.status !== 'closed')
+  if (cases.length) {
+    L.push(`■ Incidents et demandes ouverts : ${cases.length}`)
+    for (const c of cases.slice(0, 8)) L.push(`   - ${String(c.result?.diagnostic?.probleme || c.result?.comprehension || c.text).slice(0, 140)} (${fmtDate(c.at)})`)
+  }
+  return L.join('\n').trim()
+}
+function reportSheet(p) {
+  let days = 7
+  const box = h('textarea', { class: 'report', 'aria-label': 'Rapport' })
+  const list = () => p ? [p] : S.projects.filter(x => x.status !== 'done' || new Date(x.updated_at || 0).getTime() >= Date.now() - days * 86400e3)
+  const subject = () => `Point d'avancement${p ? ` – ${p.title}` : ''} – ${new Date().toLocaleDateString('fr-FR')}`
+  const outlook = h('a', { class: 'btn', target: '_blank', rel: 'noopener', text: 'Outlook' })
+  const wa = h('a', { class: 'btn', target: '_blank', rel: 'noopener', text: 'WhatsApp' })
+  const sync = () => { outlook.href = outlookLink([], [], subject(), box.value); wa.href = `https://wa.me/?text=${enc(box.value)}` }
+  const fill = () => { box.value = list().length ? reportText(list(), days) : 'Aucun dossier.'; sync() }
+  box.addEventListener('input', sync)
+  fill()
+  sheet(
+    h('h2', { text: p ? `Rapport : ${p.title}` : 'Rapport d’avancement' }),
+    chipGroup({ 7: '7 jours', 14: '14 jours', 30: '30 jours' }, '7', v => { days = Number(v); fill() }),
+    box,
+    h('p', { class: 'small muted', text: 'Construit à partir des statuts et notes que vous avez enregistrés (rien n’est inventé). Modifiable avant envoi.' }),
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'primary', text: 'Copier', onclick: () => copy(box.value, box) }),
+      outlook, wa,
+      h('button', { type: 'button', class: 'ghost', text: 'Fermer', onclick: closeSheet })))
+}
+
+
+boot()
+</script>

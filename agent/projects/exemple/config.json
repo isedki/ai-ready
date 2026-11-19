@@ -1,0 +1,101 @@
+{
+  "projet": {
+    "nom": "Projet X",
+    "description": "migration d'un système de facturation ; intégrateur et équipe de recette externes",
+    "langue": "fr",
+    "fuseau": "Europe/Paris",
+    "note_heure": "Les heures Gmail sont en UTC : convertis-les en heure de Paris avant de les citer."
+  },
+  "personnes": [
+    {
+      "name": "Prénom Nom",
+      "role": "chef de projet SI (la personne servie)",
+      "mode": "moi",
+      "email": "prenom.nom@exemple.fr"
+    },
+    {
+      "name": "Responsable",
+      "role": "responsable hiérarchique",
+      "mode": "manager"
+    },
+    {
+      "name": "Collègue A",
+      "role": "coordination des environnements",
+      "mode": "surveiller"
+    }
+  ],
+  "priorites": {
+    "ordre": [
+      "Le lot en cours de recette",
+      "Tout blocage de la recette",
+      "Le reste"
+    ]
+  },
+  "regles": {
+    "interdits": [
+      "N'envoie rien à personne : brouillons seulement.",
+      "Ne supprime aucun brouillon.",
+      "Aucun mot de passe ni identifiant recopié."
+    ],
+    "style": [
+      "Bonjour X, contexte, questions numérotées à des personnes nommées, Merci, signature."
+    ],
+    "domaines": {
+      "Intégrateur": "integrateur.com"
+    }
+  },
+  "stockage": {
+    "suivi": "https://claude.ai/artifact/REMPLACER-suivi",
+    "copilote": "https://claude.ai/artifact/REMPLACER-copilote"
+  },
+  "index": {
+    "gmail": "{from:exemple.fr to:exemple.fr from:integrateur.com}"
+  },
+  "taches": [
+    {
+      "template": "matin",
+      "name": "Projet X · matin",
+      "cron": "0 8 * * 1-5",
+      "modele": "fort",
+      "session": "persistante"
+    },
+    {
+      "template": "veille",
+      "name": "Projet X · veille",
+      "cron": "5 10,12,15,17 * * 1-5",
+      "modele": "fort",
+      "session": "persistante"
+    },
+    {
+      "template": "indexation",
+      "name": "Projet X · indexation",
+      "cron": "20 12,18 * * 1-5",
+      "modele": "leger",
+      "session": "nouvelle",
+      "params": {
+        "rattrapage_lot": 40
+      }
+    },
+    {
+      "template": "prepa",
+      "name": "Projet X · préparation d'une réunion",
+      "cron": null,
+      "modele": "fort",
+      "session": "persistante"
+    },
+    {
+      "template": "apres-midi",
+      "name": "Projet X · après-midi",
+      "cron": "15 14 * * 1-5",
+      "modele": "fort",
+      "session": "persistante"
+    },
+    {
+      "template": "bilan",
+      "name": "Projet X · bilan",
+      "cron": "30 17 * * 1-5",
+      "modele": "fort",
+      "session": "persistante"
+    }
+  ]
+}

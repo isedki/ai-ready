@@ -1,0 +1,231 @@
+{
+  "projet": {
+    "nom": "Phénix",
+    "description": "remplacement du billing d'inwi par EB25 ; intégrateur Atos ; recette VABF par Inetum",
+    "langue": "fr",
+    "fuseau": "Africa/Casablanca",
+    "note_heure": "Le Maroc est à GMT (UTC+0) : l'heure Gmail est l'heure locale, aucun décalage ; événements d'agenda en heure locale, heure relue après création."
+  },
+  "personnes": [
+    {
+      "name": "Issam Sedki",
+      "role": "coordinateur SI du projet Phénix (inwi)",
+      "mode": "moi",
+      "email": "issam.sedki@waroom.ma"
+    },
+    {
+      "name": "Younes Eliklil",
+      "role": "prédécesseur d'Issam sur le rôle ; ses emails font partie de l'historique",
+      "mode": "predecesseur"
+    },
+    {
+      "name": "Salah Gharmili",
+      "role": "responsable d'Issam (inwi)",
+      "mode": "manager"
+    },
+    {
+      "name": "Amine Benchekroun",
+      "role": "inwi, coordination recette et environnements",
+      "mode": "surveiller"
+    },
+    {
+      "name": "El Mehdi Yagoubi",
+      "role": "équipe d'Amine",
+      "mode": "surveiller"
+    },
+    {
+      "name": "Badr Wahby",
+      "role": "équipe d'Amine",
+      "mode": "surveiller"
+    },
+    {
+      "name": "Badr Jbari",
+      "role": "DMSI : validation des matrices de flux et des accès externes",
+      "mode": "suivre"
+    },
+    {
+      "name": "Ghizlane Akouz",
+      "role": "BearingPoint, ancienne PMO",
+      "mode": "exclu"
+    },
+    {
+      "name": "Salma Dini",
+      "role": "BillCycle",
+      "mode": "suivre",
+      "aliases": [
+        "Sourire"
+      ]
+    },
+    {
+      "name": "Salah Benkirane",
+      "role": "métier",
+      "mode": "suivre",
+      "aliases": [
+        "Salah Bikir"
+      ]
+    }
+  ],
+  "priorites": {
+    "ordre": [
+      "CreditSet (MGEN3963) : UAT, flux, déploiement, recette CreditSet",
+      "Tout blocage de la recette (Inetum)",
+      "Tout blocage de l'équipe Atos",
+      "Le reste"
+    ],
+    "validees_le": "2026-11-19",
+    "validation": "Les objectifs du jour sont proposés à Issam (liste courte, ordonnée, avec la raison) et ne deviennent actifs qu'après sa validation ; sans validation, on garde la dernière liste validée."
+  },
+  "regles": {
+    "interdits": [
+      "N'envoie rien à personne : brouillons Gmail seulement, Issam envoie depuis Apple Mail (compte waroom).",
+      "Ne supprime aucun brouillon : liste-les sous « Périmés, à supprimer par Issam ».",
+      "Aucun mot de passe ni identifiant recopié, nulle part.",
+      "Aucune URL complète dans un brouillon.",
+      "Une adresse email ne s'écrit que si elle figure dans p-annuaire ou dans l'en-tête d'un email reçu."
+    ],
+    "style": [
+      "« Salam X, », une phrase de contexte, des questions numérotées adressées à des personnes nommées, « Merci, Issam ».",
+      "Jamais « en retard », « toujours pas », « relance ».",
+      "Chaque fait est sourcé ; « pas de trace écrite » plutôt que « pas fait »."
+    ],
+    "domaines": {
+      "Atos": "atos.ai",
+      "inwi": "inwi.ma",
+      "Inetum": "inetum.com",
+      "Waroom": "waroom.ma"
+    }
+  },
+  "stockage": {
+    "suivi": "https://claude.ai/artifact/TuQrD8fCas29vz1YkzWQji",
+    "copilote": "https://claude.ai/artifact/L6NMDRuZVTAWJNNojgdmNK",
+    "qui_contacter": "https://claude.ai/artifact/ULSMj55EzN3r3XvFWykfou",
+    "tableau_de_bord": "https://claude.ai/artifact/LQKoAXKtwHMmFihg8GYpyU",
+    "registre_risques": "https://claude.ai/artifact/919tPv1i5gEYXeRhbJcmJp",
+    "fiche": "https://claude.ai/artifact/MZJ2xghjCQCKHLNLGc1vsH",
+    "drive": {
+      "a_traiter": "14pQWNP01LbmG4-8mTlpE_z9XaQ6mOdRF",
+      "traites": "1YrasV6RS3sSBJ2xEMkg_qPPcL_3Mtztn",
+      "base_de_connaissance": "1V5GcqkebFDlFWBhsL10Qemt_-I6fcvDp"
+    }
+  },
+  "index": {
+    "db": "data/copilote.sqlite",
+    "corpus": "data/corpus",
+    "gmail": "{from:waroom.ma to:waroom.ma cc:waroom.ma from:inwi.ma to:inwi.ma from:atos.ai from:atos.net from:inetum.com}",
+    "depuis": "2026-02-01"
+  },
+  "notifications": {
+    "seulement": [
+      "urgence",
+      "escalade à décider",
+      "imputation nouvelle à inwi",
+      "objectifs du jour à valider",
+      "brouillons prêts (matin, après-midi)",
+      "bilan"
+    ]
+  },
+  "taches": [
+    {
+      "template": "matin",
+      "name": "Phénix · matin (brief + emails, 8h00)",
+      "cron": "0 8 * * 1-5",
+      "modele": "fort",
+      "session": "persistante"
+    },
+    {
+      "template": "veille",
+      "name": "Phénix · veille emails et Drive",
+      "cron": "5 9-13,15,17 * * 1-5",
+      "modele": "fort",
+      "session": "persistante"
+    },
+    {
+      "template": "indexation",
+      "name": "Phénix · indexation des emails et documents",
+      "cron": "20 12,18 * * 1-5",
+      "modele": "leger",
+      "session": "nouvelle",
+      "params": {
+        "rattrapage_lot": 40
+      }
+    },
+    {
+      "template": "prepa",
+      "name": "Phénix · préparation d'une réunion (planifiée par le matin)",
+      "cron": null,
+      "modele": "fort",
+      "session": "persistante"
+    },
+    {
+      "template": "apres-midi",
+      "name": "Phénix · session emails de l'après-midi (14h15)",
+      "cron": "15 14 * * 1-5",
+      "modele": "fort",
+      "session": "persistante"
+    },
+    {
+      "template": "bilan",
+      "name": "Phénix · bilan de la journée (16h30)",
+      "cron": "30 16 * * 1-5",
+      "modele": "fort",
+      "session": "persistante"
+    },
+    {
+      "template": "tram",
+      "name": "Phénix · capsule tram (7h25)",
+      "cron": "25 7 * * 1-5",
+      "params": {
+        "moment": "matin"
+      },
+      "modele": "standard",
+      "session": "nouvelle"
+    },
+    {
+      "template": "tram",
+      "name": "Phénix · capsule tram (17h25)",
+      "cron": "25 17 * * 1-5",
+      "params": {
+        "moment": "soir"
+      },
+      "modele": "standard",
+      "session": "nouvelle"
+    },
+    {
+      "template": "weekly-it",
+      "name": "Phénix · préparation du Weekly IT (vendredi)",
+      "cron": "10 8 * * 5",
+      "modele": "fort",
+      "session": "persistante"
+    },
+    {
+      "template": "hebdo-si",
+      "name": "Phénix · point hebdomadaire SI (vendredi 16h20)",
+      "cron": "20 16 * * 5",
+      "modele": "fort",
+      "session": "persistante"
+    },
+    {
+      "template": "controle-qualite",
+      "name": "Phénix · contrôle qualité (vendredi 14h50)",
+      "cron": "50 14 * * 5",
+      "modele": "fort",
+      "session": "persistante"
+    },
+    {
+      "template": "rapport-mensuel",
+      "name": "Phénix · rapport d'activités mensuel",
+      "cron": "47 9 25 * *",
+      "params": {
+        "jours_bdc": 88
+      },
+      "modele": "standard",
+      "session": "nouvelle"
+    }
+  ],
+  "modeles": {
+    "leger": "claude-haiku-5-5",
+    "standard": "claude-sonnet-5-5",
+    "fort": "claude-opus-5-5",
+    "sous_agent_leger": "haiku"
+  }
+}
