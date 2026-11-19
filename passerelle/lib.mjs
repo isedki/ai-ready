@@ -1,0 +1,24 @@
+// Passerelle : fonctions pures (testées sans Mac).
+import { createHash } from 'node:crypto'
+
+/** Empreinte d'un brouillon : change si l'objet, les destinataires ou le texte changent. */
+export function fingerprint(d) {
+  return createHash('sha256').update(JSON.stringify([d.subject, d.to, d.cc, d.content])).digest('hex').slice(0, 16)
+}
+
+/**
+ * Brouillons à recopier : ceux du compte Gmail préparés par l'assistant (Issam en copie à son adresse
+ * waroom, c'est la règle de tous ses brouillons), pas encore recopiés dans cette version.
+ */
+export function toCopy(drafts, state, cfg) {
+  const own = cfg.adresse_waroom.toLowerCase()
+  return drafts.filter(d =>
+    d.account === cfg.compte_gmail &&
+    [...d.to, ...d.cc].map(a => a.toLowerCase()).includes(own) &&
+    state.copies[d.id] !== fingerprint(d))
+}
+
+/** Une ligne de journal lisible. */
+export function logLine(now, d, ok, why = '') {
+  return `${now.toISOString()} ${ok ? 'copié' : 'ÉCHEC'} « ${d.subject} » → ${d.to.join(', ')}${why ? ` (${why})` : ''}`
+}
