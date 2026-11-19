@@ -261,3 +261,19 @@ test('GitHub: top proposals become issues once; a public repository is refused',
     if (prevToken === undefined) delete process.env.GITHUB_TOKEN; else process.env.GITHUB_TOKEN = prevToken
   }
 })
+
+test('the scripts run from a folder whose name has a space (« observateur 2 »)', async () => {
+  const { cpSync, existsSync: exists } = await import('node:fs')
+  const { execFileSync } = await import('node:child_process')
+  const { fileURLToPath } = await import('node:url')
+  const { dirname } = await import('node:path')
+  const here = dirname(fileURLToPath(import.meta.url))
+  const root = tmp()
+  const dir = join(root, 'observateur 2')
+  cpSync(here, dir, { recursive: true })
+  const conf = join(root, 'config.json')
+  writeFileSync(conf, JSON.stringify({ dossier_donnees: join(root, 'journal'), dossier_rapports: join(root, 'rapports'), dossier_savoir: join(root, 'savoir') }))
+  const out = execFileSync(process.execPath, [join(dir, 'analyse.mjs'), 'jour', '2026-11-19', '--sans-claude', '--sans-mails'], { encoding: 'utf8', env: { ...process.env, OBSERVATEUR_CONFIG: conf } })
+  assert.match(out, /jour-2026-11-19\.md/)
+  assert.ok(exists(join(root, 'rapports', 'jour-2026-11-19.md')))
+})

@@ -19,7 +19,7 @@ import { execFileSync }                                         from 'node:child
 import { existsSync, mkdirSync, readFileSync, writeFileSync }   from 'node:fs'
 import { join }                                                 from 'node:path'
 import { askClaude }                                            from './analyse.mjs'
-import { expand, loadConfig, localDay }                         from './lib.mjs'
+import { expand, isMain, loadConfig, localDay }                         from './lib.mjs'
 import { readConstats, readDays, readNotes, readProfile, topConstats } from './savoir.mjs'
 
 const STATUTS = ['proposee', 'acceptee', 'installee', 'mesuree', 'rejetee']
@@ -238,4 +238,4 @@ async function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main().catch(e => { console.error(e.message); process.exit(1) })
+if (isMain(import.meta.url)) main().catch(e => { console.error(e.message); process.exit(1) })

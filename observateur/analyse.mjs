@@ -12,7 +12,7 @@ import { spawn, spawnSync }                                  from 'node:child_pr
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir }                                            from 'node:os'
 import { join }                                              from 'node:path'
-import { categorize, loadConfig, localDay, localTime }       from './lib.mjs'
+import { categorize, isMain, loadConfig, localDay, localTime }       from './lib.mjs'
 import { frustration, repetitions, workThreads }             from './signaux.mjs'
 import { addNote, baseline, mergeConstats, readConstats, readDays, readNotes, readProfile,
          saveConstats, saveDay, topConstats, writeProfile } from './savoir.mjs'
@@ -406,4 +406,4 @@ async function main() {
   purge(cfg)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main()
+if (isMain(import.meta.url)) main()

@@ -1,5 +1,5 @@
 // Observateur : fonctions communes au collecteur et à l'analyse (sans dépendance).
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { homedir }                  from 'node:os'
 import { dirname, join }            from 'node:path'
 import { fileURLToPath }            from 'node:url'
@@ -84,4 +84,13 @@ export function categorize(rec, cfg) {
   }
   const byApp = cfg.categories.find(c => c.apps.includes(rec.app))
   return byApp ? byApp.nom : 'Autres'
+}
+
+/**
+ * Vrai si le module est le script lancé (node chemin/analyse.mjs). Compare les chemins réels :
+ * une URL de module encode les espaces (« observateur%202 ») et les liens symboliques, pas argv.
+ */
+export function isMain(metaUrl) {
+  if (!process.argv[1]) return false
+  try { return realpathSync(fileURLToPath(metaUrl)) === realpathSync(process.argv[1]) } catch { return false }
 }
