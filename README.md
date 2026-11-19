@@ -8,6 +8,10 @@ Questions-réponses sourcées sur les documents, le suivi et les emails d'un pro
 
 Les tâches programmées de l'assistant PMO (matin, veille, préparation des réunions, bilan…), configurables par projet (`agent/projects/<projet>/config.json`), avec le Copilote comme serveur MCP (`.mcp.json`). Configuration, commandes et adaptation à un autre projet : [docs/agent.md](docs/agent.md).
 
+## Observateur (macOS)
+
+Un agent indépendant qui note sur le Mac l'application au premier plan, le titre de sa fenêtre et le domaine de l'onglet (sans capture d'écran ni frappe clavier). Il écrit chaque soir un rapport avec des conseils d'organisation, et le vendredi une synthèse de la semaine : [observateur/README.md](observateur/README.md).
+
 ## Getting Started
 
 First, run the development server:

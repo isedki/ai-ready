@@ -1,0 +1,31 @@
+{
+  "_comment": "Copier en ~/.observateur/config.json et adapter. Tout reste sur le Mac ; seul un résumé (statistiques et titres masqués) part vers Claude pour les conseils.",
+  "intervalle_secondes": 30,
+  "inactif_apres_secondes": 120,
+  "dossier_donnees": "~/.observateur/journal",
+  "dossier_rapports": "~/Documents/Observateur",
+  "conservation_jours": 30,
+  "heures_de_travail": { "debut": "08:00", "fin": "18:30", "jours": [1, 2, 3, 4, 5] },
+  "objectifs": [
+    "au moins 2 h de concentration par jour en blocs de 25 min ou plus",
+    "emails traités en 3 créneaux plutôt qu'en continu",
+    "moins de 20 changements d'application par heure"
+  ],
+  "ignorer_apps": ["loginwindow", "ScreenSaverEngine"],
+  "masquer_titre_apps": ["1Password", "Keychain Access", "Trousseau d'accès", "Bitwarden", "Banque Populaire", "CIH Mobile"],
+  "categories": [
+    { "nom": "Emails",        "apps": ["Mail", "Microsoft Outlook", "Spark"],                 "domaines": ["mail.google.com", "outlook.office.com", "zimbra"] },
+    { "nom": "Réunions",      "apps": ["Microsoft Teams", "zoom.us", "Webex", "FaceTime"],     "domaines": ["teams.microsoft.com", "meet.google.com"] },
+    { "nom": "Messagerie",    "apps": ["WhatsApp", "Messages", "Slack", "Telegram"],          "domaines": ["web.whatsapp.com"] },
+    { "nom": "Documents",     "apps": ["Microsoft Word", "Microsoft Excel", "Microsoft PowerPoint", "Pages", "Numbers", "Keynote", "Aperçu", "Preview"], "domaines": ["docs.google.com", "drive.google.com", "sharepoint.com"] },
+    { "nom": "Claude",        "apps": ["Claude"],                                             "domaines": ["claude.ai"] },
+    { "nom": "Outils projet", "apps": ["Terminal", "iTerm2", "Visual Studio Code", "Wallix"], "domaines": ["servicenow", "atlassian.net", "github.com"] },
+    { "nom": "Agenda",        "apps": ["Calendar", "Calendrier", "Fantastical"],               "domaines": ["calendar.google.com"] },
+    { "nom": "Web",           "apps": ["Safari", "Google Chrome", "Arc", "Microsoft Edge", "Firefox"], "domaines": [] }
+  ],
+  "modeles": {
+    "_comment": "Le bon modèle pour chaque étape : statistiques calculées par le code (aucun modèle), conseils du jour par un modèle standard, synthèse de la semaine par le modèle fort.",
+    "jour": "claude-sonnet-5-5",
+    "semaine": "claude-opus-5-5"
+  }
+}
