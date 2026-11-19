@@ -58,11 +58,16 @@
     },
     {
       "name": "Salah Benkirane",
-      "role": "métier",
+      "role": "responsable hiérarchique de Touria Shimi (Ingénierie des Services) : en copie quand son périmètre est engagé",
       "mode": "suivre",
       "aliases": [
         "Salah Bikir"
       ]
+    },
+    {
+      "name": "Touria Shimi",
+      "role": "Manager Ingénierie des Services (SDP/OCS, CreditSet, incohérences) ; organise les points CreditSet",
+      "mode": "suivre"
     }
   ],
   "priorites": {
