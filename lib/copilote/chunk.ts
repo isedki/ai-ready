@@ -8,7 +8,7 @@ import type { ChunkInput } from './store'
  */
 export type Section = { text: string; heading?: string | null; locator?: string | null }
 
-const TARGET  = Number(process.env.COPILOTE_CHUNK_CHARS ?? 1600)
+export const TARGET = Number(process.env.COPILOTE_CHUNK_CHARS ?? 1600)
 const OVERLAP = Number(process.env.COPILOTE_CHUNK_OVERLAP ?? 200)
 
 /** Paragraphs, but a table (consecutive lines with | or tabs) stays one unit when it fits. */

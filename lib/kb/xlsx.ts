@@ -1,9 +1,11 @@
 /**
  * Minimal .xlsx writer: text and number cells, bold frozen header row with filters, column widths.
  * Enough for listing the mailbox in Excel without adding a dependency (a zip of a few XML files).
+ * Also the zip helpers the Copilote's Excel loader uses to repair workbooks written by other tools.
  */
 import { writeFileSync } from 'node:fs'
-import { crc32, deflateRawSync } from 'node:zlib'
+import { posix } from 'node:path'
+import { crc32, deflateRawSync, inflateRawSync } from 'node:zlib'
 
 export type Cell = string | number | null | undefined
 export type Sheet = { name: string; columns: { header: string; width: number }[]; rows: Cell[][] }
@@ -36,7 +38,7 @@ function sheetXml(s: Sheet): string {
 }
 
 /** A zip archive, every entry deflated. */
-function zip(files: { name: string; data: Buffer }[]): Buffer {
+export function zip(files: { name: string; data: Buffer }[]): Buffer {
   const parts: Buffer[] = [], central: Buffer[] = []
   let offset = 0
   for (const f of files) {
@@ -57,6 +59,59 @@ function zip(files: { name: string; data: Buffer }[]): Buffer {
   end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(files.length, 8); end.writeUInt16LE(files.length, 10)
   end.writeUInt32LE(cd.length, 12); end.writeUInt32LE(offset, 16)
   return Buffer.concat([...parts, cd, end])
+}
+
+/**
+ * The entries of a zip archive, read from its central directory (stored or deflated
+ * entries; no zip64, which an .xlsx under 4 GB never needs).
+ */
+export function unzip(buf: Buffer): { name: string; data: Buffer }[] {
+  let end = buf.length - 22
+  while (end >= 0 && buf.readUInt32LE(end) !== 0x06054b50) end--
+  if (end < 0) throw new Error('Not a zip archive')
+  const count = buf.readUInt16LE(end + 10)
+  let p = buf.readUInt32LE(end + 16)
+  const files: { name: string; data: Buffer }[] = []
+  for (let i = 0; i < count; i++) {
+    if (buf.readUInt32LE(p) !== 0x02014b50) throw new Error('Corrupt zip central directory')
+    const method = buf.readUInt16LE(p + 10), size = buf.readUInt32LE(p + 20)
+    const nameLen = buf.readUInt16LE(p + 28), extraLen = buf.readUInt16LE(p + 30), commentLen = buf.readUInt16LE(p + 32)
+    const local = buf.readUInt32LE(p + 42)
+    const name = buf.subarray(p + 46, p + 46 + nameLen).toString('utf8')
+    // Sizes come from the central directory: local headers may defer them to a data descriptor.
+    const start = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28)
+    const raw = buf.subarray(start, start + size)
+    if (method !== 0 && method !== 8) throw new Error(`Unsupported zip compression ${method} for ${name}`)
+    if (!name.endsWith('/')) files.push({ name, data: method === 8 ? inflateRawSync(raw) : Buffer.from(raw) })
+    p += 46 + nameLen + extraLen + commentLen
+  }
+  return files
+}
+
+/**
+ * Rewrite absolute relationship targets ("/xl/tables/table1.xml", as openpyxl writes them)
+ * relative to the part that owns the .rels file ("../tables/table1.xml", as Excel writes
+ * them). exceljs only resolves the relative form: an absolute table target makes it throw
+ * "Cannot read properties of undefined (reading 'name')". Returns null when nothing changed.
+ */
+export function relativizeRels(buf: Buffer): Buffer | null {
+  let changed = false
+  const files = unzip(buf).map(f => {
+    // "xl/worksheets/_rels/sheet1.xml.rels" belongs to "xl/worksheets/sheet1.xml": targets are relative to "xl/worksheets".
+    const m = f.name.match(/^(?:(.*)\/)?_rels\/[^/]+\.rels$/)
+    if (!m) return f
+    const base = m[1] ?? ''
+    const xml = f.data.toString('utf8')
+    const fixed = xml.replace(/<Relationship\b[^>]*>/g, rel => {
+      if (/\bTargetMode="External"/.test(rel)) return rel
+      return rel.replace(/\bTarget="\/([^"]*)"/, (_m, target: string) => {
+        changed = true
+        return `Target="${posix.relative(base, target) || target}"`
+      })
+    })
+    return fixed === xml ? f : { name: f.name, data: Buffer.from(fixed, 'utf8') }
+  })
+  return changed ? zip(files) : null
 }
 
 export function writeXlsx(path: string, sheets: Sheet[]) {
