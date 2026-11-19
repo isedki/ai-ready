@@ -163,6 +163,10 @@
       "relance"
     ]
   },
+  "conversations": {
+    "dossier": "auto",
+    "_comment": "Résumé quotidien de tes conversations avec l'assistant Claude (AAAA-MM-JJ.json). auto = dossier Drive « Observateur · conversations » synchronisé par Google Drive pour ordinateur, sinon ~/.observateur/conversations."
+  },
   "ralentissement": {
     "_comment": "Fenêtres de 15 min où l'activité tombe sous ce seuil (part des échantillons actifs), hors réunions.",
     "fenetre_minutes": 15,

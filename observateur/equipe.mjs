@@ -20,7 +20,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync }   from 'node:fs'
 import { join }                                                 from 'node:path'
 import { askClaude }                                            from './analyse.mjs'
 import { expand, isMain, loadConfig, localDay }                         from './lib.mjs'
-import { readConstats, readDays, readNotes, readProfile, topConstats } from './savoir.mjs'
+import { readConstats, readConversations, readDays, readNotes, readProfile, topConstats } from './savoir.mjs'
 
 const STATUTS = ['proposee', 'acceptee', 'installee', 'mesuree', 'rejetee']
 const str = { type: 'string' }
@@ -186,6 +186,8 @@ async function team(cfg) {
     jours: readDays(cfg).slice(-10),
     constats: topConstats(readConstats(cfg), 60),
     notes: readNotes(cfg, localDay(new Date(Date.now() - 30 * 86_400_000))),
+    // Conversations avec l'assistant Claude : une grande part du travail s'y passe (tâches, frictions).
+    conversations: readConversations(cfg, localDay(new Date(Date.now() - 14 * 86_400_000)), day),
     portrait: readProfile(cfg),
     frictions_connues: Object.values(backlog).map(o => ({ id: o.id, titre: o.titre, statut: o.statut })),
   }

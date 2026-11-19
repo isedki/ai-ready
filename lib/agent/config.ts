@@ -67,6 +67,7 @@ export const AgentConfig = z.object({
     registre_risques: z.string().url().optional(),
     fiche:      z.string().url().optional(),
     drive: z.object({
+      conversations_observateur: z.string().optional(),
       a_traiter: z.string().optional(),
       traites:   z.string().optional(),
       base_de_connaissance: z.string().optional(),

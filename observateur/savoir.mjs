@@ -5,8 +5,12 @@
 //                   de mail et de tes erreurs, avec le nombre de fois où c'est revenu et des preuves
 //   notes.jsonl     ce que tu lui dis toi-même (« j'étais fatigué », « Teams a planté ») : fait foi
 //   profil.md       le portrait écrit chaque vendredi à partir de tout cela
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+//   conversations/  ce que l'assistant (Claude) a retenu de vos échanges du jour : tâches, priorités,
+//                   préférences, corrections, frictions (déposé chaque soir dans Drive)
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { homedir }                                                        from 'node:os'
 import { join }                                                           from 'node:path'
+import { expand }                                                         from './lib.mjs'
 
 const file = (cfg, name) => { mkdirSync(cfg.dossier_savoir, { recursive: true, mode: 0o700 }); return join(cfg.dossier_savoir, name) }
 const lines = f => (existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).flatMap(l => { try { return [JSON.parse(l)] } catch { return [] } }) : [])
@@ -91,3 +95,40 @@ export function baseline(days, weekday) {
 
 export function writeProfile(cfg, md) { writeFileSync(file(cfg, 'profil.md'), md + '\n', { mode: 0o600 }) }
 export function readProfile(cfg) { const f = file(cfg, 'profil.md'); return existsSync(f) ? readFileSync(f, 'utf8') : '' }
+
+/**
+ * Dossier où l'assistant dépose chaque soir le résumé de vos conversations (AAAA-MM-JJ.json).
+ * « auto » : le dossier Drive « Observateur · conversations » synchronisé par Google Drive pour
+ * ordinateur, sinon ~/.observateur/conversations (fichier déposé à la main).
+ */
+export function conversationsDir(cfg, home = homedir()) {
+  const want = cfg.conversations?.dossier ?? 'auto'
+  if (want !== 'auto') return expand(want)
+  const cloud = join(home, 'Library', 'CloudStorage')
+  if (existsSync(cloud)) {
+    for (const d of readdirSync(cloud).filter(n => n.startsWith('GoogleDrive-'))) {
+      for (const sub of ['My Drive', 'Mon Drive']) {
+        const p = join(cloud, d, sub, 'Observateur · conversations')
+        if (existsSync(p)) return p
+      }
+    }
+  }
+  return join(home, '.observateur', 'conversations')
+}
+
+/**
+ * Résumés de conversation des jours [from, to] (AAAA-MM-JJ). Chaque fichier trouvé est copié dans le
+ * savoir (conversations/), qui reste la source si Drive n'est plus disponible : le savoir s'accumule.
+ */
+export function readConversations(cfg, from, to = from, dir = conversationsDir(cfg)) {
+  const kept = join(cfg.dossier_savoir, 'conversations')
+  mkdirSync(kept, { recursive: true, mode: 0o700 })
+  if (existsSync(dir)) {
+    for (const f of readdirSync(dir).filter(n => /^\d{4}-\d{2}-\d{2}\.json$/.test(n))) {
+      const day = f.slice(0, 10)
+      if (day >= from && day <= to) copyFileSync(join(dir, f), join(kept, f))
+    }
+  }
+  return readdirSync(kept).filter(n => /^\d{4}-\d{2}-\d{2}\.json$/.test(n) && n.slice(0, 10) >= from && n.slice(0, 10) <= to).sort()
+    .flatMap(f => { try { return [JSON.parse(readFileSync(join(kept, f), 'utf8'))] } catch { return [] } })
+}

@@ -37,7 +37,7 @@ export function context(cfg: AgentConfig, task?: AgentConfig['taches'][number]):
     stockage: {
       qui_contacter: NC, tableau_de_bord: NC, registre_risques: NC, fiche: NC,
       ...cfg.stockage,
-      drive: { a_traiter: NC, traites: NC, base_de_connaissance: NC, ...cfg.stockage.drive },
+      drive: { a_traiter: NC, traites: NC, base_de_connaissance: NC, conversations_observateur: NC, ...cfg.stockage.drive },
     },
     index:    { depuis: 'le début', ...cfg.index },
     task:     { name: task?.name ?? '', modele: task?.modele ?? 'fort', session: task?.session ?? 'persistante', ...(task?.params ?? {}) },
