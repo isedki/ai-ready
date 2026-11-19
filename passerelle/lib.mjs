@@ -27,8 +27,13 @@ export function logLine(now, d, ok, why = '') {
 export function parseDrafts(text, account) {
   if (text.startsWith('ERREUR\x1f')) return { erreur: `Dossier Brouillons introuvable dans ${account} : ${text.slice(7)}` }
   const split = s => s.split(',').map(x => x.trim()).filter(Boolean)
-  return text.split('\x1e').filter(r => r.includes('\x1f')).map(r => {
+  const records = text.split('\x1e').filter(r => r.includes('\x1f'))
+  const head = records[0]?.startsWith('COMPTE\x1f') ? records.shift() : null
+  const list = records.map(r => {
     const [id, subject, to, cc, ...content] = r.split('\x1f')
     return { id: id.trim(), account, subject, to: split(to), cc: split(cc), content: content.join('\x1f') }
   })
+  // Nombre de brouillons récents vus par Mail, avant le filtre sur l'adresse waroom (diagnostic).
+  list.recent = head ? Number(head.split('\x1f')[1]) : list.length
+  return list
 }

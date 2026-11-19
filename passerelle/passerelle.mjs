@@ -25,10 +25,14 @@ const ACCOUNTS = `function run(){const M=Application('Mail');return JSON.stringi
 // Brouillons récents du seul compte Gmail, en AppleScript : « with timeout » lève la limite de 2 min
 // des événements Apple, et le filtre « whose » (date, adresse waroom) est appliqué par Mail lui-même.
 // Champs séparés par ASCII 31, brouillons par ASCII 30, adresses par des virgules.
-const DRAFTS_AS = (account, own, days) => `
+const DRAFTS_AS = (account, own, days, wait) => `
 with timeout of 600 seconds
   tell application "Mail"
     set acc to account "${account.replace(/"/g, '\\"')}"
+    try
+      synchronize with account "${account.replace(/"/g, '\\"')}"
+    end try
+    delay ${wait}
     set theBox to missing value
     repeat with b in (mailboxes of acc)
       set boxName to name of b
@@ -46,7 +50,7 @@ with timeout of 600 seconds
     end if
     set limitDate to (current date) - (${days} * days)
     set theMsgs to (messages of theBox whose date received > limitDate)
-    set theOut to ""
+    set theOut to "COMPTE" & (character id 31) & ((count of theMsgs) as string) & (character id 30)
     repeat with m in theMsgs
       set tos to ""
       repeat with r in (to recipients of m)
@@ -83,13 +87,14 @@ function main() {
   }
   writeFileSync(CFG_FILE, JSON.stringify(cfg, null, 2))
 
-  const raw = execFileSync('osascript', ['-e', DRAFTS_AS(cfg.compte_gmail, cfg.adresse_waroom.toLowerCase(), cfg.jours ?? 1)],
+  const raw = execFileSync('osascript', ['-e', DRAFTS_AS(cfg.compte_gmail, cfg.adresse_waroom.toLowerCase(), cfg.jours ?? 1, process.argv.includes('--essai') ? 30 : 5)],
     { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 660_000 })
   const drafts = parseDrafts(raw.replace(/\n$/, ''), cfg.compte_gmail)
   if (drafts.erreur) { console.error(drafts.erreur); process.exit(1) }
+  const recent = drafts.recent
   const todo = toCopy(drafts, state, cfg)
   if (process.argv.includes('--essai')) {
-    console.log(`${todo.length} brouillon(s) à recopier :`); todo.forEach(d => console.log(`  « ${d.subject} » → ${d.to.join(', ')}`)); return
+    console.log(`${recent} brouillon(s) Gmail des dernières 24 h vus par Apple Mail ; ${todo.length} à recopier (préparés par l'assistant) :`); todo.forEach(d => console.log(`  « ${d.subject} » → ${d.to.join(', ')}`)); return
   }
   for (const d of todo) {
     try {

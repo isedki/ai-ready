@@ -22,7 +22,14 @@ test('journal lisible', () => {
 
 test('lit la sortie AppleScript (séparateurs ASCII 30/31)', () => {
   const out = 'id1\x1fSujet\x1fa@inwi.ma,\x1fissam.sedki@waroom.ma,\x1fLigne 1\nLigne 2\x1e'
-  assert.deepEqual(parseDrafts(out, 'Google'), [{ id: 'id1', account: 'Google', subject: 'Sujet', to: ['a@inwi.ma'], cc: ['issam.sedki@waroom.ma'], content: 'Ligne 1\nLigne 2' }])
+  assert.deepEqual([...parseDrafts(out, 'Google')], [{ id: 'id1', account: 'Google', subject: 'Sujet', to: ['a@inwi.ma'], cc: ['issam.sedki@waroom.ma'], content: 'Ligne 1\nLigne 2' }])
   assert.match(parseDrafts('ERREUR\x1fINBOX, Sent, ', 'Google').erreur, /introuvable dans Google : INBOX/)
-  assert.deepEqual(parseDrafts('', 'Google'), [])
+  assert.deepEqual([...parseDrafts('', 'Google')], [])
+})
+
+test('lit le compteur de brouillons récents placé en tête', () => {
+  const got = parseDrafts('COMPTE\x1f7\x1eid1\x1fS\x1fa@inwi.ma,\x1fissam.sedki@waroom.ma,\x1fT\x1e', 'Google')
+  assert.equal(got.recent, 7)
+  assert.equal(got.length, 1)
+  assert.equal(parseDrafts('COMPTE\x1f0\x1e', 'Google').recent, 0)
 })
