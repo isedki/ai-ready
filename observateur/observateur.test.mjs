@@ -159,3 +159,105 @@ test('the journal is read line by line, broken lines skipped', () => {
   assert.equal(readDay(dir, '2026-11-19').length, 1)
   assert.deepEqual(readDay(dir, '2026-11-18'), [])
 })
+
+// ── Observation continue et équipe d'agents ─────────────────────────────────────────────────────
+import { effect, issueBody, mergeBacklog, setStatus } from './equipe.mjs'
+import { eveningQuestion, frustration, repetitions, topicKeys, workThreads } from './signaux.mjs'
+
+test('topics come from references first, then meaningful words', () => {
+  assert.deepEqual(topicKeys('RE: CreditSet flux A-043 · Outlook').slice(0, 3), ['A-043', 'creditset', 'flux'])
+  assert.deepEqual(topicKeys('Microsoft Teams'), [])
+})
+
+test('work threads: time, restarts and tools per file', () => {
+  const recs = day([['Microsoft Excel', 'Matrice CreditSet v5', 20], ['Mail', 'RE: CreditSet flux', 10], ['Microsoft Excel', 'Matrice CreditSet v5', 10], ['Mail', 'RE: Wallix PROD', 10]])
+  const t = workThreads(recs, cfg)
+  assert.equal(t[0].sujet, 'creditset')
+  assert.equal(t[0].minutes, 40)
+  assert.equal(t[0].reprises, 1)
+  assert.deepEqual(t[0].apps.sort(), ['Mail', 'Microsoft Excel'])
+  assert.ok(t.some(x => x.sujet === 'wallix' && x.minutes === 10))
+})
+
+test('repeated three-app sequences are found', () => {
+  const seq = []
+  for (let i = 0; i < 5; i++) seq.push(['Microsoft Excel', 'x', 1], ['Mail', 'y', 1], ['Microsoft Teams', 'z', 1])
+  const r = repetitions(day(seq))
+  assert.equal(r[0].enchainement, 'Microsoft Excel → Mail → Microsoft Teams')
+  assert.ok(r[0].fois >= 4)
+})
+
+test('frustration: back-and-forth, reopening, stop after a crash', () => {
+  const toggles = []
+  for (let i = 0; i < 5; i++) toggles.push(['Mail', 'RE: accès', 0.5], ['WhatsApp', 'Hicham', 0.5])
+  const f1 = frustration(day([['Microsoft Word', 'x', 5], ...toggles]), cfg)
+  assert.ok(f1.some(f => f.type === 'va-et-vient' && /Mail ↔ WhatsApp|WhatsApp ↔ Mail/.test(f.detail)))
+  const reopen = []
+  for (let i = 0; i < 5; i++) reopen.push(['Microsoft Excel', 'Matrice v5', 1], ['Mail', 'autre', 1])
+  assert.ok(frustration(day(reopen), cfg).some(f => f.type === 'réouverture'))
+  const crash = frustration(day([['Microsoft Excel', 'x', 1, false, { plantages: ['Microsoft Excel'] }], ['Microsoft Excel', '', 8, true]]), cfg)
+  assert.equal(crash.length, 1, 'one crash on two nearby samples counts once')
+  assert.equal(crash[0].type, 'arrêt après plantage')
+})
+
+test('the evening question is short and about the most notable moment', () => {
+  assert.match(eveningQuestion({ frictions: [{ type: 'arrêt après plantage', heure: '14:20', detail: 'Microsoft Excel a planté, 8 min d\'inactivité ensuite' }] }), /^À 14:20 : Microsoft Excel a planté.*Qu'est-ce qui se passait \?$/)
+  assert.match(eveningQuestion({ slowdowns: [{ debut: '15:00', fin: '15:30', cause_regle: 'fatigue', signaux: { activite_pct: 20, sujet_principal: 'DAT' } }] }), /Entre 15:00 et 15:30.*20 %.*« DAT ».*Pourquoi \?/)
+  assert.match(eveningQuestion({}), /ralenti ou agacé/)
+})
+
+test('backlog: proposals keep their status, weekly measures close the loop', () => {
+  const crit = { opportunites: [{ friction_id: 'attente-acces', titre: 'Attente des accès', nature: 'outil_existant', recommandation: 'Règle Outlook + suivi', gain_minutes_semaine: 60,
+    effort: 'heure', cout: 'gratuit', score: 6, confidentialite_ok: true, remarque: '' }], top: ['attente-acces'] }
+  let b = mergeBacklog({}, crit, [{ id: 'attente-acces', minutes_perdues_semaine: 120 }], '2026-11-20')
+  assert.equal(b['attente-acces'].statut, 'proposee'); assert.equal(b['attente-acces'].mesure_depart, 120); assert.equal(b['attente-acces'].top, true)
+  b = setStatus(b, 'attente-acces', 'installee', 'règle créée', '2026-11-21')
+  b = mergeBacklog(b, crit, [{ id: 'attente-acces', minutes_perdues_semaine: 40 }], '2026-11-27')
+  assert.equal(b['attente-acces'].statut, 'installee', 'status kept')
+  assert.deepEqual(effect(b['attente-acces']), { avant: 120, apres: 40, gain: 80, semaines: 1 })
+  assert.throws(() => setStatus(b, 'inconnue', 'acceptee'), /inconnue/)
+  assert.throws(() => setStatus(b, 'attente-acces', 'fait'), /Statut inconnu/)
+})
+
+test('issues carry an anonymised summary and the spec, never raw titles', () => {
+  const o = { id: 'x', titre: 'Pièces jointes oubliées', nature: 'add_on', gain_minutes_semaine: 15, effort: 'jour', cout: 'gratuit', mesure_depart: 20, proposee_le: '2026-11-20', recommandation: 'Vérifier avant envoi', remarque: '' }
+  const body = issueBody(o, '# Spec\n\nProblème…')
+  assert.match(body, /add-on à développer/)
+  assert.match(body, /### Spécification/)
+  assert.match(body, /observateur-id: x$/)
+})
+
+test('GitHub: top proposals become issues once; a public repository is refused', async () => {
+  const { publish } = await import('./equipe.mjs')
+  const specs = tmp()
+  const calls = []
+  const realFetch = globalThis.fetch
+  const prevToken = process.env.GITHUB_TOKEN
+  process.env.GITHUB_TOKEN = 'test'
+  const make = isPrivate => async (url, init = {}) => {
+    calls.push({ url, method: init.method ?? 'GET', body: init.body })
+    if (!init.method) return { ok: true, json: async () => ({ full_name: 'o/r', private: isPrivate }) }
+    return { ok: true, json: async () => ({ html_url: `https://github.com/o/r/issues/${calls.length}` }) }
+  }
+  const c = { ...cfg, equipe: { ...cfg.equipe, github: { publier: true, depot: 'o/r', label: 'observateur', depot_public_autorise: false } } }
+  const backlog = () => ({
+    a: { id: 'a', titre: 'A', nature: 'add_on', top: true, statut: 'proposee', confidentialite_ok: true, gain_minutes_semaine: 1, effort: 'jour', cout: '0', recommandation: 'r', issue: null },
+    b: { id: 'b', titre: 'B', nature: 'outil_existant', top: false, statut: 'proposee', confidentialite_ok: true, issue: null },
+    c: { id: 'c', titre: 'C', nature: 'add_on', top: true, statut: 'proposee', confidentialite_ok: false, issue: null },
+  })
+  try {
+    globalThis.fetch = make(true)
+    const b = backlog()
+    assert.deepEqual(await publish(c, b, specs), { publiees: 1 })
+    assert.match(b.a.issue, /issues\/2$/)
+    assert.equal(b.b.issue, null); assert.equal(b.c.issue, null, 'privacy flag blocks publication')
+    assert.deepEqual(JSON.parse(calls[1].body).labels, ['observateur', 'add-on'])
+    assert.deepEqual(await publish(c, b, specs), { publiees: 0 }, 'already published')
+    globalThis.fetch = make(false)
+    const r = await publish(c, backlog(), specs)
+    assert.equal(r.publiees, 0); assert.match(r.raison, /public/)
+  } finally {
+    globalThis.fetch = realFetch
+    if (prevToken === undefined) delete process.env.GITHUB_TOKEN; else process.env.GITHUB_TOKEN = prevToken
+  }
+})

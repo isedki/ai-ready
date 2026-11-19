@@ -167,5 +167,33 @@
     "_comment": "Fenêtres de 15 min où l'activité tombe sous ce seuil (part des échantillons actifs), hors réunions.",
     "fenetre_minutes": 15,
     "seuil_activite": 0.5
+  },
+  "question": {
+    "_comment": "Question du soir, choisie par le code sur le moment le plus marquant de la journée ; la réponse devient une note.",
+    "actif": true,
+    "heure": "18:25"
+  },
+  "equipe": {
+    "_comment": "Équipe d'agents du vendredi : analyste processus, analyste frictions, chercheur d'outils, architecte add-on, critique.",
+    "dossier": "~/.observateur/equipe",
+    "profil": "~/.observateur/profil.json",
+    "seuil_minutes_semaine": 30,
+    "max_frictions": 8,
+    "recherche_web": true,
+    "preference_cout": "gratuit ou faible coût d'abord ; tout coût de licence est chiffré et signalé",
+    "modeles": {
+      "processus": "claude-sonnet-5-5",
+      "frictions": "claude-sonnet-5-5",
+      "chercheur": "claude-sonnet-5-5",
+      "architecte": "claude-opus-5-5",
+      "critique": "claude-opus-5-5"
+    },
+    "github": {
+      "publier": true,
+      "depot": "isedki/ai-ready",
+      "label": "observateur",
+      "depot_public_autorise": false,
+      "_comment": "Jeton : variable GITHUB_TOKEN, sinon « gh auth token ». Seules les synthèses anonymisées partent ; sans réseau, la publication est retentée au passage suivant (node observateur/equipe.mjs publier)."
+    }
   }
 }

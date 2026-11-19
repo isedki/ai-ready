@@ -1,133 +1,154 @@
 # Observateur
 
-Un agent indépendant de l'agent PMO. Il observe comment tu travailles sur ton Mac et **accumule ce qu'il comprend** de toi, jour après jour :
-- ton **rythme** : début, fin, temps devant le PC, concentration, dispersion, creux ;
-- **quand tu ralentis, et pourquoi** : plantage, réseau, tâche difficile, manque de visibilité, fatigue, interruption, pause ;
-- ton **environnement** : applications qui plantent, réseau coupé, redémarrages, réunions ;
-- ton **style de mail** et les **erreurs** que tu fais : pièce jointe oubliée, pas en copie, sans salutation, fautes, demande sans échéance…
+Un agent indépendant de l'agent PMO, qui fonctionne comme un **audit continu du travail d'une personne dans un rôle donné**. Il suit son travail au quotidien, comme un *gemba walk*, pour comprendre :
+- comment elle travaille ;
+- ce qu'elle fait bien ;
+- ce qui la bloque : lenteurs, frustrations, répétitions, erreurs.
 
-Ce qu'il écrit :
-- **chaque soir à 18h35** (lundi au vendredi) : `jour-AAAA-MM-JJ.md` dans `~/Documents/Observateur`, avec ton rythme comparé à tes habitudes, les ralentissements expliqués, ton environnement, tes mails, ce qu'il a appris ou confirmé, et 3 conseils ;
-- **le vendredi à 18h45** : `semaine-AAAA-MM-JJ.md` et ton **portrait de travail** réécrit (`~/.observateur/savoir/profil.md`).
+Il confie ensuite ce qu'il a compris à une **équipe d'agents**. Cette équipe propose des outils qui existent déjà, ou écrit la spec d'un **add-on** à développer. Ces propositions sont publiées sur GitHub. Une fois installées, leur effet est mesuré.
 
-## Le savoir est cumulable
+```
+observer (Mac, toutes les 30 s)  →  comprendre (chaque soir)  →  proposer (le vendredi)  →  installer  →  mesurer
+                ↑                                                                                        │
+                └───────────────────────── la friction d'origine est suivie semaine après semaine ────────┘
+```
 
-Le journal brut (ce qui est noté toutes les 30 s) et les mails sont effacés après 30 jours. Ce qui en a été appris est gardé et s'enrichit dans `~/.observateur/savoir` :
+Le but est d'outiller la personne, jamais de l'évaluer.
+
+## 1. La fiche d'audit
+
+`~/.observateur/profil.json` (modèle : `profil.example.json`) décrit le rôle observé :
+- missions, livrables et outils attendus ;
+- interlocuteurs et contraintes (poste d'entreprise, validation par la DSI) ;
+- ce que la personne veut améliorer.
+
+Elle dit aux agents ce qui est normal pour ce rôle. Trois heures d'emails peuvent être le cœur du métier ou une perte de temps : c'est la fiche qui permet de trancher.
+
+## 2. L'observation continue
+
+**Toutes les 30 secondes**, le collecteur note :
+- l'application au premier plan ;
+- le titre de sa fenêtre ;
+- le domaine de l'onglet s'il s'agit d'un navigateur ;
+- les secondes depuis la dernière action ;
+- les plantages d'applications, une coupure réseau, un redémarrage.
+
+Il ne fait pas de capture d'écran, n'enregistre pas la frappe et ne lit pas le contenu des documents.
+
+**Chaque soir :**
+- **18h25 · la question du soir.** Une seule question, courte et précise, dans une fenêtre macOS, sur le moment le plus marquant de la journée. Par exemple : « À 14:20 : Microsoft Excel a planté, 8 min d'inactivité ensuite. Qu'est-ce qui se passait ? ». Ta réponse devient une note, qui fait foi.
+- **18h35 · le rapport du jour**, `jour-AAAA-MM-JJ.md` :
+  - ton rythme comparé à tes habitudes ;
+  - les ralentissements et leur cause probable ;
+  - ton environnement ;
+  - tes **fils de travail** : temps, reprises et outils par dossier (CreditSet, A-043…) ;
+  - les **signes de frustration** : va-et-vient entre deux applications, même fenêtre reprise en boucle, arrêt après un plantage ;
+  - les **enchaînements répétés** (Excel → Mail → Teams…) ;
+  - tes mails envoyés : style et erreurs ;
+  - ce qu'il a appris ;
+  - 3 conseils.
+- **Le vendredi à 18h45 :** ton portrait de travail est réécrit.
+
+Le **savoir s'accumule** dans `~/.observateur/savoir` :
 
 | Fichier | Contenu |
 |---|---|
-| `jours.jsonl` | un résumé par jour : début, fin, temps devant le PC, concentration, dispersion, ralentissements et leur cause, plantages, mails |
-| `constats.json` | ce que l'agent a compris de toi (comportement, environnement, style de mail, erreurs de mail), avec le nombre de fois où c'est revenu, la première et la dernière date, et des preuves |
-| `notes.jsonl` | ce que tu lui dis toi-même ; ça l'emporte sur ses déductions |
-| `profil.md` | ton portrait, réécrit chaque vendredi à partir de tout cela |
+| `jours.jsonl` | un résumé par jour |
+| `constats.json` | ce qui est compris, avec le nombre de fois où c'est revenu et des preuves |
+| `notes.jsonl` | tes notes, qui l'emportent sur les déductions |
+| `profil.md` | ton portrait |
 
-Chaque soir, tes repères habituels (médianes des 20 derniers jours, et du même jour de la semaine) servent à dire si la journée est normale. Un constat qui revient gagne une occurrence : ce qui est solide se distingue de ce qui est une hypothèse.
+Le journal brut est effacé après 30 jours ; ce savoir est gardé.
 
-**Pour lui apprendre**, quand tu sais pourquoi tu as ralenti ou qu'il s'est trompé :
+## 3. L'équipe d'agents (vendredi 18h55)
+
+| Agent | Rôle | Modèle |
+|---|---|---|
+| Analyste processus | reconstitue les fils de travail de la semaine et les gaspillages (attente, dispersion, retravail, double saisie, recherche d'information, interruptions, outil défaillant), avec preuves et temps par semaine | Sonnet |
+| Analyste frictions | liste les frictions (lenteur, frustration, répétition, erreur, attente, dispersion, outil) avec leur cause, leur fréquence et le temps perdu ; garde le même identifiant d'une semaine à l'autre | Sonnet |
+| Chercheur d'outils | cherche d'abord ce qui existe : réglage, raccourci ou automatisation macOS, règle Mail ou Outlook, application, extension, skill ou agent Claude, l'agent PMO, une méthode. Recherche web pour vérifier l'existence, le **prix et la licence** ; gratuit ou faible coût d'abord ; marque ce que la DSI doit valider | Sonnet + recherche web |
+| Architecte add-on | quand rien n'existe, écrit la spec : problème chiffré, scénario d'usage, fonctionnement, données et confidentialité, intégration, effort, **critère de succès mesurable par l'Observateur**, risques | Opus |
+| Critique | classe par gain, effort et coût, écarte ce qui n'est pas réaliste ou risqué pour la confidentialité, choisit le top 5 | Opus |
+
+Seules les frictions de 30 minutes perdues par semaine ou plus sont traitées, ainsi que toutes les erreurs. Le seuil se règle dans `config.json`.
+
+Ce que l'équipe produit :
+- `~/Documents/Observateur/equipe-AAAA-MM-JJ.md` ;
+- le backlog `~/.observateur/equipe/opportunites.json` ;
+- les specs dans `~/.observateur/equipe/specs/` ;
+- une **issue GitHub** par opportunité du top 5.
+
+### Le cycle de vie d'une opportunité
+
+| Statut | Signification |
+|---|---|
+| `proposee` | publiée, avec la mesure de départ de sa friction (minutes perdues par semaine) |
+| `acceptee` | tu veux l'essayer |
+| `installee` | à partir de là, chaque vendredi mesure à nouveau la friction : le rapport affiche **avant → après** |
+| `rejetee` | écartée |
 
 ```bash
-node observateur/analyse.mjs note "14h30 : Teams a planté pendant la réunion"
-node observateur/analyse.mjs note "mardi : fatigué, nuit courte"
-node observateur/analyse.mjs note "ce n'était pas un manque de visibilité, j'attendais Hicham au téléphone"
+node observateur/equipe.mjs liste
+node observateur/equipe.mjs statut attente-acces installee "règle Mail créée"
+node observateur/equipe.mjs semaine        # relancer l'équipe à la main
+node observateur/equipe.mjs publier        # republier ce qui n'a pas pu l'être
 ```
 
-## Comment il explique un ralentissement
+### Publication sur GitHub
 
-Le code repère les quarts d'heure où ton activité tombe sous 50 % (hors réunions). Pour chacun, il relève les signaux :
-- un plantage ou un redémarrage à moins de 10 minutes ;
-- une coupure réseau ;
-- le Mac en veille ;
-- des changements d'application nombreux entre emails et messagerie ;
-- un même sujet ouvert depuis longtemps ;
-- l'heure et le temps écoulé depuis le début de la journée.
+- **Jeton :** `gh auth login`, ou la variable `GITHUB_TOKEN`.
+- **Dépôt :** `equipe.github.depot` dans la config (par défaut `isedki/ai-ready`), label `observateur`.
+- **Dépôt public :** la publication est **refusée** si le dépôt est public, sauf si tu l'autorises (`depot_public_autorise`).
+- **Contenu d'une issue :** seulement une synthèse anonymisée (friction, gain, effort, coût, mesure de départ, recommandation, spec). Jamais de titres de fenêtres, de mails ni de noms.
+- **Si GitHub est injoignable** (réseau de l'entreprise), rien n'est perdu : la publication est retentée au passage suivant, ou avec `equipe.mjs publier` depuis un autre réseau.
 
-Il en tire une première hypothèse par règle :
+## Ce qui part, et où
 
-| Signal dominant | Hypothèse |
-|---|---|
-| plantage ou redémarrage | plantage |
-| réseau coupé | réseau |
-| Mac en veille, rien d'actif | pause |
-| va-et-vient emails et messagerie | manque de visibilité |
-| longtemps sur le même sujet | tâche difficile |
-| tard, ou creux d'après-déjeuner | fatigue |
+| Donnée | Reste sur le Mac | Part vers Claude (ta commande `claude`) | Part vers GitHub |
+|---|---|---|---|
+| Journal (apps, titres masqués, inactivité, environnement) | oui, 30 jours | en résumé statistique | non |
+| Mails envoyés (texte masqué) | oui, 30 jours | 15 au plus par jour, pour le style et les erreurs | non |
+| Savoir, notes, fiche d'audit | oui | oui | non |
+| Frictions et opportunités | oui | oui | synthèse anonymisée du top 5 |
+| Recherche web du chercheur d'outils | — | description générique de la friction | — |
 
-Claude confirme ou corrige chaque hypothèse avec tes habitudes et tes notes, et donne un niveau de confiance.
+`--sans-claude` et `--sans-mails` sur l'analyse du jour ; `"recherche_web": false` et `"publier": false` dans `equipe`.
 
-## Ce qu'il regarde, et ce qu'il ne regarde pas
+Pour observer quelqu'un d'autre que toi : consentement explicite, et validation de la DSI et de la CNDP avant de commencer.
 
-**Toutes les 30 secondes**, il note :
-- l'application au premier plan ;
-- le titre de sa fenêtre ;
-- le **domaine** de l'onglet si c'est un navigateur ;
-- les secondes depuis ta dernière action clavier ou souris ;
-- les plantages d'applications (rapports macOS de `~/Library/Logs/DiagnosticReports`) ;
-- une coupure réseau, un redémarrage du Mac.
+## Installation sur macOS
 
-**Chaque soir**, il lit dans Apple Mail les messages **envoyés** du jour : objet, heure, nombre et domaines des destinataires, pièces jointes, et ton texte sans l'historique cité.
-
-Il ne fait **pas** de capture d'écran, n'enregistre **pas** la frappe clavier, et ne lit **pas** le contenu des documents ni les mails reçus.
-
-**Ce qui est retiré ou caché :**
-- dans les titres et les mails, les adresses email, les numéros, les IP, les liens et les jetons sont retirés avant tout enregistrement ;
-- les gestionnaires de mots de passe et la banque n'ont aucun titre enregistré.
-
-**Ce qui part vers Claude**, par ta propre commande `claude` (ton abonnement) :
-- les mesures du jour ;
-- le texte masqué de 15 mails envoyés au plus ;
-- tes constats et tes notes.
-
-Avec `--sans-claude`, rien ne part. Avec `--sans-mails`, Apple Mail n'est pas lu. `"mails": {"actif": false}` coupe la lecture des mails pour de bon.
-
-**Avant de l'utiliser sur un poste ou des données d'inwi**, vérifie que c'est compatible avec la politique de la DSI : les titres et tes mails citent des sujets du projet.
-
-## Le bon modèle pour chaque étape
-
-| Étape | Qui |
-|---|---|
-| Collecte, masquage, statistiques, repères, ralentissements candidats et leurs signaux, contrôles des mails | le code, sans modèle |
-| Explications, constats du jour, style et erreurs de mail, conseils | `claude-sonnet-5-5` |
-| Portrait de la semaine | `claude-opus-5-5` |
-
-## Installation (une fois)
-
-Il faut **Node.js 20 ou plus récent**, et **Claude Code** connecté à ton compte (la commande `claude`) pour les explications et le savoir. Sans Claude Code, les rapports n'ont que les mesures et les hypothèses par règle.
+Il faut **Node.js 20 ou plus récent**, et **Claude Code** connecté à ton compte (`claude`). En option : **`gh`**, connecté avec `gh auth login`, pour publier sur GitHub.
 
 ```bash
-cd ai-ready && git pull
+cd ai-ready && git pull          # ou dézippe observateur.zip
 bash observateur/install.sh
 ```
 
-Ensuite, dans **Réglages Système → Confidentialité et sécurité** :
-1. **Accessibilité** : autorise `node`. Sans cela, les titres de fenêtres restent vides.
-2. **Automatisation** : quand macOS le demande, autorise `node` à piloter **Safari ou Chrome** (pour le domaine de l'onglet) et **Mail** (pour tes mails envoyés).
+Ensuite :
+1. Dans Réglages Système → Confidentialité et sécurité :
+   - **Accessibilité** : autorise `node`.
+   - **Automatisation** : quand macOS le demande, autorise `node` à piloter Safari ou Chrome, Mail et System Events (pour la fenêtre de la question du soir).
+2. Complète ta fiche d'audit : `~/.observateur/profil.json`.
 
-Pour essayer tout de suite, après quelques minutes d'activité :
+L'installation crée cinq tâches de fond (launchd, utilisateur courant, sans droits administrateur) :
 
-```bash
-node observateur/analyse.mjs jour --sans-claude     # mesures seules
-node observateur/analyse.mjs jour                   # avec explications, savoir et conseils
-node observateur/analyse.mjs semaine                # synthèse et portrait
-```
-
-## Réglages
-
-`~/.observateur/config.json` est copié de `config.example.json` à l'installation :
-
-| Réglage | Rôle |
+| Tâche | Quand |
 |---|---|
-| `heures_de_travail` | heures et jours ouvrés |
-| `objectifs` | tes règles (concentration, créneaux emails, dispersion) ; les conseils s'y comparent |
-| `categories` | applications et domaines rangés en Emails, Réunions, Messagerie, Documents, Claude, Outils projet, Agenda, Web |
-| `ralentissement` | durée des fenêtres (15 min) et seuil d'activité (50 %) |
-| `mails` | tes adresses (pour vérifier que tu es en copie), salutations attendues, mots à éviter |
-| `ignorer_apps`, `masquer_titre_apps` | ce qui n'est pas enregistré, ou enregistré sans titre |
-| `conservation_jours` | durée de conservation du journal brut et des mails (le savoir est gardé) |
+| collecte | toutes les 30 s |
+| question du soir | 18h25 |
+| rapport du jour | 18h35 |
+| portrait | vendredi 18h45 |
+| équipe d'agents | vendredi 18h55 |
 
-## Arrêter
+Pour essayer tout de suite :
 
 ```bash
-bash observateur/uninstall.sh       # arrête les trois agents ; journal, savoir et rapports gardés
+node observateur/analyse.mjs jour --sans-claude
+node observateur/question.mjs
+node observateur/analyse.mjs note "14h30 : Teams a planté pendant la réunion"
 ```
+
+Pour arrêter : `bash observateur/uninstall.sh`. Les données sont gardées.
 
 Tests : `npm run test:observateur`.
