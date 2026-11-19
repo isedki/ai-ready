@@ -29,25 +29,25 @@ const DRAFTS_AS = (account, own, days) => `
 with timeout of 600 seconds
   tell application "Mail"
     set acc to account "${account.replace(/"/g, '\\"')}"
-    set box to missing value
+    set theBox to missing value
     repeat with b in (mailboxes of acc)
-      set n to name of b
-      if n contains "Brouillon" or n contains "Draft" or n contains "brouillon" or n contains "draft" then
-        set box to b
+      set boxName to name of b
+      if boxName contains "Brouillon" or boxName contains "Draft" then
+        set theBox to b
         exit repeat
       end if
     end repeat
-    if box is missing value then
-      set names to ""
+    if theBox is missing value then
+      set theNames to ""
       repeat with b in (mailboxes of acc)
-        set names to names & (name of b) & ", "
+        set theNames to theNames & (name of b) & ", "
       end repeat
-      return "ERREUR" & (character id 31) & names
+      return "ERREUR" & (character id 31) & theNames
     end if
-    set since to (current date) - (${days} * days)
-    set ms to (messages of box whose date received > since)
-    set out to ""
-    repeat with m in ms
+    set limitDate to (current date) - (${days} * days)
+    set theMsgs to (messages of theBox whose date received > limitDate)
+    set theOut to ""
+    repeat with m in theMsgs
       set tos to ""
       repeat with r in (to recipients of m)
         set tos to tos & (address of r) & ","
@@ -57,10 +57,10 @@ with timeout of 600 seconds
         set ccs to ccs & (address of r) & ","
       end repeat
       if (tos & ccs) contains "${own}" then
-        set out to out & (message id of m) & (character id 31) & (subject of m) & (character id 31) & tos & (character id 31) & ccs & (character id 31) & (content of m) & (character id 30)
+        set theOut to theOut & (message id of m) & (character id 31) & (subject of m) & (character id 31) & tos & (character id 31) & ccs & (character id 31) & (content of m) & (character id 30)
       end if
     end repeat
-    return out
+    return theOut
   end tell
 end timeout`
 
