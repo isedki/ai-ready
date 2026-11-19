@@ -9,7 +9,7 @@
  *
  * Individual steps, if needed:
  *   npm run kb -- ingest dump.pst            parse PST (or a folder of .eml), clean, redact, thread
- *   npm run kb -- pj dump.pst [--out data/pj]   save the attachments (PDF, Office…) once each, for the project index
+ *   npm run kb -- pj dump.pst                attachments (PDF, Office…) once each, zipped and cut into parts ready to send (data/envoi)
  *   npm run kb -- teams teams.json           optional: force departments for addresses / @domains
  *   npm run kb -- estimate                   token count and cost estimate before spending anything
  *   npm run kb -- extract --sample 150 --sync   trial run on a random sample
@@ -19,7 +19,9 @@
  *   npm run kb -- stats                      progress and spend so far
  *   npm run kb -- emails                     Excel list of every email and thread, and what was learned from it
  */
-import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { execFileSync }             from 'node:child_process'
+import { createHash }               from 'node:crypto'
 import { dirname }                  from 'node:path'
 import { createInterface }          from 'node:readline/promises'
 import { openDb, closeDb, tx }      from '../lib/kb/db'
@@ -44,7 +46,7 @@ if (existsSync('.env.local')) process.loadEnvFile('.env.local')
 const [cmd, ...rest] = process.argv.slice(2)
 const flag = (name: string) => rest.includes(`--${name}`)
 const opt  = (name: string) => { const i = rest.indexOf(`--${name}`); return i >= 0 ? rest[i + 1] : undefined }
-const VALUE_OPTS = new Set(['--sample', '--limit', '--model', '--window', '--out'])
+const VALUE_OPTS = new Set(['--sample', '--limit', '--model', '--window', '--out', '--envoi'])
 const positional = rest.filter((a, i) => !a.startsWith('--') && !VALUE_OPTS.has(rest[i - 1]))
 const log = (s: string) => console.log(s)
 const usd = (n: number) => `$${n.toFixed(2)}`
@@ -178,7 +180,7 @@ async function main() {
 
     case 'pj': {
       // Attachments only: nothing is read by Claude and the email database is not touched.
-      if (positional.length === 0) throw new Error('usage: kb pj <file.pst> [--out data/pj]')
+      if (positional.length === 0) throw new Error('usage: kb pj <file.pst> [--out data/pj] [--envoi data/envoi]')
       const out = opt('out') ?? 'data/pj'
       for (const p of positional) {
         if (!existsSync(p)) throw new Error(`not found: ${p}`)
@@ -187,7 +189,23 @@ async function main() {
         log(`\n${p}: ${r.written} attachments saved (${mb} MB) in ${out}, ${r.duplicates} duplicates skipped`)
         log(`  not kept: ${r.skipped.unsupported} images or other formats, ${r.skipped.tooSmall} under 2 KB, ${r.skipped.tooBig} over 40 MB, ${r.skipped.empty} unreadable`)
       }
-      log(`Next: compress the folder (zip -r -9 pj.zip ${out}) and send it; it is indexed with npm run copilote -- ingest ${out}`)
+      // Ready to send: one zip cut into parts under the 30 MB upload limit, all dropped at once.
+      const send = opt('envoi') ?? 'data/envoi'
+      rmSync(send, { recursive: true, force: true })
+      mkdirSync(send, { recursive: true })
+      const zip = `${send}/pj.zip`
+      execFileSync('zip', ['-r', '-9', '-q', zip, out])
+      const size = statSync(zip).size
+      const sha = createHash('sha256').update(readFileSync(zip)).digest('hex')
+      if (size > 25 * 1024 * 1024) {
+        execFileSync('split', ['-b', '25m', zip, `${zip}.part-`])
+        rmSync(zip)
+      }
+      const parts = readdirSync(send).sort()
+      log(`\nTo send: the ${parts.length} file(s) of ${send} (${(size / 1024 / 1024).toFixed(1)} MB in total), dropped together in one message:`)
+      for (const f of parts) log(`  ${f}`)
+      log(`  sha256 of pj.zip: ${sha}`)
+      try { execFileSync('open', [send], { stdio: 'ignore' }) } catch { /* not macOS: no Finder window */ }
       break
     }
 
