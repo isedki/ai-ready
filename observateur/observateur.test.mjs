@@ -3,9 +3,9 @@ import { mkdtempSync, writeFileSync }             from 'node:fs'
 import { tmpdir }                                 from 'node:os'
 import { join }                                   from 'node:path'
 import { test }                                   from 'node:test'
-import { dayStats, environment, mailChecks, readDay, renderDay, renderWeek, slowWindows } from './analyse.mjs'
+import { askClaude, dayStats, environment, mailChecks, readDay, renderDay, renderWeek, slowWindows } from './analyse.mjs'
 import { categorize, crashApp, domainOf, loadConfig, makeRecord, parseIdle, redact } from './lib.mjs'
-import { ownText, parseSent }                     from './mails.mjs'
+import { daysBack, ownText, parseSent }           from './mails.mjs'
 import { addNote, baseline, mergeConstats, readConstats, readDays, readNotes, saveConstats, saveDay, topConstats } from './savoir.mjs'
 
 const cfg = loadConfig('/nonexistent/config.json')
@@ -295,4 +295,26 @@ test('les résumés de conversation sont lus depuis Drive et gardés dans le sav
   rmSync(drive, { recursive: true })
   assert.equal(readConversations(cfg, '2026-11-19', '2026-11-19', join(home, 'absent'))[0].frictions[0].quoi, 'PST')
   rmSync(home, { recursive: true })
+})
+
+test('sent mails: a past day is located by its distance from today', () => {
+  assert.equal(daysBack('2026-11-19', '2026-11-20'), 1)
+  assert.equal(daysBack('2026-11-20', '2026-11-20'), 0)
+  assert.equal(daysBack('2026-10-31', '2026-11-02'), 2)
+})
+
+test('askClaude says why Claude did not answer (expired login) instead of failing silently', async () => {
+  const dir = tmp(), bin = join(dir, 'claude')
+  writeFileSync(bin, `#!/bin/sh
+[ "$1" = "--version" ] && { echo 2.1; exit 0; }
+cat >/dev/null
+echo '{"is_error":true,"result":"Failed to authenticate: OAuth session expired"}'
+exit 1
+`, { mode: 0o755 })
+  const errors = [], orig = console.error
+  console.error = m => errors.push(String(m))
+  process.env.OBSERVATEUR_CLAUDE_BIN = bin
+  try { assert.equal(await askClaude('m', 's', 'u'), null) }
+  finally { console.error = orig; delete process.env.OBSERVATEUR_CLAUDE_BIN }
+  assert.match(errors.join('\n'), /OAuth session expired/)
 })

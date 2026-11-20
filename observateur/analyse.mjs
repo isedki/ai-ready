@@ -241,16 +241,19 @@ export function askClaude(model, system, user, schema, tools = []) {
     const child = spawn(bin, args, { cwd: tmpdir(), stdio: ['pipe', 'pipe', 'pipe'] })
     let out = ''
     const timer = setTimeout(() => child.kill(), 600_000)
+    let err = ''
+    const fail = why => { console.error(`Claude n'a pas répondu : ${String(why).trim().slice(0, 300)}`); resolve(null) }
     child.stdout.on('data', d => { out += d })
-    child.on('error', () => { clearTimeout(timer); resolve(null) })
-    child.on('close', () => {
+    child.stderr.on('data', d => { err += d })
+    child.on('error', e => { clearTimeout(timer); fail(e.message) })
+    child.on('close', code => {
       clearTimeout(timer)
       try {
         const r = JSON.parse(out)
-        if (r.is_error) return resolve(null)
+        if (r.is_error) return fail(r.result || r.subtype || 'erreur')
         if (!schema) return resolve(String(r.result ?? '').trim() || null)
         resolve(r.structured_output ?? JSON.parse(r.result))
-      } catch { resolve(null) }
+      } catch { fail(err || out || `code ${code}`) }
     })
     child.stdin.end(user)
   })
@@ -345,8 +348,9 @@ async function main() {
     let mails = null
     if (cfg.mails.actif && !args.includes('--sans-mails')) {
       let list = readMails(cfg, day)
-      if (!list && process.platform === 'darwin' && day === localDay()) {
-        try { list = (await import('./mails.mjs')).collectSent(cfg) } catch (e) { console.error(`Mails non lus : ${e.message}`) }
+      // Relu dans Mail le jour même, ou si le fichier gardé est vide (Mail pas encore synchronisé, autorisation manquante).
+      if ((!list || !list.length || day === localDay()) && process.platform === 'darwin') {
+        try { list = (await import('./mails.mjs')).collectSent(cfg, day) } catch (e) { console.error(`Mails non lus : ${e.message}`) }
       }
       if (list) mails = { ...mailChecks(list, cfg), _textes: list.slice(0, 15).map(m => ({ sujet: m.sujet, texte: m.texte.slice(0, 1500) })) }
     }
@@ -378,7 +382,7 @@ async function main() {
     })
     const md = renderDay(day, s, cfg, { base, mails, ai, learned })
     const out = join(cfg.dossier_rapports, `jour-${day}.md`)
-    writeFileSync(out, md + (s.actif_minutes && !ai && !noClaude ? '\n\n_Claude n\'a pas répondu (commande claude absente ou limite atteinte) : mesures et hypothèses par règle seulement._' : '') + '\n')
+    writeFileSync(out, md + (s.actif_minutes && !ai && !noClaude ? '\n\n_Claude n\'a pas répondu (la cause est affichée dans le Terminal ou le journal ; souvent : connexion expirée, à refaire avec `claude` puis `/login`) : mesures et hypothèses par règle seulement._' : '') + '\n')
     console.log(out)
   } else if (cmd === 'semaine') {
     const monday = new Date(ref); monday.setDate(ref.getDate() - ((ref.getDay() + 6) % 7))
