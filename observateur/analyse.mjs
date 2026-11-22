@@ -15,7 +15,7 @@ import { join }                                              from 'node:path'
 import { categorize, isMain, loadConfig, localDay, localTime }       from './lib.mjs'
 import { frustration, repetitions, workThreads }             from './signaux.mjs'
 import { addNote, baseline, mergeConstats, readConstats, readDays, readNotes, readProfile,
-         readConversations, saveConstats, saveDay, topConstats, writeProfile } from './savoir.mjs'
+         readConversations, saveConstats, saveDay, topConstats, writeProfile, publishToDrive } from './savoir.mjs'
 
 const FOCUS_MIN = 25
 const NOT_FOCUS = new Set(['Emails', 'Messagerie', 'Réunions', 'Autres'])
@@ -383,7 +383,8 @@ async function main() {
     const md = renderDay(day, s, cfg, { base, mails, ai, learned })
     const out = join(cfg.dossier_rapports, `jour-${day}.md`)
     writeFileSync(out, md + (s.actif_minutes && !ai && !noClaude ? '\n\n_Claude n\'a pas répondu (la cause est affichée dans le Terminal ou le journal ; souvent : connexion expirée, à refaire avec `claude` puis `/login`) : mesures et hypothèses par règle seulement._' : '') + '\n')
-    console.log(out)
+    const copie = publishToDrive(cfg, out)
+    console.log(out + (copie ? `\nCopie Drive : ${copie}` : ''))
   } else if (cmd === 'semaine') {
     const monday = new Date(ref); monday.setDate(ref.getDate() - ((ref.getDay() + 6) % 7))
     const days = []
@@ -404,7 +405,10 @@ async function main() {
     }
     const out = join(cfg.dossier_rapports, `semaine-${days[0].day}.md`)
     writeFileSync(out, md + '\n')
-    console.log(out)
+    const copie = publishToDrive(cfg, out)
+    const portrait = join(cfg.dossier_savoir, 'profil.md')
+    if (existsSync(portrait)) publishToDrive(cfg, portrait, undefined, 'portrait.md')
+    console.log(out + (copie ? `\nCopie Drive : ${copie}` : ''))
   } else {
     console.log('Usage : node observateur/analyse.mjs jour|semaine [AAAA-MM-JJ] [--sans-claude] [--sans-mails] · note "texte"')
     process.exitCode = 1

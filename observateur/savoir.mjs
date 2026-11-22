@@ -101,19 +101,41 @@ export function readProfile(cfg) { const f = file(cfg, 'profil.md'); return exis
  * « auto » : le dossier Drive « Observateur · conversations » synchronisé par Google Drive pour
  * ordinateur, sinon ~/.observateur/conversations (fichier déposé à la main).
  */
+/** Racines « Mon Drive » de Google Drive pour ordinateur (macOS), la plus probable d'abord. */
+export function driveRoots(home = homedir()) {
+  const cloud = join(home, 'Library', 'CloudStorage')
+  if (!existsSync(cloud)) return []
+  const roots = []
+  for (const d of readdirSync(cloud).filter(n => n.startsWith('GoogleDrive-')))
+    for (const sub of ['My Drive', 'Mon Drive']) { const p = join(cloud, d, sub); if (existsSync(p)) roots.push(p) }
+  return roots
+}
+
 export function conversationsDir(cfg, home = homedir()) {
   const want = cfg.conversations?.dossier ?? 'auto'
   if (want !== 'auto') return expand(want)
-  const cloud = join(home, 'Library', 'CloudStorage')
-  if (existsSync(cloud)) {
-    for (const d of readdirSync(cloud).filter(n => n.startsWith('GoogleDrive-'))) {
-      for (const sub of ['My Drive', 'Mon Drive']) {
-        const p = join(cloud, d, sub, 'Observateur · conversations')
-        if (existsSync(p)) return p
-      }
-    }
-  }
+  for (const r of driveRoots(home)) { const p = join(r, 'Observateur · conversations'); if (existsSync(p)) return p }
   return join(home, '.observateur', 'conversations')
+}
+
+/**
+ * Copie un rapport (jour, semaine, équipe, portrait) dans le dossier Drive « Observateur · rapports »,
+ * pour que l'agent Profil (en ligne) le lise. Le dossier est placé à côté de « Observateur · conversations »
+ * s'il existe, sinon à la racine du premier Drive trouvé. Désactivable : "rapports_drive": false.
+ * Renvoie le chemin copié, ou null (pas de Drive, désactivé, erreur : le rapport local reste la source).
+ */
+export function publishToDrive(cfg, file, home = homedir(), name) {
+  if (cfg.rapports_drive === false || !existsSync(file)) return null
+  try {
+    const roots = driveRoots(home)
+    const root = roots.find(r => existsSync(join(r, 'Observateur · conversations'))) ?? roots[0]
+    if (!root) return null
+    const dir = join(root, 'Observateur · rapports')
+    mkdirSync(dir, { recursive: true })
+    const dest = join(dir, name ?? file.split('/').pop())
+    copyFileSync(file, dest)
+    return dest
+  } catch { return null }
 }
 
 /**

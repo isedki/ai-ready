@@ -20,7 +20,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync }   from 'node:fs'
 import { join }                                                 from 'node:path'
 import { askClaude }                                            from './analyse.mjs'
 import { expand, isMain, loadConfig, localDay }                         from './lib.mjs'
-import { readConstats, readConversations, readDays, readNotes, readProfile, topConstats } from './savoir.mjs'
+import { readConstats, readConversations, readDays, readNotes, readProfile, topConstats, publishToDrive } from './savoir.mjs'
 
 const STATUTS = ['proposee', 'acceptee', 'installee', 'mesuree', 'rejetee']
 const str = { type: 'string' }
@@ -211,6 +211,7 @@ async function team(cfg) {
   mkdirSync(cfg.dossier_rapports, { recursive: true })
   const out = join(cfg.dossier_rapports, `equipe-${day}.md`)
   writeFileSync(out, render(day, res, merged, pub) + '\n')
+  publishToDrive(cfg, out)
   return out
 }
 

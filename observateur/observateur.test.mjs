@@ -318,3 +318,21 @@ exit 1
   finally { console.error = orig; delete process.env.OBSERVATEUR_CLAUDE_BIN }
   assert.match(errors.join('\n'), /OAuth session expired/)
 })
+
+test('les rapports sont copiés dans Drive « Observateur · rapports » à côté des conversations', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { publishToDrive } = await import('./savoir.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'obs-drive-'))
+  const root = join(home, 'Library', 'CloudStorage', 'GoogleDrive-x@y.z', 'My Drive')
+  mkdirSync(join(root, 'Observateur · conversations'), { recursive: true })
+  const rep = join(home, 'jour-2026-11-22.md'); writeFileSync(rep, '# Ma journée\n')
+  const dest = publishToDrive({}, rep, home)
+  assert.equal(dest, join(root, 'Observateur · rapports', 'jour-2026-11-22.md'))
+  assert.equal(readFileSync(dest, 'utf8'), '# Ma journée\n')
+  assert.equal(publishToDrive({ rapports_drive: false }, rep, home), null)
+  const nohome = mkdtempSync(join(tmpdir(), 'obs-nodrive-'))
+  assert.equal(publishToDrive({}, rep, nohome), null)
+  assert.ok(!existsSync(join(nohome, 'Library')))
+})
