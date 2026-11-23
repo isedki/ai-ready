@@ -54,3 +54,6 @@ next-env.d.ts
 
 # agent PMO : prompts rendus (contiennent des données du projet)
 /dist/
+
+# Textes des agents (adresses et détails internes) : gardés hors du dépôt
+/agents-niveau1/
