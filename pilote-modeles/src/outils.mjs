@@ -60,14 +60,22 @@ export function noter(f, maintenant = Date.now(), cfg = charger()) {
 }
 
 async function fils(query, max) {
-  // Union de la recherche demandée et de TES envois récents : un fil où tu as agi n'est jamais écarté par la limite.
-  const [l, e] = await Promise.all([
-    api(`gmail.googleapis.com/gmail/v1/users/me/threads?q=${q(query)}&maxResults=${Math.min(max, 70)}`),
-    api(`gmail.googleapis.com/gmail/v1/users/me/threads?q=${q('in:sent newer_than:2d')}&maxResults=30`).catch(() => ({})),
-  ])
+  // Candidats : Gmail cherche lui-même les fils importants (l'ordre de la liste simple n'est pas chronologique,
+  // un fil important peut être très loin). Union : importants, non lus utiles, TES envois, mots-clés de blocage/retard…, plus la recherche demandée.
+  const cfg = charger()
+  const mots = Object.values(cfg.mots_importants || {}).flatMap((x) => x.mots).map((w) => (/\s|-/.test(w) ? `"${w}"` : w))
+  const requetes = [
+    [query, Math.min(max, 40)],
+    ['newer_than:2d is:important', 50],
+    ['newer_than:2d is:unread -category:promotions -category:updates -category:social', 40],
+    ['in:sent newer_than:3d', 30],
+    ['is:starred newer_than:5d', 20],
+    [`newer_than:2d {${mots.join(' ')}}`, 40],
+  ]
+  const listes = await Promise.all(requetes.map(([r, n]) => api(`gmail.googleapis.com/gmail/v1/users/me/threads?q=${q(r)}&maxResults=${n}`).catch(() => ({}))))
   const tous = new Map()
-  for (const t of [...(l.threads || []), ...(e.threads || [])]) if (!tous.has(t.id)) tous.set(t.id, t)
-  const ids = [...tous.keys()], out = []
+  for (const l of listes) for (const t of l.threads || []) if (!tous.has(t.id)) tous.set(t.id, t)
+  const ids = [...tous.keys()].slice(0, 120), out = []
   const snippets = new Map([...tous.values()].map((t) => [t.id, t.snippet || '']))
   for (let i = 0; i < ids.length; i += 10) {
     const lot = await Promise.all(ids.slice(i, i + 10).map((id) => api(`gmail.googleapis.com/gmail/v1/users/me/threads/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject`)))
