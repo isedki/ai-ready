@@ -65,10 +65,22 @@ export function daysBack(day, today = localDay()) {
   return Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${day}T12:00:00Z`)) / 86_400_000)
 }
 
+/** Message lisible pour une panne de lecture Mail (délai dépassé, autorisation refusée, Mail fermé). */
+export function mailError(e, secondes) {
+  const m = String(e?.message ?? e)
+  if (e?.code === 'ETIMEDOUT' || /ETIMEDOUT/.test(m)) return `Mail n'a pas répondu en ${secondes} s (boîte « Envoyés » volumineuse : la lecture prend 2 à 5 min) ; relancer ou augmenter mails.delai_secondes`
+  if (/-1743|not authorized|autoris/i.test(m)) return 'automatisation de Mail non autorisée pour node (Réglages Système → Confidentialité → Automatisation)'
+  if (/-600|isn't running|n'est pas ouvert/i.test(m)) return 'Mail n\'est pas lancé'
+  return m.split('\n')[0].slice(0, 200)
+}
+
 export function collectSent(cfg, day = localDay()) {
   const back = daysBack(day)
   if (!(back >= 0)) throw new Error(`jour invalide : ${day}`)
-  const raw = execFileSync('osascript', ['-e', SCRIPT(back)], { encoding: 'utf8', timeout: 180_000, maxBuffer: 64 * 1024 * 1024 })
+  const secondes = cfg.mails.delai_secondes ?? 600
+  let raw
+  try { raw = execFileSync('osascript', ['-e', SCRIPT(back)], { encoding: 'utf8', timeout: secondes * 1000, maxBuffer: 64 * 1024 * 1024 }) }
+  catch (e) { throw new Error(mailError(e, secondes)) }
   const mails = parseSent(raw, cfg.mails.mes_adresses)
   const dir = join(cfg.dossier_donnees, '..', 'mails')
   mkdirSync(dir, { recursive: true, mode: 0o700 })

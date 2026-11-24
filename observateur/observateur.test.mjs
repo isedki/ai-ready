@@ -5,7 +5,7 @@ import { join }                                   from 'node:path'
 import { test }                                   from 'node:test'
 import { askClaude, dayStats, environment, mailChecks, readDay, renderDay, renderWeek, slowWindows } from './analyse.mjs'
 import { categorize, crashApp, domainOf, loadConfig, localDay, makeRecord, parseIdle, redact } from './lib.mjs'
-import { daysBack, ownText, parseSent }           from './mails.mjs'
+import { daysBack, mailError, ownText, parseSent }           from './mails.mjs'
 import { addNote, baseline, mergeConstats, readConstats, readDays, readNotes, saveConstats, saveDay, topConstats } from './savoir.mjs'
 
 const cfg = loadConfig('/nonexistent/config.json')
@@ -424,4 +424,10 @@ test('échec · profil.md absent : lecture vide, copie Drive ignorée, aucune ex
   const home = mkdtempSync(join(tmpdir(), 'obs-prof-'))
   assert.equal(readProfile({ dossier_savoir: join(home, 'savoir') }), '')
   assert.equal(publishToDrive({}, join(home, 'savoir', 'profil.md'), home, 'portrait.md'), null)
+})
+
+test('échec · Mail : le message d\'erreur dit la cause (délai, autorisation, Mail fermé)', () => {
+  assert.match(mailError(Object.assign(new Error('spawnSync osascript ETIMEDOUT'), { code: 'ETIMEDOUT' }), 180), /n'a pas répondu en 180 s/)
+  assert.match(mailError(new Error('execution error: Not authorized to send Apple events to Mail. (-1743)')), /non autorisée/)
+  assert.match(mailError(new Error('Application isn\'t running. (-600)')), /pas lancé/)
 })
