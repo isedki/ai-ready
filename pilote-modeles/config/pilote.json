@@ -17,7 +17,7 @@
   "plafonds": {
     "par_passage_usd": 0.10,
     "total_usd": 5.0,
-    "passages_max": 10,
+    "passages_max": 5,
     "tours": 12,
     "sortie_max_jetons": 4000,
     "resultat_outil_max_caracteres": 8000

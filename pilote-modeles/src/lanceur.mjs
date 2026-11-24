@@ -11,7 +11,7 @@ export function depenseTotale() {
   if (!fs.existsSync(JOURNAL_DIR)) return { usd: 0, passages: 0 }
   for (const f of fs.readdirSync(JOURNAL_DIR).filter((x) => x.endsWith('.jsonl'))) {
     for (const l of fs.readFileSync(path.join(JOURNAL_DIR, f), 'utf8').split('\n').filter(Boolean)) {
-      try { const j = JSON.parse(l); t += j.cout_usd || 0; n += 1 } catch {}
+      try { const j = JSON.parse(l); t += j.cout_usd || 0; if (!String(j.statut).startsWith('refuse')) n += 1 } catch {}
     }
   }
   return { usd: t, passages: n }

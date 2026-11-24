@@ -273,3 +273,15 @@ Le compte Gmail est un **compte personnel** : le mode « personnel » de Google 
 **Décision d'architecture proposée.** Les connecteurs du lanceur sont des **outils à nous** (fonctions locales ou petit serveur MCP à jeton, comme US-5) au-dessus des API Gmail, Calendar et Drive classiques : recherche de fils, lecture d'un fil, brouillon (étendue `gmail.compose`, à demander plus tard, jamais d'envoi), lecture d'une pièce jointe, lecture d'un fichier. Le pilote en mode ombre n'a besoin que de la lecture, déjà prouvée. Compte Workspace et serveurs MCP Google : option future, non nécessaire.
 
 **Preuves restantes :** durée de vie du jeton à J+1 et J+7 ; lecture d'événements Calendar ; accès au suivi (ArtifactData) hors claude.ai ; qualité des modèles sur les appels d'outils (pilote).
+
+## 13. Phase 3 démarrée (go d'Issam, 24/11) : ce qui est livré dans `pilote-modeles/`
+
+**Faits vérifiés pendant la construction** (liste publique d'OpenRouter, sans clé, 24/11/2026) : les trois modèles existent avec appels d'outils et au moins un point d'accès à zéro rétention ; prix conformes à ceux de la doc Anthropic (Haiku 5.5 : 0,10 $ / 0,50 $ ; Sonnet 5.5 : 2 $ / 10 $ ; `deepseek/deepseek-v4.1-flash` : 0,14 $ / 0,42 $). Cela lève deux points « non vérifiés » du §3 (tarifs de modèles non-Claude, disponibilité des modèles Claude sur OpenRouter). Le pourcentage des frais d'achat de crédits reste non confirmé.
+
+**Écarts avec le plan du §8 :** langage Node sans dépendance (fichiers `.mjs`) au lieu de TypeScript ; une seule commande `pilote.sh` à la place de plusieurs scripts ; à chaque passage, les deux modèles A et B tournent sur les mêmes entrées pour une comparaison équitable ; les connecteurs sont les API Google classiques (§12.7) et le Copilote.
+
+**Fichiers :** `pilote.sh`, `config/pilote.json`, `agents/veille-coach.md`, `src/{config,google,outils,lanceur,couts,modeles,connexion,plist,passage}.mjs`, `test/pilote.test.mjs`, `.env.example`, `README.md` (doc d'installation et d'exploitation).
+
+**Critères rg-37 / rg-38 :** installation en une commande (`./pilote.sh install`, idempotente) ; retour arrière (`desinstaller [--purger]`) testé ; secrets hors dépôt (`~/.config/us8-pilote/env`, droits 600, `.env.example` sans valeur) ; doc d'exploitation ; test de réinstallation propre automatisé ; 6 tests hors ligne passent (outils en lecture seule, brouillon local, zéro rétention demandé, journal sans contenu ni secret, plafond total, plafond par passage, clé absente, installation/désinstallation sans résidu).
+
+**Reste (Issam) :** créer le compte OpenRouter et acheter 5 $ de crédit, saisir la clé avec `./pilote.sh reglage`, lancer `./pilote.sh install`, puis laisser tourner 5 passages (ou `./pilote.sh passage`), lire `./pilote.sh couts`, remplir la grille de comparaison (README §5), et refaire l'installation à partir de la doc seule (test de réinstallation par une personne qui ne connaît pas le projet).
