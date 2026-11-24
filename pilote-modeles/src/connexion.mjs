@@ -1,4 +1,4 @@
-// Consentement Google (lecture seule), une fois. Stocke le jeton de renouvellement en local (droits 600).
+// Consentement Google (lecture + brouillons Gmail), une fois. Stocke le jeton de renouvellement en local (droits 600).
 import http from 'node:http'
 import crypto from 'node:crypto'
 import { execFile } from 'node:child_process'
@@ -14,7 +14,7 @@ const srv = http.createServer()
 await new Promise((r) => srv.listen(0, '127.0.0.1', r))
 const redirect = `http://127.0.0.1:${srv.address().port}`
 const url = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, redirect_uri: redirect, response_type: 'code', scope: SCOPES.join(' '), access_type: 'offline', prompt: 'consent', code_challenge: challenge, code_challenge_method: 'S256', state })
-console.log("Ouverture du navigateur (consentement en lecture seule). Si rien ne s'ouvre, copie ce lien :\n" + url + '\n')
+console.log("Ouverture du navigateur : lecture de Gmail, Agenda, Drive et CRÉATION DE BROUILLONS Gmail (jamais d'envoi). Si rien ne s'ouvre, copie ce lien :\n" + url + '\n')
 execFile('open', [url], () => {})
 const code = await new Promise((resolve, reject) => {
   const t = setTimeout(() => reject(new Error('délai dépassé (5 min)')), 300000)
