@@ -218,3 +218,39 @@ Les connecteurs claude.ai eux-mêmes ne sont **pas** réutilisables hors de clau
 ### 11.4 Verdict et étape ajoutée avant le pilote
 
 Même mode de fonctionnement : **réalisable par reconstruction, pas par simple bascule.** Pour confirmer sans risque, ajouter au plan une **étape 0 « test de faisabilité des connecteurs »** (aucun modèle, aucun coût) : (a) Issam active le programme et crée un client OAuth « agent » en mode personnel ; (b) un script de dix lignes liste les outils du serveur Gmail, lit un fil, avec un jeton de renouvellement stocké en local ; (c) vérifier le même schéma pour Calendar et Drive ; (d) trancher pour le suivi. Si (b) échoue, repli : le pilote reste en mode ombre sur Copilote + export du suivi, sans Gmail, comme prévu au §4. Cette étape remplace la question 3 par une décision concrète : la réexposition de Gmail n'est plus à construire, c'est de la configuration.
+
+## 12. Détail des trois points et spike (24/11)
+
+### 12.1 Jeton de renouvellement (point 1)
+- **Prouvé aujourd'hui :** les trois serveurs répondent sans identification pour *lister* leurs outils (Gmail 23, Calendar 9, Drive 9) ; les appels d'outils exigent donc un jeton. Les noms d'outils sont ceux des connecteurs claude.ai actuels : c'est très probablement la même source.
+- **Documenté par Google :** OAuth 2.0 ; un client « Web » doit demander `access_type=offline` pour obtenir un jeton de renouvellement ; un jeton d'accès brut expire au bout d'une heure ; le client doit porter la mention « Use this client for an AI-powered agent » ; le mode personnel accepte aussi un client « Desktop ».
+- **Non documenté :** qu'un script (hors Antigravity, Claude, etc.) puisse échanger un jeton de renouvellement avec ces serveurs ; la limite connue de Google de 7 jours pour les applications « en test » n'est pas mentionnée sur la page.
+- **Spike prêt** (`spikes/us8-google-mcp/`, règle rg-38) : sonde sans compte (faite), 3 tests hors ligne (passés), puis trois commandes pour Issam (`reglage`, `connexion`, `verifier`) qui affichent un verdict OUI/NON sans contenu ni secret. **Reste à prouver :** le verdict réel et la durée de vie du jeton à 24 h et 7 jours.
+
+### 12.2 Statut Preview (point 2)
+- Les serveurs sont en **Developer Preview** : inscription au programme requise, aucune date de disponibilité générale, aucun quota ni tarif publié (pages consultées le 24/11/2026). Les noms d'outils et les arguments peuvent changer sans préavis.
+- Mesures : (a) le lanceur lit la liste d'outils au démarrage (aucun nom en dur sans contrôle) ; (b) un test quotidien `verifier` signale une dérive ; (c) le repli de l'agent reste claude.ai (rg-22) ; (d) on ne bascule aucun agent critique tant que le statut est Preview.
+- **Écart d'outils constaté (sondage du 24/11) :** Gmail n'expose ni envoi, ni réponse, ni transfert, ni modification/suppression de brouillon, ni téléchargement de pièce jointe ; Drive n'a pas d'outil de partage ni de corbeille. Cela convient à « aucun envoi » (rg-33) ; la lecture des pièces jointes et la création de Google Doc sont **à vérifier** (le serveur Docs existe : `docsmcp`).
+
+### 12.3 Fonctions claude.ai utilisées par les agents (point 3)
+Inventaire fait sur les consignes versionnées dans `agent/prompts/` (les tâches planifiées en ligne peuvent différer) :
+
+| Fonction | Où elle sert | Reprise hors claude.ai |
+|---|---|---|
+| Suivi et base de règles (ArtifactData) | matin, consigne commune, session neuve | **Inconnu** : accès par claude.ai ; à exposer (route à jeton) ou à lire par export |
+| Gmail (lecture, recherche, brouillons) | veille, matin, indexation, rapport mensuel | Serveur Google (spike) ; brouillon : `create_draft` existe |
+| Pièces jointes | veille, préparation de réunion | À vérifier (`get_message`/`get_thread`, format de message) |
+| Drive (lecture, Google Doc « Analyse ») | veille, indexation | Lecture : serveur Google ; création de Doc : `create_file` ou serveur Docs, à vérifier |
+| Calendar (lecture ; plus aucune copie en agenda, rg-22) | matin, bilan, contrôle qualité, veille | Serveur Google, lecture seule |
+| Copilote (recherche) | consigne commune | Déjà réexposé (US-5) |
+| Sous-agent « léger » (tri, extraction, indexation) | consigne commune, veille | Reconstruit : second appel au modèle bon marché dans le lanceur, avec ses propres plafonds |
+| Scripts locaux (`npm run …`) | indexation, contrôle qualité, tram | Le lanceur tourne sur le Mac : exécutés tels quels |
+| Recherche web | tram | Outil de recherche à ajouter au lanceur, ou rester sur claude.ai |
+| Notification Push (urgences, rg-22) | tous, pour les urgences | Remplaçable par une notification locale macOS ou un canal simple ; à décider |
+| Compétences (skills) | aucune trouvée dans les consignes | Rien à reprendre |
+| Lecture des sessions et coûts (agent principal) | bilan | Remplacée par le journal JSONL du lanceur (meilleur : coût réel mesuré) |
+
+**Conséquence.** Pour Veille et Coach, le pilote en mode ombre n'a besoin que de : Gmail et Drive en lecture, Copilote, suivi (export ou route), sous-agent léger, scripts locaux, et une notification locale. Tout est identifié ; seuls le suivi et les pièces jointes restent à prouver.
+
+### 12.4 Rappel d'automatisation
+Conformément à rg-38 : le spike est un script jetable avec test hors ligne ; Issam n'a que trois commandes à copier après deux actions chez Google (inscription, création du client) ; tout le reste est scripté.
