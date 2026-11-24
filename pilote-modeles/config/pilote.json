@@ -6,16 +6,28 @@
     "ref": "anthropic/claude-sonnet-5.5"
   },
   "prix_par_million_usd": {
-    "anthropic/claude-haiku-5.5": [0.10, 0.50],
-    "openai/gpt-oss-120b": [0.05, 0.25],
-    "anthropic/claude-sonnet-5.5": [2.0, 10.0]
+    "anthropic/claude-haiku-5.5": [
+      0.1,
+      0.5
+    ],
+    "openai/gpt-oss-120b": [
+      0.05,
+      0.25
+    ],
+    "anthropic/claude-sonnet-5.5": [
+      2.0,
+      10.0
+    ]
   },
   "prix_releves_le": "2026-11-24 (liste publique des modèles OpenRouter)",
-  "modeles_par_passage": ["A", "B"],
+  "modeles_par_passage": [
+    "A",
+    "B"
+  ],
   "repli": [],
   "zdr": true,
   "plafonds": {
-    "par_passage_usd": 0.10,
+    "par_passage_usd": 0.1,
     "total_usd": 5.0,
     "passages_max": 5,
     "tours": 12,
@@ -23,11 +35,114 @@
     "resultat_outil_max_caracteres": 8000,
     "rapport_court_caracteres": 300,
     "appels_max_par_outil": 6,
-    "appels_max": { "gmail_lire_fil": 12 }
+    "appels_max": {
+      "gmail_lire_fil": 12
+    }
   },
   "planning": [
-    { "h": 9, "m": 5 }, { "h": 10, "m": 35 }, { "h": 12, "m": 5 }, { "h": 13, "m": 35 }, { "h": 15, "m": 5 }
+    {
+      "h": 9,
+      "m": 5
+    },
+    {
+      "h": 10,
+      "m": 35
+    },
+    {
+      "h": 12,
+      "m": 5
+    },
+    {
+      "h": 13,
+      "m": 35
+    },
+    {
+      "h": 15,
+      "m": 5
+    }
   ],
   "jours_ouvres_seulement": true,
-  "suivi_export": ""
+  "suivi_export": "",
+  "mots_importants": {
+    "blocage": {
+      "poids": 4,
+      "mots": [
+        "blocage",
+        "bloque",
+        "bloquant",
+        "bloquee",
+        "impossible",
+        "en panne",
+        "indisponible",
+        "ko",
+        "incident",
+        "anomalie bloquante"
+      ]
+    },
+    "acces": {
+      "poids": 3,
+      "mots": [
+        "acces",
+        "droits",
+        "habilitation",
+        "vpn",
+        "connexion refusee",
+        "non accessible",
+        "permission",
+        "readonly",
+        "lecture seule"
+      ]
+    },
+    "flux": {
+      "poids": 3,
+      "mots": [
+        "ouverture de flux",
+        "ouverture des flux",
+        "matrice de flux",
+        "flux ferme",
+        "flux bloque",
+        "firewall",
+        "pare-feu"
+      ]
+    },
+    "recette": {
+      "poids": 4,
+      "mots": [
+        "arret de la recette",
+        "recette arretee",
+        "recette suspendue",
+        "suspension de la recette",
+        "report de la recette",
+        "recette impactee",
+        "no go",
+        "no-go"
+      ]
+    },
+    "retard": {
+      "poids": 3,
+      "mots": [
+        "retard",
+        "decalage",
+        "decale",
+        "report",
+        "glissement",
+        "livraison retardee",
+        "delai depasse",
+        "en retard"
+      ]
+    },
+    "urgence": {
+      "poids": 2,
+      "mots": [
+        "urgent",
+        "urgence",
+        "escalade",
+        "critique",
+        "asap",
+        "derniere relance",
+        "sans reponse"
+      ]
+    }
+  },
+  "mots_importants_plafond": 8
 }

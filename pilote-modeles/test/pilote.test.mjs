@@ -18,7 +18,7 @@ async function monde({ cleOr = 'cle-test', coutParTour = 0.001, toursOutils = 2,
     vus.google.push(`${req.method} ${req.url.split('?')[0]}`)
     res.setHeader('content-type', 'application/json')
     if (req.url.includes('/threads?')) return res.end(JSON.stringify({ threads: [{ id: 't1', snippet: 'extrait' }] }))
-    if (req.url.includes('/threads/t1')) return res.end(JSON.stringify({ messages: [{ id: 'm1', payload: { headers: [{ name: 'From', value: 'a@x.test' }, { name: 'Subject', value: 'Objet' }, { name: 'Date', value: 'lundi' }], mimeType: 'text/plain', body: { data: Buffer.from('CONTENU-CONFIDENTIEL').toString('base64url') } } }] }))
+    if (req.url.includes('/threads/t1')) return res.end(JSON.stringify({ messages: [{ id: 'm1', internalDate: '1790000000000', payload: { headers: [{ name: 'From', value: 'a@x.test' }, { name: 'Subject', value: 'Objet' }, { name: 'Date', value: 'lundi' }], mimeType: 'text/plain', body: { data: Buffer.from('CONTENU-CONFIDENTIEL').toString('base64url') } } }] }))
     res.end('{}')
   })
   const oauth = await listen(async (req, res) => { await lire(req); res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ access_token: 'AT', expires_in: 3599 })) })
@@ -62,6 +62,7 @@ test('passage complet : outils lecture seule, brouillon local, ZDR demandé, co�
   assert.equal(req.corps.provider.zdr, true)
   assert.equal(req.corps.provider.data_collection, 'deny')
   assert.ok(req.corps.tools.length >= 8)
+  assert.match(JSON.stringify(req.corps.messages), /fils des 2 derniers jours, classés par importance/)
   const cop = fs.readFileSync(path.join(path.dirname(m.home), 'copilote.log'), 'utf8')
   assert.match(cop, /"name":"search"/)
   assert.match(cop, /"kind":"annuaire"/)
@@ -131,4 +132,30 @@ test('rapport quasi vide : une relance, puis rapport complet ; sinon statut expl
   const j = m.journal().filter((e) => e.agent)
   assert.ok(j.every((e) => e.relance === true && e.statut === 'ok'), JSON.stringify(j))
   assert.ok(m.vus.or.some((r) => r.corps.messages.some((x) => String(x.content).includes('rapport est trop court'))))
+})
+
+test('classement par importance : tes réponses récentes et les allers-retours passent devant le bruit', async () => {
+  const { noter } = await import('../src/outils.mjs')
+  const maintenant = 1_800_000_000_000, h = (n) => String(maintenant - n * 3600000)
+  const m = (de, il_y_a, labelIds = []) => ({ internalDate: h(il_y_a), labelIds, payload: { headers: [{ name: 'From', value: de }] } })
+  const reponse = noter({ messages: [m('a', 30), m('moi', 3, ['SENT']), m('a', 1, ['UNREAD'])] }, maintenant)
+  const allers = noter({ messages: [m('a', 20), m('b', 18), m('a', 12), m('b', 6), m('a', 2)] }, maintenant)
+  const bruit = noter({ messages: [m('news', 2, ['UNREAD', 'CATEGORY_PROMOTIONS'])] }, maintenant)
+  assert.ok(reponse.score > bruit.score && allers.score > bruit.score)
+  assert.ok(reponse.pourquoi.some((x) => /moins de 8 h/.test(x)) && reponse.pourquoi.some((x) => /attend ta réponse/.test(x)))
+  assert.ok(allers.pourquoi.some((x) => /allers-retours/.test(x)))
+})
+
+test('classement par importance : blocages, accès, flux, recette et retards pèsent sur le score', async () => {
+  const { noter } = await import('../src/outils.mjs')
+  const { charger } = await import('../src/config.mjs')
+  const cfg = charger(), maintenant = 1_800_000_000_000
+  const msg = { internalDate: String(maintenant - 40 * 3600000), labelIds: [], payload: { headers: [{ name: 'From', value: 'a' }, { name: 'Subject', value: 'RE: ' }] } }
+  const neutre = noter({ messages: [msg], texte: 'Compte rendu de la réunion' }, maintenant, cfg)
+  for (const [texte, motif] of [['Accès VPN impossible pour les testeurs', /blocage|acces/], ["Arrêt de la recette suite à l'anomalie", /recette/], ['Ouverture de flux en attente', /flux/], ['Retard de livraison du lot 2', /retard/]]) {
+    const r = noter({ messages: [msg], texte }, maintenant, cfg)
+    assert.ok(r.score > neutre.score, texte)
+    assert.ok(r.pourquoi.some((x) => motif.test(x)), `${texte} -> ${r.pourquoi}`)
+  }
+  assert.equal(noter({ messages: [msg], texte: 'token tokyo' }, maintenant, cfg).score, neutre.score, 'pas de faux positif sur un mot contenant « ko »')
 })

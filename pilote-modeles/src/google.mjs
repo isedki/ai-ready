@@ -22,10 +22,16 @@ export async function jetonAcces() {
 }
 
 export async function api(chemin, { brut = false } = {}) {
-  const r = await fetch(`${BASE()}${chemin}`, { headers: { authorization: `Bearer ${await jetonAcces()}` } })
-  if (!r.ok) {
+  // Reprise automatique en cas de quota par minute (HTTP 429, ou 403 « Quota exceeded ») : jusqu'à 3 attentes.
+  for (let essai = 0; ; essai++) {
+    const r = await fetch(`${BASE()}${chemin}`, { headers: { authorization: `Bearer ${await jetonAcces()}` } })
+    if (r.ok) return brut ? r.text() : r.json()
     const j = await r.json().catch(() => ({}))
-    throw new Error(`Google ${r.status} : ${String(j.error?.message || '').slice(0, 200)}`)
+    const msg = String(j.error?.message || '')
+    if (essai < 3 && (r.status === 429 || (r.status === 403 && /quota|rate/i.test(msg)))) {
+      await new Promise((ok) => setTimeout(ok, Number(process.env.PILOTE_ATTENTE_QUOTA_MS) || 20000))
+      continue
+    }
+    throw new Error(`Google ${r.status} : ${msg.slice(0, 200)}`)
   }
-  return brut ? r.text() : r.json()
 }
