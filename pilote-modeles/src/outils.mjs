@@ -19,7 +19,7 @@ function texteDe(part, acc = { texte: [], pj: [] }) {
 }
 
 export const DEFINITIONS = [
-  ['gmail_chercher', 'Cherche des fils Gmail (syntaxe Gmail, ex. newer_than:1d). Renvoie id, expéditeur, objet, date, extrait.', { query: { type: 'string' }, max: { type: 'integer' } }, ['query']],
+  ['gmail_chercher', 'Cherche des fils Gmail (syntaxe Gmail, ex. newer_than:1d). Renvoie jusqu'à 60 fils triés du plus récent au plus ancien : id, date du dernier message, nombre de messages, étiquettes (IMPORTANT, UNREAD…), expéditeur, objet. PARCOURS TOUTE LA LISTE.', { query: { type: 'string' }, max: { type: 'integer' } }, ['query']],
   ['gmail_lire_fil', "Lit un fil Gmail : messages (expéditeur, destinataires, date, texte tronqué) et noms des pièces jointes.", { thread_id: { type: 'string' } }, ['thread_id']],
   ['calendrier_evenements', "Liste les événements de l'agenda principal des prochains jours.", { jours: { type: 'integer' } }, []],
   ['drive_chercher', 'Cherche dans Drive par texte. Renvoie id, nom, type, date de modification.', { query: { type: 'string' } }, ['query']],
@@ -32,15 +32,20 @@ export const DEFINITIONS = [
 ].map(([name, description, properties, required]) => ({ type: 'function', function: { name, description, parameters: { type: 'object', properties, required } } }))
 
 export const IMPL = {
-  async gmail_chercher({ query, max = 8 }) {
-    const l = await api(`gmail.googleapis.com/gmail/v1/users/me/threads?q=${q(query)}&maxResults=${Math.min(max, 10)}`)
+  async gmail_chercher({ query, max = 40 }) {
+    const l = await api(`gmail.googleapis.com/gmail/v1/users/me/threads?q=${q(query)}&maxResults=${Math.min(max, 60)}`)
+    const ids = (l.threads || []).map((t) => t.id)
     const out = []
-    for (const t of l.threads || []) {
-      const f = await api(`gmail.googleapis.com/gmail/v1/users/me/threads/${t.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`)
-      const m = f.messages?.[f.messages.length - 1]
-      out.push({ id: t.id, messages: f.messages?.length, de: entete(m?.payload?.headers, 'from'), objet: entete(m?.payload?.headers, 'subject'), date: entete(m?.payload?.headers, 'date'), extrait: (t.snippet || '').slice(0, 200) })
+    for (let i = 0; i < ids.length; i += 10) {
+      const lot = await Promise.all(ids.slice(i, i + 10).map((id) => api(`gmail.googleapis.com/gmail/v1/users/me/threads/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject`)))
+      for (const f of lot) {
+        const m = f.messages?.[f.messages.length - 1]
+        const etiq = [...new Set(f.messages.flatMap((x) => x.labelIds || []))].filter((x) => ['IMPORTANT', 'UNREAD', 'STARRED', 'DRAFT', 'SENT'].includes(x))
+        out.push({ id: f.id, quand: new Date(+m.internalDate).toISOString().slice(0, 16), messages: f.messages.length, etiquettes: etiq, de: entete(m?.payload?.headers, 'from').slice(0, 60), objet: entete(m?.payload?.headers, 'subject').slice(0, 100), _t: +m.internalDate })
+      }
     }
-    return JSON.stringify(out)
+    out.sort((a, b) => b._t - a._t)
+    return JSON.stringify({ total_fils: out.length, fils: out.map(({ _t, ...r }) => r) })
   },
   async gmail_lire_fil({ thread_id }) {
     const f = await api(`gmail.googleapis.com/gmail/v1/users/me/threads/${q(thread_id)}?format=full`)
