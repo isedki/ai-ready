@@ -51,6 +51,7 @@
       <button id="b-statut">Statut détaillé</button>
       <button id="b-couts">Coûts</button>
       <button id="b-verifier">Vérifier l'installation</button>
+      <button id="b-journal">Journal des passages</button>
     </div>
     <p class="sous" style="margin:12px 0 0" id="aide-mode"></p>
     <pre id="sortie" hidden></pre>
@@ -120,6 +121,9 @@ $('b-ombre').onclick = (e) => lancer(e.target, { action: 'mode-ombre' });
 $('b-brouillons').onclick = (e) => lancer(e.target, { action: 'mode-brouillons' }, { confirmer: 'Passer en mode brouillons Gmail ? Le modèle A créera de vrais brouillons (étiquette PILOTE-US8). Rien n’est envoyé.' });
 $('b-statut').onclick = (e) => lancer(e.target, { action: 'statut' });
 $('b-couts').onclick = (e) => lancer(e.target, { action: 'couts' });
+$('b-journal').onclick = async (e) => { const sortie = $('sortie'); sortie.hidden = false; sortie.textContent = 'Chargement…'; const j = await api('/api/journal');
+  const al = Object.entries(j.alertes || {}).map(([k, v]) => `${k} (${v})`).join(', ');
+  sortie.textContent = (j.lignes.join('\n') || 'Journal vide') + (al ? `\n\nDernières alertes : ${al}` : '') + (j.planificateur ? `\n\nJournal du planificateur (fin) :\n${j.planificateur}` : ''); };
 $('b-verifier').onclick = (e) => lancer(e.target, { action: 'verifier' });
 $('o-rapports').onclick = () => api('/api/action', { action: 'ouvrir', param: 'rapports' });
 $('o-brouillons').onclick = () => api('/api/action', { action: 'ouvrir', param: 'brouillons' });

@@ -286,3 +286,13 @@ test('jeton Google expiré : échec journalisé, alerte unique du jour, aucun ap
   assert.ok(m.journal().every((e) => e.statut === 'erreur_google_jeton'))
   assert.ok(JSON.parse(fs.readFileSync(path.join(m.data, 'alertes.json'), 'utf8'))['jeton-google'])
 })
+
+test('logs : le journal est lisible (statut, coût, erreurs classées) sans contenu', async () => {
+  const m = await monde()
+  await m.lancer('src/passage.mjs')
+  const r = await m.lancer('src/journal-cli.mjs', '10')
+  m.fin()
+  assert.match(r.so, /ok\s+0\.\d+ \$/)
+  assert.match(r.so, /tours=\d+/)
+  assert.ok(!r.so.includes('CONTENU-CONFIDENTIEL') && !r.so.includes('newer_than'))
+})

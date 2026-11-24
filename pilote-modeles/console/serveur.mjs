@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { charger, mode, JOURNAL_DIR, RAPPORTS_DIR, BROUILLONS_DIR, VERROU } from '../src/config.mjs'
 import { depenseTotale } from '../src/lanceur.mjs'
 import { scopesJeton } from '../src/google.mjs'
+import { lignesJournal, finPlanificateur, alertes } from '../src/logs.mjs'
 
 const RACINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DEPOT = path.resolve(RACINE, '..')
@@ -79,6 +80,7 @@ const server = http.createServer(async (req, res) => {
       if (o && ![`http://127.0.0.1:${port()}`, `http://localhost:${port()}`].includes(o)) return json(res, 403, { erreur: 'origine refusée' })
     }
     if (req.method === 'GET' && url.pathname === '/api/etat') return json(res, 200, await etat())
+    if (req.method === 'GET' && url.pathname === '/api/journal') return json(res, 200, { lignes: lignesJournal(60), planificateur: finPlanificateur(), alertes: alertes() })
     if (req.method === 'GET' && url.pathname === '/api/outils') return json(res, 200, outilsExternes().map(({ id, titre, description, actions }) => ({ id, titre, description, actions: (actions || []).map(({ id: a, libelle, confirmer }) => ({ id: a, libelle, confirmer: !!confirmer })) })))
     const m = url.pathname.match(/^\/api\/jobs\/(\d+)$/)
     if (req.method === 'GET' && m) { const j = jobs.get(m[1]); return j ? json(res, 200, j) : json(res, 404, { erreur: 'tâche inconnue' }) }

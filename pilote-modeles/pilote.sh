@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pilote US-8 : agent Veille et Coach (mode ombre) via OpenRouter. Une commande par action.
-# Usage : ./pilote.sh install | console | raccourci | statut | passage | mode ombre|brouillons | planifier on|off | pause | reprendre | couts | reglage | connexion | verifier | modeles | retrouver "mots" | tester | desinstaller [--purger]
+# Usage : ./pilote.sh install | console | raccourci | statut | logs [n] | passage | mode ombre|brouillons | planifier on|off | pause | reprendre | couts | reglage | connexion | verifier | modeles | retrouver "mots" | tester | desinstaller [--purger]
 set -euo pipefail
 cd "$(dirname "$0")"
 HOME_P="${PILOTE_HOME:-$HOME/.config/us8-pilote}"
@@ -82,6 +82,7 @@ case "${1:-aide}" in
   passage) prereq; PILOTE_FORCER=1 node src/passage.mjs ;;
   couts) prereq; node src/couts.mjs ;;
   modeles) prereq; node src/modeles.mjs ;;
+  logs) prereq; node src/journal-cli.mjs "${2:-30}" ;;
   console) prereq; exec node console/serveur.mjs ;;
   raccourci)
     R="$HOME/Desktop/Pilote US-8.command"

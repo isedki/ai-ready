@@ -36,6 +36,7 @@ Crée les dossiers hors dépôt, reprend le jeton du spike s'il existe, active l
 | voir l'état (mode, horaires, passages réussis, coût, verrou) | `./pilote.sh statut` |
 | ouvrir la console (boutons) | `./pilote.sh console` |
 | lancer un passage maintenant | `./pilote.sh passage` |
+| lire le journal et les erreurs | `./pilote.sh logs` (ou bouton « Journal des passages » de la console) |
 | passer en vrais brouillons Gmail (A) | `./pilote.sh mode brouillons` (puis `./pilote.sh connexion` si l'autorisation manque) |
 | revenir aux fichiers locaux | `./pilote.sh mode ombre` |
 | mettre en pause la planification | `./pilote.sh pause` (ou `planifier off`) |
@@ -55,6 +56,7 @@ La création de brouillons demande l'autorisation Google « gmail.modify ». Ell
 ./pilote.sh verifier    # clé, jeton, droits, planification, modèles (existence, outils, zéro rétention, prix)
 ./pilote.sh tester      # tests hors ligne (aucune clé, aucun coût)
 ./pilote.sh couts       # coût par jour et par modèle, part du plafond
+./pilote.sh logs 30     # journal lisible des 30 derniers passages (statut, coût, jetons, outils, erreurs classées) + alertes + fin du journal du planificateur
 ./pilote.sh retrouver "mots de l'objet"   # un mail est-il vu et bien classé ? (faits seulement, pas de contenu)
 ```
 Fichiers de travail (hors dépôt) : `~/.local/share/us8-pilote/` : `rapports/`, `brouillons/` (copie locale), `journal/` (coût, jetons, durée, statut, catégories d'erreurs ; sans contenu), `launchd.log`.

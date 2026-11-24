@@ -59,3 +59,10 @@ test('actions : liste blanche, passage en tâche de fond, saisie assainie', asyn
   c.fin()
   assert.match(k.sortie, /args: retrouver accès/); assert.ok(!/[;$`\/]/.test(k.sortie.replace('args:', '')), k.sortie)
 })
+
+test('journal : lisible, sans contenu, via la console', async () => {
+  const c = await demarrer()
+  const j = JSON.parse((await c.api('/api/journal')).corps)
+  c.fin()
+  assert.ok(Array.isArray(j.lignes) && typeof j.alertes === 'object')
+})
