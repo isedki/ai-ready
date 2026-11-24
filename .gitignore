@@ -54,3 +54,6 @@ next-env.d.ts
 
 # agent PMO : prompts rendus (contiennent des données du projet)
 /dist/
+
+# US-14 : données du profil d'Issam, gardées hors dépôt (sujets internes)
+us14-apprentissage/profil-*.json
