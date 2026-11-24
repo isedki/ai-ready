@@ -12,23 +12,33 @@ const RACINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const listen = (h) => new Promise((r) => { const s = http.createServer(h); s.listen(0, '127.0.0.1', () => r(s)) })
 const lire = (req) => new Promise((r) => { let b = ''; req.on('data', (c) => (b += c)); req.on('end', () => r(b)) })
 
-async function monde({ cleOr = 'cle-test', coutParTour = 0.001, toursOutils = 2, rapportCourt = false } = {}) {
-  const vus = { google: [], or: [] }
+async function monde({ cleOr = 'cle-test', coutParTour = 0.001, toursOutils = 2, rapportCourt = false, brouillons = false, jetonKo = false } = {}) {
+  const vus = { google: [], or: [], posts: [] }
+  const etat = { drafts: [] }
   const google = await listen(async (req, res) => {
     vus.google.push(`${req.method} ${req.url.split('?')[0]}`)
     res.setHeader('content-type', 'application/json')
+    if (req.method === 'POST') {
+      const b = JSON.parse(await lire(req) || '{}')
+      vus.posts.push({ url: req.url, corps: b })
+      if (req.url.endsWith('/labels')) return res.end(JSON.stringify({ id: 'L1', name: b.name }))
+      if (req.url.endsWith('/drafts')) { etat.drafts.push({ id: 'd' + etat.drafts.length, message: { id: 'm9', threadId: b.message.threadId } }); return res.end(JSON.stringify(etat.drafts.at(-1))) }
+      return res.end('{}')
+    }
+    if (req.url.includes('/labels')) return res.end(JSON.stringify({ labels: [] }))
+    if (req.url.includes('/drafts?')) return res.end(JSON.stringify({ drafts: etat.drafts }))
     if (req.url.includes('/threads?')) return res.end(JSON.stringify({ threads: [{ id: 't1', snippet: 'extrait' }] }))
-    if (req.url.includes('/threads/t1')) return res.end(JSON.stringify({ messages: [{ id: 'm1', internalDate: '1790000000000', payload: { headers: [{ name: 'From', value: 'a@x.test' }, { name: 'Subject', value: 'Objet' }, { name: 'Date', value: 'lundi' }], mimeType: 'text/plain', body: { data: Buffer.from('CONTENU-CONFIDENTIEL').toString('base64url') } } }] }))
+    if (req.url.includes('/threads/t1')) return res.end(JSON.stringify({ messages: [{ id: 'm1', internalDate: '1790000000000', payload: { headers: [{ name: 'From', value: 'a@x.test' }, { name: 'Subject', value: 'Objet' }, { name: 'Date', value: 'lundi' }, { name: 'Message-ID', value: '<abc@x.test>' }], mimeType: 'text/plain', body: { data: Buffer.from('CONTENU-CONFIDENTIEL').toString('base64url') } } }] }))
     res.end('{}')
   })
-  const oauth = await listen(async (req, res) => { await lire(req); res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ access_token: 'AT', expires_in: 3599 })) })
+  const oauth = await listen(async (req, res) => { await lire(req); res.setHeader('content-type', 'application/json'); if (jetonKo) { res.statusCode = 400; return res.end('{"error":"invalid_grant"}') } res.end(JSON.stringify({ access_token: 'AT', expires_in: 3599 })) })
   const or = await listen(async (req, res) => {
     const corps = JSON.parse(await lire(req))
     vus.or.push({ auth: req.headers.authorization, corps })
     const n = vus.or.filter((x) => x.corps.model === corps.model).length
     const appel = (name, args) => ({ id: 'c' + n, type: 'function', function: { name, arguments: JSON.stringify(args) } })
     const message = n === 1 ? { role: 'assistant', content: null, tool_calls: [appel('gmail_chercher', { query: 'newer_than:1d' })] }
-      : n === 2 && toursOutils >= 2 ? { role: 'assistant', content: null, tool_calls: [appel('gmail_lire_fil', { thread_id: 't1' }), appel('copilote_chercher', { requete: 'routage', kind: 'annuaire' }), appel('ecrire_brouillon', { a: ['x@y.test'], objet: 'Re', corps: 'Bonjour', justification_routage: 'test', etat: 'pret' })] }
+      : n === 2 && toursOutils >= 2 ? { role: 'assistant', content: null, tool_calls: [appel('gmail_lire_fil', { thread_id: 't1' }), appel('copilote_chercher', { requete: 'routage', kind: 'annuaire' }), appel('ecrire_brouillon', { a: ['x@y.test'], objet: 'Re', corps: 'Bonjour', justification_routage: 'test', etat: 'pret', repond_au_fil: 't1' })] }
       : { role: 'assistant', content: rapportCourt && !corps.messages.some((x) => String(x.content).includes('rapport est trop court')) ? 'Voici mes brouillons.' : '## Résumé\n' + 'Rapport complet. '.repeat(30) }
     res.setHeader('content-type', 'application/json')
     res.end(JSON.stringify({ choices: [{ message }], usage: { prompt_tokens: 1000, completion_tokens: 100, cost: coutParTour } }))
@@ -37,8 +47,9 @@ async function monde({ cleOr = 'cle-test', coutParTour = 0.001, toursOutils = 2,
   const home = path.join(dir, 'home'), data = path.join(dir, 'data')
   fs.mkdirSync(home, { recursive: true }); fs.mkdirSync(data, { recursive: true })
   fs.writeFileSync(path.join(home, 'env'), `${cleOr ? `OPENROUTER_API_KEY=${cleOr}\n` : ''}GOOGLE_CLIENT_ID=x\nGOOGLE_CLIENT_SECRET=y\n`, { mode: 0o600 })
-  fs.writeFileSync(path.join(home, 'google-token.json'), JSON.stringify({ refresh_token: 'RT' }), { mode: 0o600 })
-  const env = { ...process.env, PILOTE_HOME: home, PILOTE_DATA: data, PILOTE_FORCER: '1', PILOTE_SANS_NOTIF: '1', PILOTE_SANS_LAUNCHD: '1', PILOTE_COPILOTE_CMD: JSON.stringify(['node', path.join(RACINE, 'test', 'faux-copilote.mjs')]), FAUX_COPILOTE_LOG: path.join(dir, 'copilote.log'), SPIKE_DIR: path.join(dir, 'pas-de-spike'),
+  fs.writeFileSync(path.join(home, 'google-token.json'), JSON.stringify({ refresh_token: 'RT', scope: 'https://www.googleapis.com/auth/gmail.modify' }), { mode: 0o600 })
+  if (brouillons) fs.writeFileSync(path.join(home, 'mode'), 'brouillons')
+  const env = { ...process.env, MES_ADRESSES: 'moi@pro.test', CC_AUTO: 'moi@pro.test', PILOTE_HOME: home, PILOTE_DATA: data, PILOTE_FORCER: '1', PILOTE_SANS_NOTIF: '1', PILOTE_SANS_LAUNCHD: '1', PILOTE_COPILOTE_CMD: JSON.stringify(['node', path.join(RACINE, 'test', 'faux-copilote.mjs')]), FAUX_COPILOTE_LOG: path.join(dir, 'copilote.log'), SPIKE_DIR: path.join(dir, 'pas-de-spike'),
     OPENROUTER_BASE: `http://127.0.0.1:${or.address().port}`, GOOGLE_API_BASE: `http://127.0.0.1:${google.address().port}/`, GOOGLE_TOKEN_URL: `http://127.0.0.1:${oauth.address().port}/t` }
   delete env.OPENROUTER_API_KEY
   const lancer = (...args) => new Promise((r) => execFile('node', args, { env, cwd: RACINE }, (e, so, se) => r({ code: e?.code ?? 0, so, se })))
@@ -207,12 +218,11 @@ test('dernier tour : outils interdits pour forcer le rapport', async () => {
     res.end(JSON.stringify({ choices: [{ message, finish_reason: corps.tool_choice === 'none' ? 'stop' : 'tool_calls' }], usage: { prompt_tokens: 100, completion_tokens: 10, cost: 0.0001 } }))
   })
   const m = await monde()
-  m.fin()
   const env = { ...m.env, OPENROUTER_BASE: `http://127.0.0.1:${or.address().port}` }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dt-'))
   env.PILOTE_DATA = dir; env.PILOTE_HOME = m.home
   await new Promise((ok) => execFile('node', ['src/passage.mjs'], { env, cwd: RACINE }, ok))
-  or.close()
+  or.close(); m.fin()
   assert.ok(vus.some((c) => c.tool_choice === 'none'), 'un tour sans outils a été imposé')
   const j = fs.readFileSync(path.join(dir, 'journal', fs.readdirSync(path.join(dir, 'journal'))[0]), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
   assert.ok(j.every((e) => e.statut === 'ok' && e.taille_rapport > 300), JSON.stringify(j))
@@ -232,4 +242,47 @@ test('plafond de passages : compté par modèle sur les passages réussis de la 
   const statuts = Object.fromEntries(j.map((e) => [e.modele, e.statut]))
   assert.equal(statuts['anthropic/claude-haiku-5.5'], 'refuse_passages_max')
   assert.equal(statuts['openai/gpt-oss-120b'], 'ok')
+})
+
+
+test('mode brouillons : vrai brouillon Gmail balisé pour A seulement, jamais d\'envoi, pas de doublon', async () => {
+  const m = await monde({ brouillons: true })
+  await m.lancer('src/passage.mjs')
+  await m.lancer('src/passage.mjs')   // deuxième passage : pas de second brouillon sur le même fil
+  m.fin()
+  const urls = m.vus.posts.map((p) => p.url.split('?')[0])
+  assert.equal(urls.filter((u) => u.endsWith('/drafts')).length, 1, urls.join(' | '))
+  assert.ok(urls.some((u) => u.endsWith('/labels')) && urls.some((u) => /\/messages\/m9\/modify$/.test(u)))
+  assert.ok(!m.vus.google.some((x) => /send|trash|delete/i.test(x)), 'aucun envoi ni suppression')
+  const brut = Buffer.from(m.vus.posts.find((p) => p.url.endsWith('/drafts')).corps.message.raw, 'base64url').toString('utf8')
+  assert.match(brut, /To: x@y\.test/); assert.match(brut, /Cc: moi@pro\.test/); assert.match(brut, /In-Reply-To: <abc@x\.test>/); assert.match(brut, /Subject: Re: Objet/); assert.match(brut, /X-Pilote-US8: A/)
+  assert.equal(m.vus.posts.find((p) => p.url.endsWith('/drafts')).corps.message.threadId, 't1')
+  assert.deepEqual(m.vus.posts.find((p) => /modify/.test(p.url)).corps, { addLabelIds: ['L1'] })
+})
+
+test('liste blanche : aucune écriture Google hors brouillon, étiquette et pose d\'étiquette', async () => {
+  const { apiEcrire } = await import('../src/google.mjs')
+  await assert.rejects(() => apiEcrire('gmail.googleapis.com/gmail/v1/users/me/messages/m1/send', {}), /non autorisée/)
+  await assert.rejects(() => apiEcrire('gmail.googleapis.com/gmail/v1/users/me/drafts/d1/send', {}), /non autorisée/)
+  await assert.rejects(() => apiEcrire('gmail.googleapis.com/gmail/v1/users/me/messages/m1/trash', {}), /non autorisée/)
+  await assert.rejects(() => apiEcrire('gmail.googleapis.com/gmail/v1/users/me/messages/m1/modify', { removeLabelIds: ['INBOX'] }), /non autorisée/)
+})
+
+test('verrou : un passage déjà en cours empêche un second passage (planifié ou manuel)', async () => {
+  const m = await monde()
+  fs.writeFileSync(path.join(m.data, 'pilote.verrou'), JSON.stringify({ pid: process.pid, at: Date.now() }))
+  const r = await m.lancer('src/passage.mjs')
+  m.fin()
+  assert.match(r.so, /déjà en cours/)
+  assert.equal(m.vus.or.length, 0)
+})
+
+test('jeton Google expiré : échec journalisé, alerte unique du jour, aucun appel au modèle', async () => {
+  const m = await monde({ jetonKo: true })
+  await m.lancer('src/passage.mjs')
+  await m.lancer('src/passage.mjs')
+  m.fin()
+  assert.equal(m.vus.or.length, 0)
+  assert.ok(m.journal().every((e) => e.statut === 'erreur_google_jeton'))
+  assert.ok(JSON.parse(fs.readFileSync(path.join(m.data, 'alertes.json'), 'utf8'))['jeton-google'])
 })

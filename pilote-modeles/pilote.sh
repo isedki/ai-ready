@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pilote US-8 : agent Veille et Coach (mode ombre) via OpenRouter. Une commande par action.
-# Usage : ./pilote.sh install | reglage | connexion | verifier | passage | couts | modeles | retrouver "mots" | tester | desinstaller [--purger]
+# Usage : ./pilote.sh install | statut | passage | mode ombre|brouillons | planifier on|off | pause | reprendre | couts | reglage | connexion | verifier | modeles | retrouver "mots" | tester | desinstaller [--purger]
 set -euo pipefail
 cd "$(dirname "$0")"
 HOME_P="${PILOTE_HOME:-$HOME/.config/us8-pilote}"
@@ -29,6 +29,28 @@ cmd_reglage() {
   set_var GOOGLE_CLIENT_SECRET "Secret du client Google" 1
   dit "Enregistré dans $HOME_P/env (droits 600, hors dépôt)."
 }
+plan_on() {
+  mkdir -p "$HOME/Library/LaunchAgents"
+  node src/plist.mjs > "$PLIST.tmp" && plutil -lint "$PLIST.tmp" >/dev/null && mv "$PLIST.tmp" "$PLIST"
+  launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$PLIST"
+  dit "Planification ACTIVE : $LABEL (horaires dans config/pilote.json, jours ouvrés). Un passage manuel ou planifié ne chevauche jamais un autre (verrou)."
+}
+plan_off() {
+  launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+  dit "Planification EN PAUSE : plus aucun passage automatique. './pilote.sh passage' reste possible. Reprise : ./pilote.sh reprendre"
+}
+cmd_mode() {
+  mkdir -p "$HOME_P"
+  case "${1:-}" in
+    ombre) rm -f "$HOME_P/mode"; dit "Mode OMBRE : les brouillons restent des fichiers locaux." ;;
+    brouillons)
+      echo brouillons > "$HOME_P/mode"
+      dit "Mode BROUILLONS : le modèle A crée de vrais brouillons Gmail avec l'étiquette PILOTE-US8 (jamais d'envoi)."
+      node --input-type=module -e "import {scopesJeton} from './src/google.mjs'; if(!scopesJeton().includes('gmail.modify')){console.log('  À FAIRE : autorise les brouillons : ./pilote.sh connexion')}" ;;
+    *) dit "Usage : ./pilote.sh mode ombre|brouillons"; return 2 ;;
+  esac
+}
 cmd_install() {
   prereq
   mkdir -p "$HOME_P" "$DATA_P/journal" "$DATA_P/rapports" "$DATA_P/brouillons"; chmod 700 "$HOME_P" "$DATA_P"
@@ -38,11 +60,7 @@ cmd_install() {
   if [ ! -f "$HOME_P/env" ] && [ -f "$S/env" ]; then cp "$S/env" "$HOME_P/env"; chmod 600 "$HOME_P/env"; dit "Identifiants Google repris du spike."; fi
   [ -f "$HOME_P/env" ] || { touch "$HOME_P/env"; chmod 600 "$HOME_P/env"; }
   if [ -z "${PILOTE_SANS_LAUNCHD:-}" ]; then
-    mkdir -p "$HOME/Library/LaunchAgents"
-    node src/plist.mjs > "$PLIST.tmp" && plutil -lint "$PLIST.tmp" >/dev/null && mv "$PLIST.tmp" "$PLIST"
-    launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-    launchctl bootstrap "gui/$(id -u)" "$PLIST"
-    dit "Planificateur installé : $LABEL ($(node -p 'require("./config/pilote.json").planning.length') passages par jour ouvré)."
+    plan_on
   else dit "(planificateur ignoré : PILOTE_SANS_LAUNCHD)"; fi
   cmd_verifier || { dit; dit "Installation faite ; il reste à compléter ce qui est signalé ci-dessus (./pilote.sh reglage, ./pilote.sh connexion), puis relance ./pilote.sh verifier."; return 0; }
 }
@@ -64,6 +82,11 @@ case "${1:-aide}" in
   passage) prereq; PILOTE_FORCER=1 node src/passage.mjs ;;
   couts) prereq; node src/couts.mjs ;;
   modeles) prereq; node src/modeles.mjs ;;
+  statut) prereq; node src/statut.mjs; launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 && dit "Planification : ACTIVE" || dit "Planification : EN PAUSE (ou non installée)" ;;
+  mode) prereq; shift; cmd_mode "$@" ;;
+  planifier) case "${2:-}" in on) plan_on ;; off) plan_off ;; *) dit "Usage : ./pilote.sh planifier on|off" ;; esac ;;
+  pause) plan_off ;;
+  reprendre) prereq; plan_on ;;
   retrouver) prereq; shift; node src/retrouver.mjs "$@" ;;
   tester) prereq; node --test test/pilote.test.mjs ;;
   desinstaller)

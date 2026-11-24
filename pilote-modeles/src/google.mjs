@@ -35,3 +35,23 @@ export async function api(chemin, { brut = false } = {}) {
     throw new Error(`Google ${r.status} : ${msg.slice(0, 200)}`)
   }
 }
+
+// Écritures Gmail : LISTE BLANCHE stricte (créer un brouillon, créer/poser notre étiquette). Jamais d'envoi, de suppression ni de corbeille.
+const AUTORISE = [
+  /^gmail\.googleapis\.com\/gmail\/v1\/users\/me\/drafts$/,
+  /^gmail\.googleapis\.com\/gmail\/v1\/users\/me\/labels$/,
+  /^gmail\.googleapis\.com\/gmail\/v1\/users\/me\/messages\/[A-Za-z0-9_-]+\/modify$/,
+]
+export async function apiEcrire(chemin, corps) {
+  if (!AUTORISE.some((re) => re.test(chemin))) throw new Error(`écriture Google non autorisée : ${chemin.split('/').slice(-2).join('/')}`)
+  if (/\/modify$/.test(chemin) && (Object.keys(corps).some((k) => k !== 'addLabelIds') || (corps.removeLabelIds || []).length)) throw new Error('écriture Google non autorisée : seul l\'ajout d\'étiquette est permis')
+  for (let essai = 0; ; essai++) {
+    const r = await fetch(`${BASE()}${chemin}`, { method: 'POST', headers: { authorization: `Bearer ${await jetonAcces()}`, 'content-type': 'application/json' }, body: JSON.stringify(corps) })
+    const j = await r.json().catch(() => ({}))
+    if (r.ok) return j
+    const msg = String(j.error?.message || '')
+    if (essai < 3 && (r.status === 429 || (r.status === 403 && /quota|rate/i.test(msg)))) { await new Promise((ok) => setTimeout(ok, Number(process.env.PILOTE_ATTENTE_QUOTA_MS) || 20000)); continue }
+    throw new Error(`Google ${r.status} : ${msg.slice(0, 200)}`)
+  }
+}
+export const scopesJeton = () => { try { return String(JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8')).scope || '') } catch { return '' } }

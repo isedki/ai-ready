@@ -3,7 +3,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { RACINE, JOURNAL_DIR, RAPPORTS_DIR, charger, lireEnv, dossiers, mesAdresses, ajouterAdresse, ccAuto } from './config.mjs'
 import { api } from './google.mjs'
-import { DEFINITIONS, IMPL, classerFils } from './outils.mjs'
+import { DEFINITIONS, IMPL, classerFils, contexte } from './outils.mjs'
+import { prendre, rendre } from './verrou.mjs'
+import { alerter } from './alerte.mjs'
+import { jetonAcces } from './google.mjs'
 
 const BASE = () => process.env.OPENROUTER_BASE || 'https://openrouter.ai/api/v1'
 
@@ -16,6 +19,7 @@ export function classeErreur(msg) {
   if (/outil inconnu/.test(m)) return 'outil_inconnu'
   if (/Google (\d{3})/.test(m)) return 'google_' + m.match(/Google (\d{3})/)[1]
   if (/Copilote/.test(m)) return 'copilote'
+  if (/brouillon_gmail/.test(m)) return 'brouillon_gmail'
   return 'autre'
 }
 
@@ -40,6 +44,7 @@ export async function passage(cle, { passageId = new Date().toISOString() } = {}
   dossiers()
   const cfg = charger(), env = { ...lireEnv(), ...process.env }
   const modele = cfg.modeles[cle] || cle
+  contexte.cle = cle
   const pl = cfg.plafonds
   const base = { at: new Date().toISOString(), passage: passageId, agent: cfg.agent, modele }
 
@@ -123,11 +128,23 @@ export async function passage(cle, { passageId = new Date().toISOString() } = {}
 export async function passageComplet() {
   const cfg = charger()
   if (cfg.jours_ouvres_seulement && [0, 6].includes(new Date().getDay()) && !process.env.PILOTE_FORCER) { console.log('Week-end : pas de passage.'); return [] }
-  const id = new Date().toISOString(), res = []
-  for (const cle of cfg.modeles_par_passage) {
-    const r = await passage(cle, { passageId: id })
-    console.log(`${cle} (${cfg.modeles[cle]}) : ${r.statut}${r.cout != null ? `, ${r.cout.toFixed(4)} $` : ''}`)
-    res.push(r)
-  }
-  return res
+  if (!prendre()) { console.log('Un passage est déjà en cours : abandon (pas de chevauchement).'); return [] }
+  try {
+    dossiers()
+    const id = new Date().toISOString(), res = []
+    // Contrôle du jeton Google avant d'appeler le moindre modèle : un jeton expiré est signalé tout de suite.
+    try { await jetonAcces() } catch (e) {
+      for (const cle of cfg.modeles_par_passage) journaliser({ at: new Date().toISOString(), passage: id, agent: cfg.agent, modele: cfg.modeles[cle], statut: 'erreur_google_jeton', cout_usd: 0 })
+      alerter('jeton-google', 'Le jeton Google ne marche plus : lance ./pilote.sh connexion')
+      console.log('Jeton Google refusé : ./pilote.sh connexion')
+      return [{ statut: 'erreur_google_jeton' }]
+    }
+    for (const cle of cfg.modeles_par_passage) {
+      const r = await passage(cle, { passageId: id })
+      console.log(`${cle} (${cfg.modeles[cle]}) : ${r.statut}${r.cout != null ? `, ${r.cout.toFixed(4)} $` : ''}`)
+      if (!['ok', 'refuse_passages_max', 'refuse_essais_max'].includes(r.statut)) alerter(`${cle}-${r.statut}`, `Passage ${cle} : ${r.statut}`)
+      res.push(r)
+    }
+    return res
+  } finally { rendre() }
 }

@@ -4,7 +4,7 @@ import crypto from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { TOKEN_FILE, lireEnv, ecrireSecret } from './config.mjs'
 
-const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/calendar.events.readonly', 'https://www.googleapis.com/auth/calendar.calendarlist.readonly', 'https://www.googleapis.com/auth/drive.readonly']
+const SCOPES = ['https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/calendar.events.readonly', 'https://www.googleapis.com/auth/calendar.calendarlist.readonly', 'https://www.googleapis.com/auth/drive.readonly']
 const env = lireEnv()
 if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) { console.error("Il manque l'identifiant ou le secret Google : lance  ./pilote.sh reglage"); process.exit(2) }
 const verifier = crypto.randomBytes(48).toString('base64url')

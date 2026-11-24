@@ -43,23 +43,23 @@
   "planning": [
     {
       "h": 9,
-      "m": 5
+      "m": 40
     },
     {
-      "h": 10,
-      "m": 35
-    },
-    {
-      "h": 12,
-      "m": 5
+      "h": 11,
+      "m": 40
     },
     {
       "h": 13,
-      "m": 35
+      "m": 40
     },
     {
-      "h": 15,
-      "m": 5
+      "h": 14,
+      "m": 40
+    },
+    {
+      "h": 16,
+      "m": 40
     }
   ],
   "jours_ouvres_seulement": true,
@@ -146,5 +146,11 @@
     }
   },
   "mots_importants_plafond": 8,
-  "compter_depuis": "2026-11-24T10:33:22Z"
+  "compter_depuis": "2026-11-24T10:33:22Z",
+  "ecriture_gmail": {
+    "modeles": [
+      "A"
+    ],
+    "etiquette": "PILOTE-US8"
+  }
 }

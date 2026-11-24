@@ -2,8 +2,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execFile } from 'node:child_process'
-import { api } from './google.mjs'
-import { BROUILLONS_DIR, lireEnv, charger, mesAdresses, ccAuto } from './config.mjs'
+import { api, apiEcrire, scopesJeton } from './google.mjs'
+import { BROUILLONS_DIR, lireEnv, charger, mesAdresses, ccAuto, mode } from './config.mjs'
 import { disponibleLocal, appelLocal } from './copilote.mjs'
 
 const b64 = (s) => Buffer.from(String(s || ''), 'base64url').toString('utf8')
@@ -103,6 +103,48 @@ export function classerFils(query = 'newer_than:2d', max = 80) {
   return p
 }
 
+export const contexte = { cle: '' }
+
+let etiquetteId = null
+async function etiquette(nom) {
+  if (etiquetteId) return etiquetteId
+  const l = await api('gmail.googleapis.com/gmail/v1/users/me/labels')
+  let e = (l.labels || []).find((x) => x.name === nom)
+  if (!e) e = await apiEcrire('gmail.googleapis.com/gmail/v1/users/me/labels', { name: nom, labelListVisibility: 'labelShow', messageListVisibility: 'show' })
+  return (etiquetteId = e.id)
+}
+const propre = (v) => String(v).replace(/[\r\n]+/g, ' ').trim()
+const adresseOk = (x) => /^[^\s<>@,;]+@[^\s<>@,;]+$/.test(x) || /^[^<>]*<[^\s<>@,;]+@[^\s<>@,;]+>$/.test(x)
+const enc = (t) => (/^[\x20-\x7e]*$/.test(t) ? t : `=?UTF-8?B?${Buffer.from(t, 'utf8').toString('base64')}?=`)
+
+// Vrai brouillon Gmail, balisé par l'étiquette du pilote. JAMAIS d'envoi (liste blanche dans google.mjs).
+async function brouillonGmail(a, cle) {
+  const nom = charger().ecriture_gmail?.etiquette || 'PILOTE-US8'
+  if (!scopesJeton().includes('gmail.modify')) throw new Error('brouillon_gmail : autorisation manquante, lance ./pilote.sh connexion')
+  const bons = [...a.a, ...a.cc].filter(adresseOk)
+  if (bons.length !== a.a.length + a.cc.length) throw new Error('brouillon_gmail : adresse de destinataire invalide')
+  const idEt = await etiquette(nom)
+  const fil = a.repond_au_fil ? propre(a.repond_au_fil) : ''
+  const heads = {}
+  let sujet = propre(a.objet)
+  if (fil) {
+    const ex = await api(`gmail.googleapis.com/gmail/v1/users/me/drafts?q=${q('label:' + nom)}&maxResults=100`).catch(() => ({}))
+    if ((ex.drafts || []).some((d) => d.message?.threadId === fil)) return 'Un brouillon pilote existe déjà sur ce fil : non dupliqué (supprime-le ou envoie-le pour en refaire un).'
+    const f = await api(`gmail.googleapis.com/gmail/v1/users/me/threads/${q(fil)}?format=metadata&metadataHeaders=Message-ID&metadataHeaders=References&metadataHeaders=Subject`)
+    const h = f.messages?.[f.messages.length - 1]?.payload?.headers
+    const id = propre(entete(h, 'message-id')), refs = propre(entete(h, 'references')), sj = propre(entete(h, 'subject'))
+    if (id) { heads['In-Reply-To'] = id; heads.References = `${refs} ${id}`.trim() }
+    if (sj) sujet = /^re:/i.test(sj) ? sj : `Re: ${sj}`
+  }
+  const entete_corps = `[PILOTE US-8 / ${cle} : à relire, supprime ces lignes avant d'envoyer. Routage : ${propre(a.justification_routage)}${a.etat === 'pret' ? '' : ' | À COMPLÉTER'}]\n\n`
+  const lignes = [`To: ${a.a.map(propre).join(', ')}`, ...(a.cc.length ? [`Cc: ${a.cc.map(propre).join(', ')}`] : []), `Subject: ${enc(sujet)}`,
+    ...Object.entries(heads).map(([k, v]) => `${k}: ${v}`), `X-Pilote-US8: ${cle}`, 'MIME-Version: 1.0', 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
+    Buffer.from(entete_corps + a.corps, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n')]
+  const d = await apiEcrire('gmail.googleapis.com/gmail/v1/users/me/drafts', { message: { raw: Buffer.from(lignes.join('\r\n'), 'utf8').toString('base64url'), ...(fil ? { threadId: fil } : {}) } })
+  if (d.message?.id) await apiEcrire(`gmail.googleapis.com/gmail/v1/users/me/messages/${d.message.id}/modify`, { addLabelIds: [idEt] })
+  return `Brouillon Gmail créé (étiquette ${nom}, non envoyé).`
+}
+
 export const DEFINITIONS = [
   ['gmail_chercher', "Cherche des fils Gmail (syntaxe Gmail, ex. newer_than:2d) et les renvoie CLASSÉS PAR IMPORTANCE (score et raisons : tu as répondu récemment, plusieurs allers-retours, réponse attendue de toi, important, non lu, étoilé). Traite-les dans l\'ordre.", { query: { type: 'string' }, max: { type: 'integer' } }, ['query']],
   ['gmail_lire_fil', "Lit un fil Gmail : messages (expéditeur, destinataires, date, texte tronqué) et noms des pièces jointes.", { thread_id: { type: 'string' } }, ['thread_id']],
@@ -112,7 +154,7 @@ export const DEFINITIONS = [
   ['copilote_chercher', "Recherche dans l'historique du projet (Copilote) : mails, documents, suivi, annuaire, règles. Filtre kind possible : annuaire, regle, email, doc, suivi. Cite titre et date.", { requete: { type: 'string' }, kind: { type: 'string' } }, ['requete']],
   ['copilote_lire_autour', "Lit les passages voisins d'un passage trouvé par copilote_chercher (contexte), par son identifiant numérique.", { chunk_id: { type: 'integer' } }, ['chunk_id']],
   ['suivi_lire', "Lit l'export local du suivi (actions, état), s'il est fourni.", {}, []],
-  ['ecrire_brouillon', 'Enregistre un brouillon de mail dans un fichier LOCAL (rien n\'est envoyé).', { a: { type: 'array', items: { type: 'string' } }, cc: { type: 'array', items: { type: 'string' } }, objet: { type: 'string' }, corps: { type: 'string' }, justification_routage: { type: 'string' }, repond_au_fil: { type: 'string' }, etat: { type: 'string', enum: ['pret', 'a_completer'] } }, ['objet', 'corps', 'justification_routage', 'etat']],
+  ['ecrire_brouillon', 'Enregistre un brouillon de mail dans un fichier LOCAL (rien n\'est envoyé).', { a: { type: 'array', items: { type: 'string' } }, cc: { type: 'array', items: { type: 'string' } }, objet: { type: 'string' }, corps: { type: 'string' }, justification_routage: { type: 'string' }, repond_au_fil: { type: 'string', description: 'identifiant du fil Gmail auquel ce brouillon répond (obligatoire pour une réponse)' }, etat: { type: 'string', enum: ['pret', 'a_completer'] } }, ['objet', 'corps', 'justification_routage', 'etat']],
   ['notifier', 'Notification locale pour une urgence réelle uniquement.', { message: { type: 'string' } }, ['message']],
 ].map(([name, description, properties, required]) => ({ type: 'function', function: { name, description, parameters: { type: 'object', properties, required } } }))
 
@@ -177,7 +219,12 @@ export const IMPL = {
     const nom = `${new Date().toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 6)}.md`
     const md = `# Brouillon (${a.etat === 'pret' ? 'prêt' : 'à compléter'}) — NON ENVOYÉ\n\n**À** : ${(a.a || []).join(', ')}\n**Cc** : ${(a.cc || []).join(', ')}\n**Objet** : ${a.objet}\n**Répond au fil** : ${a.repond_au_fil || '—'}\n\n**Routage** : ${a.justification_routage}\n\n---\n${a.corps}\n`
     fs.writeFileSync(path.join(BROUILLONS_DIR, nom), md, { mode: 0o600 })
-    return `Brouillon enregistré localement (${nom}). Rien n'a été envoyé.`
+    let suite = ''
+    const ec = charger().ecriture_gmail
+    if (mode() === 'brouillons' && ec?.modeles?.includes(contexte.cle)) {
+      try { suite = ' ' + (await brouillonGmail(a, contexte.cle)) } catch (e) { throw new Error(`brouillon_gmail : copie locale écrite, mais ${String(e.message).replace(/^brouillon_gmail : /, '')}`) }
+    }
+    return `Brouillon enregistré localement (${nom}). Rien n'a été envoyé.${suite}`
   },
   async notifier({ message }) {
     if (process.env.PILOTE_SANS_NOTIF) return 'Notification simulée.'

@@ -38,3 +38,9 @@ export const ajouterAdresse = (a) => { if (a && String(a).includes('@')) decouve
 export const mesAdresses = () => [...new Set([...String({ ...lireEnv(), ...process.env }.MES_ADRESSES || '').split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter((x) => x.includes('@')), ...decouvertes])]
 // Adresse mise automatiquement en Cc des brouillons : CC_AUTO, sinon la première de MES_ADRESSES.
 export const ccAuto = () => String({ ...lireEnv(), ...process.env }.CC_AUTO || '').trim().toLowerCase() || String({ ...lireEnv(), ...process.env }.MES_ADRESSES || '').split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).find((x) => x.includes('@')) || ''
+
+// Mode d'écriture : « ombre » (fichiers locaux seulement) ou « brouillons » (vrais brouillons Gmail balisés). État local, réglé par ./pilote.sh mode.
+export const MODE_FILE = path.join(HOME, 'mode')
+export const mode = () => { try { return fs.readFileSync(MODE_FILE, 'utf8').trim() === 'brouillons' ? 'brouillons' : 'ombre' } catch { return 'ombre' } }
+export const VERROU = path.join(DATA, 'pilote.verrou')
+export const ALERTES = path.join(DATA, 'alertes.json')

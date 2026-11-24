@@ -294,3 +294,10 @@ Mesures du journal (sans contenu) : A (Haiku 5.5) 0,0083 $, 5 tours ; B (DeepSee
 
 ### 13.2 Modèle B remplacé (24/11, décision d'Issam)
 Après 3 passages comparés, `deepseek/deepseek-v4.1-flash` : 1 réussi sur 3, aucun brouillon, rapports vides malgré la relance, 640 k jetons lus pour 0,061 $ (Haiku : 287 k pour 0,042 $). Il est remplacé par `openai/gpt-oss-120b` (prix relevé en direct : 0,05 $ / 0,25 $ par million de jetons ; outils et zéro rétention disponibles). Le contrôle `./pilote.sh modeles` a d'ailleurs rattrapé une erreur de prix de ma part (0,03 $ / 0,136 $ au lieu de 0,05 $ / 0,25 $), preuve de son utilité. Cumul au moment du remplacement : 0,10 $ sur 5 $.
+
+### 13.3 Décisions d'Issam (24/11, après les premiers passages) et livraison
+- **Vrais brouillons Gmail** (décision d'Issam) : mode `brouillons` pour le modèle A, étiquette `PILOTE-US8` pour distinguer les brouillons du pilote de ceux de l'agent Veille pendant la phase de test, rattachement au fil (références du message), Cc automatique, jamais d'envoi (liste blanche d'écritures + test). Demande l'autorisation Google `gmail.modify` (plus large que la lecture seule, voir README §4).
+- **Lancement et planification à la demande** sans chevauchement : `statut`, `passage`, `pause`, `reprendre`, `mode`, horaires décalés d'environ 30 minutes de l'agent Veille, verrou entre passages, dédoublonnage par fil.
+- **Alertes d'échec** (jeton Google, clé, crédit, passage coupé) et **doc d'exploitation mise à jour** (`pilote-modeles/README.md`).
+- **Fusion dans `main`** approuvée par Issam (locale, sans envoi vers GitHub).
+- **Reste :** 5 passages réussis par modèle sur cette version, jugement de qualité d'Issam sur les brouillons Gmail réels, test de réinstallation par une autre personne, décision conformité (contrat de traitement de données), accès au suivi hors claude.ai, lecture des pièces jointes.
