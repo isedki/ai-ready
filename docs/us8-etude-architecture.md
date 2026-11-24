@@ -1,0 +1,176 @@
+# US-8 — Alternative de modèles pour les agents (étude d'architecture)
+
+Phase 1 de l'histoire US-8. **Aucun code, aucun compte, aucune clé, aucun appel à un fournisseur de modèles n'a été fait.** Ce dossier attend la validation d'Issam (porte de la phase 2). Date : 24/11/2026. Faits externes consultés le 24/11/2026 (sources en §3 et §5).
+
+## 1. Besoin et état actuel
+
+**Besoin (Issam, 24/11).** Réduire le coût des agents et avoir une solution de repli quand le plan claude.ai est saturé (OpenRouter « ou similaire »). Il exige l'étude et sa validation avant tout développement, puis un pilote en infrastructure as code (rg-37), puis une doc d'installation et d'exploitation simple.
+
+**État actuel.**
+- Les agents tournent comme tâches planifiées claude.ai : Veille et Coach (≈ 5 passages par jour), Terrain et PO, Chercheur d'outils, Développeurs, Observateur et Profil, et les tâches Matin, Formateur, Bilan, Contrôle qualité, Point hebdo, Rapport mensuel.
+- Connecteurs utilisés : Gmail, Drive, Calendar, suivi (artifact, base lue et écrite par les agents), Copilote (US-5 : route HTTP MCP à jeton, lecture seule, via un tunnel ; le Mac doit être allumé).
+- Un seul fournisseur et un seul plan (Pro). Au 24/11 : 31 % de la semaine consommée (14 % sur 5 h), remise à zéro lundi 30/11.
+- **Le coût par passage n'est pas mesurable aujourd'hui** : les sessions des tâches cloud ne sont pas lisibles depuis l'agent principal (constat du KPI du 24/11). Le plan est un forfait : l'euro/dollar par passage n'existe pas ; seule la part de limite consommée se lit.
+- Cibles de coût par passage (rg-27, en équivalent tarif public) : Veille ≤ 0,25 $ (Sonnet) ; Chercheur ≤ 0,80 $ ; Terrain et PO ≤ 1,50 $ (Opus) ; Observateur et Profil ≤ 3,00 $ (Opus) ; Développeurs ≤ 0,05 $ sans go, ≤ 5 $/jour avec go ; enveloppe ≤ 25 $ par semaine.
+
+**Point important pour la décision.** Passer par une passerelle, c'est passer d'un forfait (coût marginal nul jusqu'à la limite) à un paiement au jeton. Cela ne réduit le coût *réel* que si le modèle utilisé est nettement moins cher que le forfait « équivalent » et que le forfait est de toute façon saturé ou sous-utilisé. Le vrai gain à court terme est le **repli** et la **mesure**, pas l'économie.
+
+## 2. Architecture cible (pilote)
+
+```mermaid
+flowchart LR
+  subgraph Mac["Mac d'Issam (ou petit hébergement)"]
+    P["Planificateur\n(launchd, une entrée par agent)"]
+    L["Lanceur d'agent\n(boucle modèle + outils, 1 script)"]
+    S[("Résultats + coût\nfichiers JSONL locaux")]
+    E[/"Secrets : variables d'environnement\n(.env hors dépôt)"/]
+    MCP["Connecteurs réexposés en MCP\nCopilote (US-5), suivi lecture/écriture limitée"]
+  end
+  G["Passerelle de modèles\n(OpenRouter au pilote)"]
+  M1["Modèle A (Claude, référence)"]
+  M2["Modèle B (moins cher)"]
+  CL["claude.ai : agents existants\n(inchangés, en parallèle)"]
+  P --> L
+  L -- "clé API" --> G
+  E -.-> L
+  L -- "appels d'outils" --> MCP
+  G --> M1
+  G --> M2
+  L --> S
+  CL -. "retour arrière / repli" .- L
+```
+
+Rôles :
+- **Planificateur** : une entrée launchd (macOS) par agent, décrite dans un fichier versionné. Rien dans claude.ai n'est modifié.
+- **Lanceur d'agent** : un petit script (consigne de l'agent versionnée + boucle « le modèle demande un outil → on l'exécute → on renvoie le résultat »). Il impose les plafonds (jetons, nombre de tours, coût par passage) et écrit chaque passage.
+- **Passerelle** : une adresse et une clé uniques vers plusieurs modèles, avec repli d'un modèle à l'autre et facturation unifiée.
+- **Connecteurs en MCP** : seul le Copilote est déjà réexposé. Gmail, Drive, Calendar et le suivi ne le sont pas (voir §4).
+- **Stockage** : un fichier JSONL par jour (agent, modèle, jetons entrée/sortie, coût, durée, statut, jamais le contenu des mails). Lisible par l'agent principal pour le bilan rg-27.
+- **Secrets** : clé de passerelle et jeton Copilote en variables d'environnement locales, modèle `.env.example` sans valeur ; jamais dans le dépôt, le chat ou le suivi.
+
+## 3. Options de passerelle comparées
+
+Sources consultées le 24/11/2026 par recherche web (pages officielles citées ; les agrégats tiers sont signalés).
+
+| Critère | OpenRouter | Vercel AI Gateway | LiteLLM auto-hébergé | Rester sur claude.ai avec plafonds |
+|---|---|---|---|---|
+| **Prix et frais** | Prix des fournisseurs repassés sans majoration sur l'inférence ; frais à l'achat de crédits (≈ 5,5 %, minimum ≈ 0,80 $ selon des guides tiers ; **chiffre officiel non relu**). Options BYOK avec franchise puis ≈ 5 % (sources discordantes). | Aucune majoration ni frais de plateforme sur les jetons (doc officielle). Offre gratuite : 5 $ de crédit par mois sur un sous-ensemble de modèles ; acheter des crédits supprime ce crédit gratuit. | Logiciel libre, gratuit ; on paie les fournisseurs en direct (une clé par fournisseur) + l'hébergement. | Forfait Pro déjà payé ; pas de coût marginal jusqu'à la limite. |
+| **Outils / MCP** | Appel d'outils selon le modèle (pas universel) ; une requête avec outils vers un modèle sans outils échoue ou ignore les outils. Compatible API OpenAI. MCP : à implémenter côté lanceur. | Compatible API OpenAI/Anthropic, kit de développement AI SDK avec outils ; MCP côté lanceur. Non vérifié en détail. | Passerelle MCP intégrée (déclarée dans la config, clés virtuelles) selon la doc ; page de référence non relue. | Connecteurs natifs claude.ai (Gmail, Drive, Calendar, suivi) : tout fonctionne aujourd'hui. |
+| **Zéro rétention** | Paramètre par requête `zdr: true` (et `data_collection: "deny"`) : n'envoie qu'à des fournisseurs sans rétention ; pas de journal des prompts sauf opt-in. Ne couvre pas les plugins/outils activés. | ZDR par requête pour Pro/Enterprise sans surcoût ; ZDR pour toute l'équipe : 0,10 $ pour 1 000 requêtes ; le crédit gratuit ne compte pas pour le ZDR. | Dépend de chaque fournisseur choisi (contrat direct) ; la passerelle est chez nous et ne retient que ce qu'on configure. | Politique Anthropic/claude.ai déjà acceptée par Issam. |
+| **Résilience** | Repli de fournisseur automatique ; repli de modèle sur liste ordonnée (à ordonner, avec un modèle fiable en dernier). Point de panne unique : OpenRouter. | Repli de modèles et budgets par clé/projet. Point de panne unique : Vercel + dépendance à un compte Vercel. | Pas de panne tierce de passerelle, mais c'est **notre** service : s'il tombe (Mac éteint), plus rien. | Une seule dépendance, mais aucun repli quand la limite est atteinte (le problème de départ). |
+| **Charge d'exploitation** | Très faible (service géré, 1 clé, plafond = crédit prépayé). | Faible (compte Vercel, clé gateway, budgets). | Moyenne à élevée : conteneur + base Postgres (clés/budgets), mises à jour, supervision, clés fournisseurs multiples. | Nulle. |
+| **Compte à créer** | Oui (par Issam) | Oui (compte Vercel, plan payant pour ZDR) | Un compte par fournisseur de modèle | Non |
+
+Sources : [OpenRouter, FAQ](https://openrouter.ai/docs/faq) ; [OpenRouter, ZDR](https://openrouter.ai/docs/guides/privacy/zero-data-retention) ; [OpenRouter, repli et résilience](https://openrouter.ai/blog/insights/reliability-failover/) ; [OpenRouter, appel d'outils](https://openrouter.ai/blog/tutorials/tool-calling/) ; [OpenRouter, évolution des frais BYOK](https://openrouter.ai/blog/announcements/1-million-free-byok-requests-per-month) ; [Vercel AI Gateway, tarifs](https://vercel.com/docs/ai-gateway/pricing) ; [Vercel AI Gateway, FAQ](https://vercel.com/docs/ai-gateway/faq) ; [LiteLLM, démarrage Docker](https://docs.litellm.ai/docs/proxy/docker_quick_start.md) ; [LiteLLM, mise en production](https://docs.litellm.ai/docs/learn/enterprise_quickstart) ; [Anthropic, tarifs API](https://platform.claude.com/docs/en/about-claude/pricing).
+
+**Non vérifié (à ne pas tenir pour acquis).**
+1. Le pourcentage exact et actuel des frais d'achat de crédits OpenRouter (guides tiers : ≈ 5,5 %, min. ≈ 0,80 $) et l'évolution annoncée des frais BYOK.
+2. Les tarifs des modèles non-Claude (aucun n'a été relevé ; le choix du modèle B est repoussé à la porte de validation).
+3. La disponibilité des modèles Claude via OpenRouter au tarif de la doc Anthropic (non relevé).
+4. Le fonctionnement concret du MCP dans chaque passerelle (la page de référence LiteLLM n'a pas été relue ; pour OpenRouter et Vercel, le MCP se fait côté lanceur, à tester au pilote).
+5. Les conditions contractuelles (DPA, localisation des données) : à lire par Issam / la conformité inwi avant des données réelles hors Anthropic. Issam a autorisé les données réelles pour le pilote le 24/11 ; je recommande néanmoins le ZDR obligatoire.
+6. Si les sessions claude.ai peuvent être lues/mesurées autrement qu'aujourd'hui (non, selon le KPI du 24/11).
+
+## 4. Faisabilité agent par agent
+
+Le facteur décisif : **Gmail, Drive, Calendar et le suivi sont des connecteurs claude.ai**. Tant qu'ils ne sont pas réexposés (MCP à jeton comme le Copilote, ou outils à nous), un agent hors claude.ai ne peut ni lire les mails du jour, ni créer un brouillon, ni écrire dans le suivi. Réexposer Gmail demande un accès Google (compte, consentement OAuth, clés) : **action d'Issam, hors périmètre de cette étude**.
+
+| Agent / tâche | Migrable ? | Raison et risque de qualité |
+|---|---|---|
+| **Veille et Coach** | **Pilote en « mode ombre »** | Lit l'état (suivi, Copilote pour l'historique, instantané des mails du jour exporté), produit un résumé et des brouillons *texte* dans un fichier local. Pas d'écriture Gmail ni de brouillon réel : aucun envoi, aucun risque. Qualité à comparer : faits exacts, routage rg-33 (À/Cc, « à compléter », historique cité). Le routage des brouillons est le point fragile (qualité d'outil des modèles non-Claude). |
+| Chercheur d'outils | Plus tard | Recherche web : dépend des outils de recherche du modèle ; peu de données internes. Candidat n°2. |
+| Terrain et PO | Non pour l'instant | Raisonne sur mails et suivi ; plafond Opus élevé. Garder sur claude.ai tant que la qualité n'est pas mesurée. |
+| Développeurs | Non | Édition de code et de dépôt : outils riches, qualité critique. |
+| Observateur et Profil | Non | Observe le poste local avec des outils claude.ai ; données les plus sensibles. |
+| Matin, Bilan, Contrôle qualité, Point hebdo, Rapport mensuel, Formateur | Non | Ils dépendent de Calendar/Gmail/suivi et du jugement de l'agent principal. À reconsidérer après réexposition des connecteurs. |
+
+Règle de décision proposée : un agent ne migre que si (a) tous ses outils existent côté lanceur, (b) 5 passages parallèles ne montrent aucune régression des faits et du routage, (c) le coût mesuré est inférieur à la cible rg-27.
+
+## 5. Coût
+
+**Hypothèses (à remplacer par des mesures au pilote).**
+- Passage de veille type : ≈ 100 000 jetons d'entrée (instructions, état du suivi, extraits, mails) et ≈ 5 000 de sortie. Cette taille est cohérente avec la cible rg-27 de 0,25 $ au tarif Sonnet. **Non mesurée.**
+- Tarifs publics Anthropic relevés le 24/11 sur la page de [tarifs API](https://platform.claude.com/docs/en/about-claude/pricing) : Sonnet 5.5 : 2 $ entrée / 10 $ sortie par million de jetons ; Haiku 5.5 : 0,10 $ / 0,50 $ pour les prompts ≤ 100 000 jetons (au-delà : 0,50 $ / 2,50 $, appliqué à toute la requête). La page est incohérente d'une version à l'autre : **relire le tarif en direct avant le pilote.**
+
+| Scénario (par passage) | Calcul | Coût |
+|---|---|---|
+| Sonnet 5.5 | 0,1 M × 2 + 0,005 M × 10 | ≈ 0,25 $ (= la cible) |
+| Haiku 5.5 (≤ 100 000 jetons) | 0,1 M × 0,10 + 0,005 M × 0,50 | ≈ 0,0125 $ |
+| Modèle B non-Claude | tarif non relevé | à établir |
+
+- 5 passages de pilote : ≈ 0,06 $ (Haiku) à ≈ 1,25 $ (Sonnet). Avec une marge pour les essais et les reprises, **le plafond d'essai de 5 $ proposé est largement suffisant** ; il sert surtout de coupe-circuit.
+- Veille à 5 passages/jour × 5 jours : ≈ 0,3 $/semaine (Haiku) contre ≈ 6 $/semaine (Sonnet au plafond). L'économie n'a de sens que si la qualité Haiku/modèle B est jugée suffisante ; sinon l'enveloppe de 25 $/semaine de rg-27 serait la limite.
+- **Coût de l'orchestrateur** : Mac déjà allumé pour le Copilote (US-5) → ≈ 0 $. Petit hébergement permanent : ≈ 5–15 $/mois (ordre de grandeur de l'étude US-5, non revérifié), à éviter tant que des données internes passent par un tunnel.
+- Frais de passerelle : ≈ 5,5 % d'achat de crédits (non confirmé), soit < 0,30 $ pour 5 $, minimum éventuel de 0,80 $.
+- **Plafond d'essai proposé : 5 $ au total**, crédit prépayé (la passerelle s'arrête quand il est vide) + plafond par passage dans le lanceur (jetons et tours).
+
+## 6. Risques et mesures
+
+| Risque | Mesure |
+|---|---|
+| **Confidentialité** : mails et documents internes passent par la passerelle et le fournisseur du modèle (Issam a autorisé les données réelles le 24/11) | ZDR par requête obligatoire ; modèles listés explicitement (pas de routage libre) ; ne jamais journaliser le contenu ; commencer par l'instantané du jour sans pièces jointes ; mode ombre sans écriture. Lecture des conditions (DPA) par Issam avant la première requête avec données réelles. |
+| **Qualité** : appels d'outils moins fiables, mauvais routage des brouillons | 5 passages en parallèle de Claude, grille de comparaison (faits exacts, À/Cc, brouillon « prêt » rg-33) ; rien ne part sans validation ; abandon si un fait faux. |
+| **Panne de la passerelle** | Le pilote est additionnel : aucun agent existant n'est coupé. Liste de repli de modèles ; en cas d'échec, le passage est marqué en échec et ignoré. |
+| **Fuite de clé** | Clé en variable d'environnement locale, `.env` ignoré par git, jamais dans le chat/suivi/dépôt ; clé dédiée au pilote avec plafond de crédit ; rotation documentée ; recherche de secrets avant chaque commit. |
+| **Dérive de coût** | Crédit prépayé 5 $, plafond par passage dans le lanceur (tours, jetons), journal de coût quotidien lu au bilan rg-27 (≤ 2× le plafond = alerte). |
+| **Tunnel Copilote** (déjà en place) | Jeton long, lecture seule, 30 requêtes/min ; le pilote réutilise cette route sans l'élargir. |
+| **Mac éteint** | Passage sauté et journalisé ; pas de rattrapage automatique au pilote. |
+
+## 7. Retour arrière (rg-22)
+
+- Le pilote tourne **à côté** des agents existants : aucune tâche claude.ai n'est modifiée, coupée ou remplacée.
+- Arrêt : une commande de désinstallation retire l'entrée du planificateur ; supprimer la clé (ou vider le crédit) rend toute reprise impossible. Le dossier de résultats peut être archivé ou effacé.
+- La passerelle n'a aucun état à nettoyer côté projet : révoquer la clé suffit.
+- Test du retour arrière au pilote : installer, lancer 1 passage, désinstaller, vérifier qu'aucune entrée de planificateur ni variable ne subsiste.
+
+## 8. Plan du pilote en infrastructure as code (rg-37)
+
+**Fichiers prévus (aucun n'existe encore).**
+
+```
+pilote-modeles/
+  README.md                  # doc d'installation et d'exploitation (table des matières ci-dessous)
+  .env.example               # noms des variables, sans valeur (clé passerelle, jeton Copilote, plafonds)
+  config/pilote.json         # agent, modèles A et B, ordre de repli, plafonds (jetons, tours, $ par passage)
+  agents/veille-coach.md     # consigne de l'agent (versionnée)
+  src/lanceur.ts             # boucle modèle + outils MCP, mesure du coût, écriture JSONL
+  src/outils/copilote.ts     # client MCP du Copilote (route US-5)
+  deploy/com.pilote.veille.plist.tmpl   # modèle launchd
+  scripts/install.sh         # installe, met à jour, vérifie (idempotent)
+  scripts/uninstall.sh       # retour arrière
+  scripts/verifier.sh        # contrôle sans appel payant (config, variables, plist, accès Copilote)
+  scripts/couts.sh           # résumé des coûts par jour et par agent
+  test/reinstall-propre.sh   # installe dans un dossier vierge, lance un passage fictif, désinstalle
+```
+
+**Commande d'installation (cible).**
+
+```bash
+./scripts/install.sh   # lit .env, valide, installe le planificateur, lance verifier.sh ; relançable sans casse
+```
+
+**Table des matières de la doc d'exploitation.**
+1. À quoi sert le pilote, ce qu'il ne fait pas (aucun envoi, mode ombre)
+2. Prérequis (Mac allumé, compte passerelle, clé, jeton Copilote)
+3. Installation (une commande) et vérification
+4. Exploitation quotidienne : lancer un passage, arrêter, lire les coûts et les journaux
+5. Comparer à Claude (grille de qualité)
+6. Incidents courants (clé refusée, crédit vide, outil indisponible, Mac éteint, modèle sans outils)
+7. Retour arrière et désinstallation
+8. Rotation des secrets
+9. Test de réinstallation propre
+
+Les règles rg-37 sont respectées : configuration versionnée, une commande idempotente, retour arrière testé, secrets hors dépôt avec `.env.example`, doc d'exploitation, test de réinstallation propre (critère « Fini quand »).
+
+## 9. Recommandation
+
+1. **Passerelle** : OpenRouter pour le pilote (service géré, ZDR par requête, repli de modèles, plafond naturel = crédit prépayé) ; LiteLLM seulement si on veut plus tard des budgets fins et un MCP centralisé ; AI Gateway écartée au départ (compte Vercel payant pour le ZDR).
+2. **Agent pilote** : Veille et Coach en mode ombre, sans écriture Gmail, 5 passages comparés à Claude ; les autres restent sur claude.ai.
+3. **Modèle** : Haiku 5.5 comme référence tarifaire vérifiée, plus un modèle B non-Claude à choisir ensemble (tarif à relever) ; ZDR obligatoire.
+4. **Coût** : ≈ 0,0125 $ par passage (hypothèse Haiku, à mesurer), pilote < 1,50 $, plafond d'essai 5 $ ; orchestrateur sur le Mac à 0 $.
+5. **Décisions attendues d'Issam** : valider l'architecture, créer le compte et la clé lui-même (jamais dans le chat), fixer le plafond, choisir si le pilote se limite au mode ombre.
+
+**Trois questions fermées pour Issam.**
+1. Valides-tu OpenRouter avec ZDR obligatoire pour le pilote ? (oui / non / autre passerelle)
+2. Acceptes-tu un pilote en mode ombre (sans écriture Gmail ni brouillon réel) sur Veille et Coach, avec un plafond d'essai de 5 $ ? (oui / non)
+3. Veux-tu que la réexposition de Gmail/suivi en MCP soit une histoire séparée, après les résultats du pilote ? (oui / non)
