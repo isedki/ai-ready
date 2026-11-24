@@ -2,12 +2,12 @@
   "agent": "veille-coach",
   "modeles": {
     "A": "anthropic/claude-haiku-5.5",
-    "B": "deepseek/deepseek-v4.1-flash",
+    "B": "openai/gpt-oss-120b",
     "ref": "anthropic/claude-sonnet-5.5"
   },
   "prix_par_million_usd": {
     "anthropic/claude-haiku-5.5": [0.10, 0.50],
-    "deepseek/deepseek-v4.1-flash": [0.14, 0.42],
+    "openai/gpt-oss-120b": [0.05, 0.25],
     "anthropic/claude-sonnet-5.5": [2.0, 10.0]
   },
   "prix_releves_le": "2026-11-24 (liste publique des modèles OpenRouter)",

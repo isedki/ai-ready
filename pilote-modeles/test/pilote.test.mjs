@@ -54,7 +54,7 @@ test('passage complet : outils lecture seule, brouillon local, ZDR demandé, co�
   const j = m.journal()
   assert.equal(j.length, 2, 'un passage par modèle (A et B)')
   assert.ok(j.every((e) => e.statut === 'ok' && e.cout_usd > 0 && e.jetons_entree > 0))
-  assert.deepEqual(new Set(j.map((e) => e.modele)), new Set(['anthropic/claude-haiku-5.5', 'deepseek/deepseek-v4.1-flash']))
+  assert.deepEqual(new Set(j.map((e) => e.modele)), new Set(['anthropic/claude-haiku-5.5', 'openai/gpt-oss-120b']))
   const brut = JSON.stringify(j)
   assert.ok(!brut.includes('CONTENU-CONFIDENTIEL') && !brut.includes('cle-test') && !brut.includes('newer_than'), 'aucun contenu, requête ni secret dans le journal')
   const req = m.vus.or[0]

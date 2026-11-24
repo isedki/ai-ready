@@ -3,7 +3,7 @@
 **But.** Faire tourner l'agent Veille et Coach avec un modèle moins cher, **en parallèle** de claude.ai (rien n'est coupé), mesurer le coût réel de chaque passage et comparer la qualité.
 **Mode ombre.** L'agent lit Gmail, Agenda, Drive et le Copilote, et écrit ses brouillons dans des **fichiers locaux**. Il n'envoie rien et n'écrit dans aucune boîte mail.
 **Données.** Tout passe par OpenRouter avec zéro rétention obligatoire (`zdr: true`, `data_collection: deny`). Plafond total 5 $, 0,10 $ par passage, 5 passages par modèle au maximum.
-**Modèles** (prix relevés le 24/11/2026) : A `anthropic/claude-haiku-5.5` (0,10 $ / 0,50 $ par million de jetons), B `deepseek/deepseek-v4.1-flash` (0,14 $ / 0,42 $), référence `anthropic/claude-sonnet-5.5` (2 $ / 10 $).
+**Modèles** (prix relevés le 24/11/2026) : A `anthropic/claude-haiku-5.5` (0,10 $ / 0,50 $ par million de jetons), B `openai/gpt-oss-120b` (0,05 $ / 0,25 $ ; remplace DeepSeek, écarté le 24/11 : 1 passage réussi sur 3, aucun brouillon), référence `anthropic/claude-sonnet-5.5` (2 $ / 10 $).
 
 ## 1. Prérequis
 - Un Mac avec Node 20 ou plus (`node -v`), allumé aux heures de passage.
