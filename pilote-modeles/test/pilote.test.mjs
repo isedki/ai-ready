@@ -162,12 +162,37 @@ test('classement par importance : blocages, accès, flux, recette et retards pè
 
 test('brouillon : destinataires en texte ou en liste acceptés, corps vide refusé', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'br-'))
-  process.env.PILOTE_DATA = dir
-  const { IMPL } = await import('../src/outils.mjs')
-  await IMPL.ecrire_brouillon({ a: 'x@y.test, z@y.test', cc: ['c@y.test'], objet: 'O', corps: 'Bonjour', justification_routage: 'r', etat: 'pret' })
-  await IMPL.ecrire_brouillon({ a: ['x@y.test'], objet: 'O', corps: 'Bonjour', justification_routage: 'r', etat: 'bizarre' })
+  const code = `
+    import { IMPL } from './src/outils.mjs'
+    await IMPL.ecrire_brouillon({ a: 'x@y.test, z@y.test', cc: ['c@y.test'], objet: 'O', corps: 'Bonjour', justification_routage: 'r', etat: 'pret' })
+    await IMPL.ecrire_brouillon({ a: ['x@y.test'], objet: 'O', corps: 'Bonjour', justification_routage: 'r', etat: 'bizarre' })
+    let refus = false
+    try { await IMPL.ecrire_brouillon({ a: [], objet: 'O', corps: '  ', justification_routage: 'r', etat: 'pret' }) } catch (e) { refus = /corps du brouillon vide/.test(e.message) }
+    console.log(refus ? 'REFUS-OK' : 'REFUS-KO')`
+  const r = await new Promise((ok) => execFile('node', ['--input-type=module', '-e', code], { cwd: RACINE, env: { ...process.env, PILOTE_DATA: dir, PILOTE_HOME: dir, MES_ADRESSES: '' } }, (e, so, se) => ok({ so, se })))
+  assert.match(r.so, /REFUS-OK/, r.se)
   const f = fs.readdirSync(path.join(dir, 'brouillons'))
   assert.equal(f.length, 2)
-  assert.match(fs.readFileSync(path.join(dir, 'brouillons', f[0]), 'utf8'), /x@y\.test, z@y\.test|c@y\.test/)
-  await assert.rejects(() => IMPL.ecrire_brouillon({ a: [], objet: 'O', corps: '  ', justification_routage: 'r', etat: 'pret' }), /corps du brouillon vide/)
+  assert.match(fs.readFileSync(path.join(dir, 'brouillons', f[0]), 'utf8') + fs.readFileSync(path.join(dir, 'brouillons', f[1]), 'utf8'), /x@y\.test, z@y\.test/)
+})
+
+test('classement : une réponse envoyée depuis une autre boîte (adresse connue) compte comme « tu as répondu »', async () => {
+  const { noter } = await import('../src/outils.mjs')
+  const { charger } = await import('../src/config.mjs')
+  const cfg = charger(), maintenant = 1_800_000_000_000, h = (n) => String(maintenant - n * 3600000)
+  const m = (de, il_y_a) => ({ internalDate: h(il_y_a), labelIds: ['INBOX'], payload: { headers: [{ name: 'From', value: de }, { name: 'Subject', value: 'Objet' }] } })
+  const f = { messages: [m('Autre <autre@x.test>', 20), m('Moi <moi@pro.test>', 3), m('Autre <autre@x.test>', 1)] }
+  assert.ok(!noter(f, maintenant, cfg, []).pourquoi.some((x) => /tu as répondu/.test(x)))
+  const r = noter(f, maintenant, cfg, ['moi@pro.test'])
+  assert.ok(r.pourquoi.some((x) => /moins de 8 h/.test(x)) && r.pourquoi.some((x) => /attend ta réponse/.test(x)), r.pourquoi.join(';'))
+})
+
+test('brouillon : ton adresse est ajoutée d\'office en Cc', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-'))
+  const code = `
+    import { IMPL } from './src/outils.mjs'
+    await IMPL.ecrire_brouillon({ a: ['x@y.test'], cc: [], objet: 'O', corps: 'Bonjour', justification_routage: 'r', etat: 'pret' })`
+  await new Promise((ok) => execFile('node', ['--input-type=module', '-e', code], { cwd: RACINE, env: { ...process.env, PILOTE_DATA: dir, PILOTE_HOME: dir, CC_AUTO: '', MES_ADRESSES: 'moi@pro.test' } }, ok))
+  const f = fs.readdirSync(path.join(dir, 'brouillons'))
+  assert.match(fs.readFileSync(path.join(dir, 'brouillons', f[0]), 'utf8'), /\*\*Cc\*\* : moi@pro\.test/)
 })

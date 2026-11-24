@@ -24,6 +24,7 @@ cmd_reglage() {
     grep -v "^$1=" "$HOME_P/env" > "$HOME_P/env.tmp" || true; printf '%s=%s\n' "$1" "$v" >> "$HOME_P/env.tmp"; mv "$HOME_P/env.tmp" "$HOME_P/env"; chmod 600 "$HOME_P/env"
   }
   set_var OPENROUTER_API_KEY "Clé OpenRouter (compte créé par toi, plafond de crédit à 5 \$)" 1
+  set_var MES_ADRESSES "Tes adresses mail, séparées par des virgules (reconnaître tes réponses, te mettre en Cc ; stockées en local seulement)" 0
   set_var GOOGLE_CLIENT_ID "Identifiant du client Google (facultatif si le spike a déjà servi)" 0
   set_var GOOGLE_CLIENT_SECRET "Secret du client Google" 1
   dit "Enregistré dans $HOME_P/env (droits 600, hors dépôt)."

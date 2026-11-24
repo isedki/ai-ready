@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { api } from './google.mjs'
-import { BROUILLONS_DIR, lireEnv, charger } from './config.mjs'
+import { BROUILLONS_DIR, lireEnv, charger, mesAdresses, ccAuto } from './config.mjs'
 import { disponibleLocal, appelLocal } from './copilote.mjs'
 
 const b64 = (s) => Buffer.from(String(s || ''), 'base64url').toString('utf8')
@@ -24,11 +24,12 @@ const BRUIT = ['CATEGORY_PROMOTIONS', 'CATEGORY_SOCIAL', 'CATEGORY_FORUMS', 'CAT
 // Classement par importance (déterministe). Critères : ce que TU as fait récemment (réponse envoyée),
 // les échanges avec plusieurs allers-retours, une réponse qu'on attend de toi, importants/non lus/étoilés, activité récente.
 const norm = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-export function noter(f, maintenant = Date.now(), cfg = charger()) {
+export function noter(f, maintenant = Date.now(), cfg = charger(), moi = mesAdresses()) {
   const ms = f.messages || []
   const dernier = ms[ms.length - 1]
   const h = (t) => (maintenant - t) / 3600000
-  const mes = ms.filter((m) => (m.labelIds || []).includes('SENT'))
+  const deMoi = (m) => (m.labelIds || []).includes('SENT') || moi.some((a) => String((m.payload?.headers || []).find((x) => x.name.toLowerCase() === 'from')?.value || '').toLowerCase().includes(a))
+  const mes = ms.filter(deMoi)
   const monDernier = mes.length ? Math.max(...mes.map((m) => +m.internalDate)) : 0
   const labels = new Set(ms.flatMap((m) => m.labelIds || []))
   const exp = ms.map((m) => (m.payload?.headers || []).find((x) => x.name.toLowerCase() === 'from')?.value || '')
@@ -42,7 +43,7 @@ export function noter(f, maintenant = Date.now(), cfg = charger()) {
   else if (monDernier && h(monDernier) <= 72) ajoute(2, 'tu as répondu dans les 3 jours')
   if (allers >= 4) ajoute(4, `${allers} allers-retours`)
   else if (allers >= 2) ajoute(2, `${allers} allers-retours`)
-  if (monDernier && +dernier.internalDate > monDernier && !(dernier.labelIds || []).includes('SENT')) ajoute(3, 'on attend ta réponse (dernier message reçu après le tien)')
+  if (monDernier && +dernier.internalDate > monDernier && !deMoi(dernier)) ajoute(3, 'on attend ta réponse (dernier message reçu après le tien)')
   if (labels.has('IMPORTANT')) ajoute(2, 'marqué important')
   if (labels.has('UNREAD')) ajoute(2, 'non lu')
   if (labels.has('STARRED')) ajoute(3, 'étoilé')
@@ -69,6 +70,7 @@ async function fils(query, max) {
     ['newer_than:2d is:important', 50],
     ['newer_than:2d is:unread -category:promotions -category:updates -category:social', 40],
     ['in:sent newer_than:3d', 30],
+    ...mesAdresses().map((a) => [`from:${a} newer_than:3d`, 30]),
     ['is:starred newer_than:5d', 20],
     [`newer_than:2d {${mots.join(' ')}}`, 40],
   ]
@@ -168,6 +170,9 @@ export const IMPL = {
     const liste = (v) => (Array.isArray(v) ? v : String(v ?? '').split(/[,;]/)).map((x) => String(x).trim()).filter(Boolean)
     a = { ...a, a: liste(a.a), cc: liste(a.cc), objet: String(a.objet ?? '(sans objet)'), corps: String(a.corps ?? ''), justification_routage: String(a.justification_routage ?? 'non précisée'), etat: a.etat === 'pret' ? 'pret' : 'a_completer' }
     if (!a.corps.trim()) throw new Error('corps du brouillon vide : fournis le texte complet')
+    // Tu te mets toujours en Cc de tes réponses : ajouté d'office (règle de routage rg-33).
+    const moi = ccAuto()
+    if (moi && ![...a.a, ...a.cc].some((x) => x.toLowerCase().includes(moi))) a.cc.push(moi)
     fs.mkdirSync(BROUILLONS_DIR, { recursive: true, mode: 0o700 })
     const nom = `${new Date().toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 6)}.md`
     const md = `# Brouillon (${a.etat === 'pret' ? 'prêt' : 'à compléter'}) — NON ENVOYÉ\n\n**À** : ${(a.a || []).join(', ')}\n**Cc** : ${(a.cc || []).join(', ')}\n**Objet** : ${a.objet}\n**Répond au fil** : ${a.repond_au_fil || '—'}\n\n**Routage** : ${a.justification_routage}\n\n---\n${a.corps}\n`

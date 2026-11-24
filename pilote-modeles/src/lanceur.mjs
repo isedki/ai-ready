@@ -1,7 +1,8 @@
 // Lanceur d'agent : boucle modèle (OpenRouter) + outils, plafonds, journal de coût sans contenu.
 import fs from 'node:fs'
 import path from 'node:path'
-import { RACINE, JOURNAL_DIR, RAPPORTS_DIR, charger, lireEnv, dossiers } from './config.mjs'
+import { RACINE, JOURNAL_DIR, RAPPORTS_DIR, charger, lireEnv, dossiers, mesAdresses, ajouterAdresse, ccAuto } from './config.mjs'
+import { api } from './google.mjs'
 import { DEFINITIONS, IMPL, classerFils } from './outils.mjs'
 
 const BASE = () => process.env.OPENROUTER_BASE || 'https://openrouter.ai/api/v1'
@@ -33,6 +34,8 @@ export async function passage(cle, { passageId = new Date().toISOString() } = {}
   const prix = cfg.prix_par_million_usd[modele] || [0, 0]
   const systeme = fs.readFileSync(path.join(RACINE, 'agents', 'veille-coach.md'), 'utf8')
   const messages = [{ role: 'system', content: systeme }, { role: 'user', content: `Nous sommes le ${new Date().toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}. Fais ton passage de veille.` }]
+  try { ajouterAdresse((await api('gmail.googleapis.com/gmail/v1/users/me/profile')).emailAddress) } catch {}
+  if (mesAdresses().length) messages[1].content += `\nTon adresse (celles de tes réponses) : ${mesAdresses().join(', ')}. Tu te mets automatiquement en Cc de tes réponses (${ccAuto() || 'adresse non configurée'}). Un message de cette adresse dans un fil est une réponse de toi.`
   // Pré-chargement déterministe : les 15 fils les plus importants (tes réponses récentes, allers-retours, réponses attendues).
   try {
     const f = await classerFils('newer_than:2d', 80)

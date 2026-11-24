@@ -31,3 +31,10 @@ export function ecrireSecret(fichier, texte) {
   fs.chmodSync(fichier, 0o600)
 }
 export const dossiers = () => { for (const d of [HOME, DATA, JOURNAL_DIR, RAPPORTS_DIR, BROUILLONS_DIR]) fs.mkdirSync(d, { recursive: true, mode: 0o700 }) }
+
+// Adresses de l'utilisateur : MES_ADRESSES (variable locale, séparées par des virgules) + l'adresse de la boîte Gmail lue au début du passage.
+const decouvertes = new Set()
+export const ajouterAdresse = (a) => { if (a && String(a).includes('@')) decouvertes.add(String(a).trim().toLowerCase()) }
+export const mesAdresses = () => [...new Set([...String({ ...lireEnv(), ...process.env }.MES_ADRESSES || '').split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter((x) => x.includes('@')), ...decouvertes])]
+// Adresse mise automatiquement en Cc des brouillons : CC_AUTO, sinon la première de MES_ADRESSES.
+export const ccAuto = () => String({ ...lireEnv(), ...process.env }.CC_AUTO || '').trim().toLowerCase() || String({ ...lireEnv(), ...process.env }.MES_ADRESSES || '').split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).find((x) => x.includes('@')) || ''
