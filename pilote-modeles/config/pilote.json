@@ -1,0 +1,30 @@
+{
+  "agent": "veille-coach",
+  "modeles": {
+    "A": "anthropic/claude-haiku-5.5",
+    "B": "deepseek/deepseek-v4.1-flash",
+    "ref": "anthropic/claude-sonnet-5.5"
+  },
+  "prix_par_million_usd": {
+    "anthropic/claude-haiku-5.5": [0.10, 0.50],
+    "deepseek/deepseek-v4.1-flash": [0.14, 0.42],
+    "anthropic/claude-sonnet-5.5": [2.0, 10.0]
+  },
+  "prix_releves_le": "2026-11-24 (liste publique des modèles OpenRouter)",
+  "modeles_par_passage": ["A", "B"],
+  "repli": [],
+  "zdr": true,
+  "plafonds": {
+    "par_passage_usd": 0.10,
+    "total_usd": 5.0,
+    "passages_max": 10,
+    "tours": 12,
+    "sortie_max_jetons": 4000,
+    "resultat_outil_max_caracteres": 8000
+  },
+  "planning": [
+    { "h": 9, "m": 5 }, { "h": 10, "m": 35 }, { "h": 12, "m": 5 }, { "h": 13, "m": 35 }, { "h": 15, "m": 5 }
+  ],
+  "jours_ouvres_seulement": true,
+  "suivi_export": ""
+}
