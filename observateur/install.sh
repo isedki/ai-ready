@@ -14,6 +14,7 @@ LOGS="$HOME/.observateur/logs"
 mkdir -p "$AGENTS" "$LOGS" "$HOME/.observateur"
 chmod 700 "$HOME/.observateur"
 [ -f "$HOME/.observateur/config.json" ] || cp "$DIR/config.example.json" "$HOME/.observateur/config.json"
+[ -f "$HOME/.observateur/profil.json" ] || cp "$DIR/profil.example.json" "$HOME/.observateur/profil.json"
 PATH_ENV="$(dirname "$NODE")${CLAUDE:+:$(dirname "$CLAUDE")}:/usr/bin:/bin:/usr/sbin:/sbin"
 
 plist() { # label, arguments (XML), schedule (XML)
@@ -33,15 +34,22 @@ EOF
   launchctl bootstrap "gui/$(id -u)" "$AGENTS/$1.plist"
 }
 
-WEEKDAYS=""
-for d in 1 2 3 4 5; do WEEKDAYS="$WEEKDAYS<dict><key>Weekday</key><integer>$d</integer><key>Hour</key><integer>18</integer><key>Minute</key><integer>35</integer></dict>"; done
+weekdays() { # heure, minute
+  local out=""
+  for d in 1 2 3 4 5; do out="$out<dict><key>Weekday</key><integer>$d</integer><key>Hour</key><integer>$1</integer><key>Minute</key><integer>$2</integer></dict>"; done
+  echo "$out"
+}
 
 plist ma.observateur.collect  "<string>$DIR/collect.mjs</string>" \
   "<key>StartInterval</key><integer>30</integer><key>RunAtLoad</key><true/>"
 plist ma.observateur.jour     "<string>$DIR/analyse.mjs</string><string>jour</string>" \
-  "<key>StartCalendarInterval</key><array>$WEEKDAYS</array>"
+  "<key>StartCalendarInterval</key><array>$(weekdays 18 35)</array>"
+plist ma.observateur.question "<string>$DIR/question.mjs</string>" \
+  "<key>StartCalendarInterval</key><array>$(weekdays 18 25)</array>"
 plist ma.observateur.semaine  "<string>$DIR/analyse.mjs</string><string>semaine</string>" \
   "<key>StartCalendarInterval</key><dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>18</integer><key>Minute</key><integer>45</integer></dict>"
+plist ma.observateur.equipe   "<string>$DIR/equipe.mjs</string><string>semaine</string>" \
+  "<key>StartCalendarInterval</key><dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>18</integer><key>Minute</key><integer>55</integer></dict>"
 
 echo "Observateur installé."
 echo "1) Réglages Système → Confidentialité et sécurité → Accessibilité : autorise « node » ($NODE)"
@@ -50,4 +58,5 @@ echo "   Safari ou Chrome (domaine de l'onglet) et Mail (tes mails envoyés) : A
 echo "2) Journal : ~/.observateur/journal · savoir : ~/.observateur/savoir · rapports : ~/Documents/Observateur"
 echo "   Réglages : ~/.observateur/config.json · lui apprendre : node \"$DIR/analyse.mjs\" note \"…\""
 [ -n "$CLAUDE" ] || echo "3) Claude Code (commande « claude ») introuvable : les rapports n'auront que les statistiques, sans conseils."
+echo "4) Fiche d'audit à compléter : ~/.observateur/profil.json. Pour publier les specs sur GitHub : gh auth login (ou GITHUB_TOKEN)."
 echo "Essai immédiat : node \"$DIR/analyse.mjs\" jour --sans-claude"
