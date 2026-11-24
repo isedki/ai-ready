@@ -174,3 +174,13 @@ Les règles rg-37 sont respectées : configuration versionnée, une commande ide
 1. Valides-tu OpenRouter avec ZDR obligatoire pour le pilote ? (oui / non / autre passerelle)
 2. Acceptes-tu un pilote en mode ombre (sans écriture Gmail ni brouillon réel) sur Veille et Coach, avec un plafond d'essai de 5 $ ? (oui / non)
 3. Veux-tu que la réexposition de Gmail/suivi en MCP soit une histoire séparée, après les résultats du pilote ? (oui / non)
+
+## 10. Décisions d'Issam (24/11, en discussion)
+
+1. OpenRouter avec zéro rétention obligatoire pour le pilote : **oui**.
+2. Pilote en mode ombre sur Veille et Coach, plafond d'essai de 5 $ : **oui**.
+3. Réexposition de Gmail, du suivi et d'un pont MCP→API (type MCPO, à confirmer) : Issam considère qu'elle doit pouvoir se faire **facilement avec la nouvelle architecture**, à un moment à fixer.
+
+**Conséquence sur l'architecture.** Le lanceur parle déjà MCP : chaque connecteur réexposé s'ajoute en une ligne dans `config/pilote.json` (adresse, jeton en variable d'environnement, liste d'outils autorisés), sans toucher au lanceur ni à la passerelle. Il faut donc, dès le pilote, garder cette interface « connecteur = entrée de configuration » et ne pas coder en dur le Copilote. La réexposition elle-même (accès Google, consentement, clés, lecture seule d'abord, brouillons ensuite selon rg-33) reste une **histoire séparée**, à planifier après les premiers résultats du pilote ; elle ne bloque pas le pilote en mode ombre.
+
+Reste à Issam : créer lui-même le compte et la clé OpenRouter (jamais dans le chat) au moment du développement, et donner le go de la phase 3 par le bouton de validation de l'onglet Agents.
