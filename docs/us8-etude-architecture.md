@@ -266,3 +266,10 @@ Le compte Gmail est un **compte personnel** : le mode « personnel » de Google 
 - **Appels d'outils : NON.** Gmail et Calendar répondent que le projet Google Cloud doit être inscrit au programme Developer Preview (donc compte Workspace, §12.5). Drive répond « permission refusée » (cause non établie : inscription ou API non activée).
 - **Conclusion :** la voie « serveurs MCP Google » est **fermée pour un compte personnel**. Elle redevient possible avec un compte Workspace inscrit.
 - **Plan B (recommandé) :** utiliser les API Gmail, Calendar et Drive classiques (stables, sans statut Preview) avec le même jeton, et les exposer au lanceur comme outils (fonctions locales ou petit serveur MCP à nous). Vérification prête : `./spike.sh planb` (lecture seule, comptage sans contenu). Conséquence : on écrit nous-mêmes les outils (recherche de fils, lecture, brouillon, lecture de pièce jointe, Docs), soit ≈ 1 à 2 jours de plus que l'option MCP Google, mais sans dépendre d'un programme en préversion et avec la maîtrise de la lecture seule.
+
+### 12.7 Résultat du plan B (Issam, 24/11) : OUI
+`./spike.sh planb` : Gmail (HTTP 200, 1 fil lu), Drive (HTTP 200, 1 fichier lu) et Calendar (HTTP 200, 0 agenda renvoyé : réponse acceptée mais vide, à examiner : agenda masqué ou droit `calendarlist` seul ; à revérifier avec la lecture d'événements) répondent en lecture seule avec le même jeton de renouvellement, **sur un compte personnel, sans programme Preview**.
+
+**Décision d'architecture proposée.** Les connecteurs du lanceur sont des **outils à nous** (fonctions locales ou petit serveur MCP à jeton, comme US-5) au-dessus des API Gmail, Calendar et Drive classiques : recherche de fils, lecture d'un fil, brouillon (étendue `gmail.compose`, à demander plus tard, jamais d'envoi), lecture d'une pièce jointe, lecture d'un fichier. Le pilote en mode ombre n'a besoin que de la lecture, déjà prouvée. Compte Workspace et serveurs MCP Google : option future, non nécessaire.
+
+**Preuves restantes :** durée de vie du jeton à J+1 et J+7 ; lecture d'événements Calendar ; accès au suivi (ArtifactData) hors claude.ai ; qualité des modèles sur les appels d'outils (pilote).
