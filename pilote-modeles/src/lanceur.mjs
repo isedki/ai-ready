@@ -33,7 +33,7 @@ export async function passage(cle, { passageId = new Date().toISOString() } = {}
   const prix = cfg.prix_par_million_usd[modele] || [0, 0]
   const systeme = fs.readFileSync(path.join(RACINE, 'agents', 'veille-coach.md'), 'utf8')
   const messages = [{ role: 'system', content: systeme }, { role: 'user', content: `Nous sommes le ${new Date().toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}. Fais ton passage de veille.` }]
-  let jin = 0, jout = 0, cout = 0, tours = 0, statut = 'ok', final = ''
+  let jin = 0, jout = 0, cout = 0, tours = 0, statut = 'ok', final = '', relance = false
   const appels = {}, erreurs = {}
   const t0 = Date.now()
   try {
@@ -50,7 +50,17 @@ export async function passage(cle, { passageId = new Date().toISOString() } = {}
       const msg = j.choices?.[0]?.message
       if (!msg) { statut = 'erreur_reponse_vide'; break }
       messages.push(msg)
-      if (!msg.tool_calls?.length) { final = msg.content || ''; break }
+      if (!msg.tool_calls?.length) {
+        final = msg.content || ''
+        // Garde-fou qualité : un rapport quasi vide (le modèle annonce sans agir) reçoit UNE relance.
+        if (final.length < (pl.rapport_court_caracteres || 300) && !relance) {
+          relance = true
+          messages.push({ role: 'user', content: "Ton rapport est trop court : tu annonces sans agir. Appelle maintenant les outils nécessaires (ecrire_brouillon pour chaque brouillon, notifier seulement si urgence), puis fournis le rapport COMPLET au format demandé." })
+          final = ''
+          continue
+        }
+        break
+      }
       if (cout > pl.par_passage_usd) { statut = 'coupe_plafond_passage'; break }
       for (const tc of msg.tool_calls) {
         const nom = tc.function.name
@@ -68,12 +78,13 @@ export async function passage(cle, { passageId = new Date().toISOString() } = {}
     if (tours >= pl.tours && !final && statut === 'ok') statut = 'coupe_tours'
   } catch (e) { statut = 'erreur_reseau'; final = String(e.message).slice(0, 200) }
 
-  if (final && statut === 'ok') {
+  if (statut === 'ok' && final.length < (pl.rapport_court_caracteres || 300)) statut = 'rapport_trop_court'
+  if (final) {
     fs.mkdirSync(RAPPORTS_DIR, { recursive: true, mode: 0o700 })
     fs.writeFileSync(path.join(RAPPORTS_DIR, `${passageId.replace(/[:.]/g, '-')}-${cle}.md`), final, { mode: 0o600 })
   }
   // Journal : jamais de contenu, de requête ni de secret.
-  journaliser({ ...base, statut, tours: tours + 1, jetons_entree: jin, jetons_sortie: jout, cout_usd: Math.round(cout * 1e6) / 1e6, duree_ms: Date.now() - t0, appels_outils: appels, erreurs_outils: erreurs, taille_rapport: final.length })
+  journaliser({ ...base, statut, tours: tours + 1, jetons_entree: jin, jetons_sortie: jout, cout_usd: Math.round(cout * 1e6) / 1e6, duree_ms: Date.now() - t0, appels_outils: appels, erreurs_outils: erreurs, taille_rapport: final.length, relance })
   return { statut, cout, tours: tours + 1 }
 }
 

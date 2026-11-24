@@ -20,7 +20,8 @@
     "passages_max": 5,
     "tours": 12,
     "sortie_max_jetons": 4000,
-    "resultat_outil_max_caracteres": 8000
+    "resultat_outil_max_caracteres": 8000,
+    "rapport_court_caracteres": 300
   },
   "planning": [
     { "h": 9, "m": 5 }, { "h": 10, "m": 35 }, { "h": 12, "m": 5 }, { "h": 13, "m": 35 }, { "h": 15, "m": 5 }

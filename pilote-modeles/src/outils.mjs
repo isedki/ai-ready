@@ -4,6 +4,7 @@ import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { api } from './google.mjs'
 import { BROUILLONS_DIR, lireEnv, charger } from './config.mjs'
+import { disponibleLocal, appelLocal } from './copilote.mjs'
 
 const b64 = (s) => Buffer.from(String(s || ''), 'base64url').toString('utf8')
 const entete = (hs, n) => (hs || []).find((h) => h.name.toLowerCase() === n)?.value || ''
@@ -23,7 +24,8 @@ export const DEFINITIONS = [
   ['calendrier_evenements', "Liste les événements de l'agenda principal des prochains jours.", { jours: { type: 'integer' } }, []],
   ['drive_chercher', 'Cherche dans Drive par texte. Renvoie id, nom, type, date de modification.', { query: { type: 'string' } }, ['query']],
   ['drive_lire', "Lit le texte d'un Google Doc ou d'un fichier texte de Drive (tronqué).", { file_id: { type: 'string' } }, ['file_id']],
-  ['copilote_chercher', "Recherche dans l'historique du projet (Copilote) : mails, documents, annuaire, règles. Cite titre et date.", { requete: { type: 'string' } }, ['requete']],
+  ['copilote_chercher', "Recherche dans l'historique du projet (Copilote) : mails, documents, suivi, annuaire, règles. Filtre kind possible : annuaire, regle, email, doc, suivi. Cite titre et date.", { requete: { type: 'string' }, kind: { type: 'string' } }, ['requete']],
+  ['copilote_lire_autour', "Lit les passages voisins d'un passage trouvé par copilote_chercher (contexte), par son identifiant numérique.", { chunk_id: { type: 'integer' } }, ['chunk_id']],
   ['suivi_lire', "Lit l'export local du suivi (actions, état), s'il est fourni.", {}, []],
   ['ecrire_brouillon', 'Enregistre un brouillon de mail dans un fichier LOCAL (rien n\'est envoyé).', { a: { type: 'array', items: { type: 'string' } }, cc: { type: 'array', items: { type: 'string' } }, objet: { type: 'string' }, corps: { type: 'string' }, justification_routage: { type: 'string' }, repond_au_fil: { type: 'string' }, etat: { type: 'string', enum: ['pret', 'a_completer'] } }, ['objet', 'corps', 'justification_routage', 'etat']],
   ['notifier', 'Notification locale pour une urgence réelle uniquement.', { message: { type: 'string' } }, ['message']],
@@ -66,14 +68,19 @@ export const IMPL = {
     if (!/^application\/vnd\.google-apps\.document$|^text\//.test(meta.mimeType)) return JSON.stringify({ nom: meta.name, note: `type ${meta.mimeType} non lisible par cet outil` })
     return JSON.stringify({ nom: meta.name, texte: (await api(chemin, { brut: true })).slice(0, 6000) })
   },
-  async copilote_chercher({ requete }) {
+  async copilote_chercher({ requete, kind }) {
+    if (disponibleLocal()) return appelLocal('search', { query: requete, ...(kind ? { kind } : {}), k: 8 })
     const env = { ...lireEnv(), ...process.env }
     if (!env.COPILOTE_AGENT_URL || !env.COPILOTE_AGENT_TOKEN) return 'Copilote non configuré : outil indisponible.'
-    const r = await fetch(env.COPILOTE_AGENT_URL, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', authorization: `Bearer ${env.COPILOTE_AGENT_TOKEN}` }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'search', arguments: { query: requete } } }) })
+    const r = await fetch(env.COPILOTE_AGENT_URL, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', authorization: `Bearer ${env.COPILOTE_AGENT_TOKEN}` }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'search', arguments: { query: requete, ...(kind ? { kind } : {}) } } }) })
     if (!r.ok) return `Copilote indisponible (HTTP ${r.status}).`
     const t = await r.text()
     const data = t.startsWith('event:') || t.includes('\ndata:') ? t.split('\n').filter((l) => l.startsWith('data:')).map((l) => l.slice(5)).pop() : t
     try { return (JSON.parse(data).result?.content || []).map((c) => c.text).join('\n') } catch { return 'Réponse Copilote illisible.' }
+  },
+  async copilote_lire_autour({ chunk_id }) {
+    if (!disponibleLocal()) return 'Copilote local non disponible.'
+    return appelLocal('read_around', { chunk_id, span: 1 })
   },
   async suivi_lire() {
     const f = charger().suivi_export

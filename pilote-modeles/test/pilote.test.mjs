@@ -12,7 +12,7 @@ const RACINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const listen = (h) => new Promise((r) => { const s = http.createServer(h); s.listen(0, '127.0.0.1', () => r(s)) })
 const lire = (req) => new Promise((r) => { let b = ''; req.on('data', (c) => (b += c)); req.on('end', () => r(b)) })
 
-async function monde({ cleOr = 'cle-test', coutParTour = 0.001, toursOutils = 2 } = {}) {
+async function monde({ cleOr = 'cle-test', coutParTour = 0.001, toursOutils = 2, rapportCourt = false } = {}) {
   const vus = { google: [], or: [] }
   const google = await listen(async (req, res) => {
     vus.google.push(`${req.method} ${req.url.split('?')[0]}`)
@@ -28,8 +28,8 @@ async function monde({ cleOr = 'cle-test', coutParTour = 0.001, toursOutils = 2 
     const n = vus.or.filter((x) => x.corps.model === corps.model).length
     const appel = (name, args) => ({ id: 'c' + n, type: 'function', function: { name, arguments: JSON.stringify(args) } })
     const message = n === 1 ? { role: 'assistant', content: null, tool_calls: [appel('gmail_chercher', { query: 'newer_than:1d' })] }
-      : n === 2 && toursOutils >= 2 ? { role: 'assistant', content: null, tool_calls: [appel('gmail_lire_fil', { thread_id: 't1' }), appel('ecrire_brouillon', { a: ['x@y.test'], objet: 'Re', corps: 'Bonjour', justification_routage: 'test', etat: 'pret' })] }
-      : { role: 'assistant', content: '## Résumé\nOK' }
+      : n === 2 && toursOutils >= 2 ? { role: 'assistant', content: null, tool_calls: [appel('gmail_lire_fil', { thread_id: 't1' }), appel('copilote_chercher', { requete: 'routage', kind: 'annuaire' }), appel('ecrire_brouillon', { a: ['x@y.test'], objet: 'Re', corps: 'Bonjour', justification_routage: 'test', etat: 'pret' })] }
+      : { role: 'assistant', content: rapportCourt && !corps.messages.some((x) => String(x.content).includes('rapport est trop court')) ? 'Voici mes brouillons.' : '## Résumé\n' + 'Rapport complet. '.repeat(30) }
     res.setHeader('content-type', 'application/json')
     res.end(JSON.stringify({ choices: [{ message }], usage: { prompt_tokens: 1000, completion_tokens: 100, cost: coutParTour } }))
   })
@@ -38,7 +38,7 @@ async function monde({ cleOr = 'cle-test', coutParTour = 0.001, toursOutils = 2 
   fs.mkdirSync(home, { recursive: true }); fs.mkdirSync(data, { recursive: true })
   fs.writeFileSync(path.join(home, 'env'), `${cleOr ? `OPENROUTER_API_KEY=${cleOr}\n` : ''}GOOGLE_CLIENT_ID=x\nGOOGLE_CLIENT_SECRET=y\n`, { mode: 0o600 })
   fs.writeFileSync(path.join(home, 'google-token.json'), JSON.stringify({ refresh_token: 'RT' }), { mode: 0o600 })
-  const env = { ...process.env, PILOTE_HOME: home, PILOTE_DATA: data, PILOTE_FORCER: '1', PILOTE_SANS_NOTIF: '1', PILOTE_SANS_LAUNCHD: '1', SPIKE_DIR: path.join(dir, 'pas-de-spike'),
+  const env = { ...process.env, PILOTE_HOME: home, PILOTE_DATA: data, PILOTE_FORCER: '1', PILOTE_SANS_NOTIF: '1', PILOTE_SANS_LAUNCHD: '1', PILOTE_COPILOTE_CMD: JSON.stringify(['node', path.join(RACINE, 'test', 'faux-copilote.mjs')]), FAUX_COPILOTE_LOG: path.join(dir, 'copilote.log'), SPIKE_DIR: path.join(dir, 'pas-de-spike'),
     OPENROUTER_BASE: `http://127.0.0.1:${or.address().port}`, GOOGLE_API_BASE: `http://127.0.0.1:${google.address().port}/`, GOOGLE_TOKEN_URL: `http://127.0.0.1:${oauth.address().port}/t` }
   delete env.OPENROUTER_API_KEY
   const lancer = (...args) => new Promise((r) => execFile('node', args, { env, cwd: RACINE }, (e, so, se) => r({ code: e?.code ?? 0, so, se })))
@@ -62,6 +62,9 @@ test('passage complet : outils lecture seule, brouillon local, ZDR demandé, co�
   assert.equal(req.corps.provider.zdr, true)
   assert.equal(req.corps.provider.data_collection, 'deny')
   assert.ok(req.corps.tools.length >= 8)
+  const cop = fs.readFileSync(path.join(path.dirname(m.home), 'copilote.log'), 'utf8')
+  assert.match(cop, /"name":"search"/)
+  assert.match(cop, /"kind":"annuaire"/)
   assert.ok(m.vus.google.every((x) => x.startsWith('GET ')), 'Google : uniquement des lectures')
   const br = fs.readdirSync(path.join(m.data, 'brouillons'))
   assert.equal(br.length, 2)
@@ -119,4 +122,13 @@ test('reinstall propre : install, vérifier, passage, désinstaller --purger, pl
   m.fin()
   assert.equal(r.code, 0, r.so + r.se)
   assert.ok(!fs.existsSync(m.home) && !fs.existsSync(m.data))
+})
+
+test('rapport quasi vide : une relance, puis rapport complet ; sinon statut explicite', async () => {
+  const m = await monde({ rapportCourt: true, toursOutils: 1 })
+  await m.lancer('src/passage.mjs')
+  m.fin()
+  const j = m.journal().filter((e) => e.agent)
+  assert.ok(j.every((e) => e.relance === true && e.statut === 'ok'), JSON.stringify(j))
+  assert.ok(m.vus.or.some((r) => r.corps.messages.some((x) => String(x.content).includes('rapport est trop court'))))
 })
