@@ -1,0 +1,25 @@
+{
+  "_comment": "Fiche d'audit de la personne observée : ce qui est « normal » pour son rôle. Copiée en ~/.observateur/profil.json à l'installation ; à compléter. Lue par l'équipe d'agents, jamais publiée telle quelle.",
+  "personne": "Issam Sedki",
+  "role": "Coordinateur SI d'un projet de transformation du billing (opérateur télécom)",
+  "contexte": "Grand projet avec un intégrateur (Atos), une équipe de recette externe (Inetum) et de nombreuses équipes internes (DBA, réseau, sécurité, infra, métier). Beaucoup de dépendances et de demandes d'accès, de flux et d'environnements.",
+  "missions": [
+    "débloquer les prérequis SI (accès, flux, environnements, bases) de l'intégrateur et de la recette",
+    "suivre les actions et relancer les équipes",
+    "préparer et animer les points de suivi, rédiger les comptes rendus",
+    "rapporter l'avancement à son responsable"
+  ],
+  "livrables": ["emails de demande et de relance", "matrices de flux", "comptes rendus", "rapport hebdomadaire", "suivi des actions"],
+  "outils_attendus": ["Apple Mail", "Microsoft Outlook", "Microsoft Teams", "Excel", "Word", "Claude", "ServiceNow", "WhatsApp"],
+  "interlocuteurs": ["intégrateur", "équipe de recette", "DBA", "réseau et sécurité", "infrastructure", "métier", "responsable hiérarchique"],
+  "contraintes": [
+    "poste d'entreprise : un outil nouveau doit être validé par la DSI",
+    "données projet confidentielles : pas d'envoi vers un service externe sans validation",
+    "GitHub peut être inaccessible depuis le réseau de l'entreprise"
+  ],
+  "ce_que_je_veux_ameliorer": [
+    "moins de temps perdu à attendre des réponses ou des accès",
+    "moins de dispersion entre emails, Teams et WhatsApp",
+    "des emails plus courts et sans oubli"
+  ]
+}

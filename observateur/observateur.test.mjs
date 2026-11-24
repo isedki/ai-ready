@@ -3,9 +3,9 @@ import { mkdtempSync, writeFileSync }             from 'node:fs'
 import { tmpdir }                                 from 'node:os'
 import { join }                                   from 'node:path'
 import { test }                                   from 'node:test'
-import { dayStats, environment, mailChecks, readDay, renderDay, renderWeek, slowWindows } from './analyse.mjs'
-import { categorize, crashApp, domainOf, loadConfig, makeRecord, parseIdle, redact } from './lib.mjs'
-import { ownText, parseSent }                     from './mails.mjs'
+import { askClaude, dayStats, environment, mailChecks, readDay, renderDay, renderWeek, slowWindows } from './analyse.mjs'
+import { categorize, crashApp, domainOf, loadConfig, localDay, makeRecord, parseIdle, redact } from './lib.mjs'
+import { daysBack, ownText, parseSent }           from './mails.mjs'
 import { addNote, baseline, mergeConstats, readConstats, readDays, readNotes, saveConstats, saveDay, topConstats } from './savoir.mjs'
 
 const cfg = loadConfig('/nonexistent/config.json')
@@ -158,4 +158,270 @@ test('the journal is read line by line, broken lines skipped', () => {
   writeFileSync(join(dir, '2026-11-19.jsonl'), '{"t":"2026-11-19T09:00:00Z","app":"Mail"}\nnot json\n')
   assert.equal(readDay(dir, '2026-11-19').length, 1)
   assert.deepEqual(readDay(dir, '2026-11-18'), [])
+})
+
+// ── Observation continue et équipe d'agents ─────────────────────────────────────────────────────
+import { effect, issueBody, mergeBacklog, setStatus } from './equipe.mjs'
+import { eveningQuestion, frustration, repetitions, topicKeys, workThreads } from './signaux.mjs'
+
+test('topics come from references first, then meaningful words', () => {
+  assert.deepEqual(topicKeys('RE: CreditSet flux A-043 · Outlook').slice(0, 3), ['A-043', 'creditset', 'flux'])
+  assert.deepEqual(topicKeys('Microsoft Teams'), [])
+})
+
+test('work threads: time, restarts and tools per file', () => {
+  const recs = day([['Microsoft Excel', 'Matrice CreditSet v5', 20], ['Mail', 'RE: CreditSet flux', 10], ['Microsoft Excel', 'Matrice CreditSet v5', 10], ['Mail', 'RE: Wallix PROD', 10]])
+  const t = workThreads(recs, cfg)
+  assert.equal(t[0].sujet, 'creditset')
+  assert.equal(t[0].minutes, 40)
+  assert.equal(t[0].reprises, 1)
+  assert.deepEqual(t[0].apps.sort(), ['Mail', 'Microsoft Excel'])
+  assert.ok(t.some(x => x.sujet === 'wallix' && x.minutes === 10))
+})
+
+test('repeated three-app sequences are found', () => {
+  const seq = []
+  for (let i = 0; i < 5; i++) seq.push(['Microsoft Excel', 'x', 1], ['Mail', 'y', 1], ['Microsoft Teams', 'z', 1])
+  const r = repetitions(day(seq))
+  assert.equal(r[0].enchainement, 'Microsoft Excel → Mail → Microsoft Teams')
+  assert.ok(r[0].fois >= 4)
+})
+
+test('frustration: back-and-forth, reopening, stop after a crash', () => {
+  const toggles = []
+  for (let i = 0; i < 5; i++) toggles.push(['Mail', 'RE: accès', 0.5], ['WhatsApp', 'Hicham', 0.5])
+  const f1 = frustration(day([['Microsoft Word', 'x', 5], ...toggles]), cfg)
+  assert.ok(f1.some(f => f.type === 'va-et-vient' && /Mail ↔ WhatsApp|WhatsApp ↔ Mail/.test(f.detail)))
+  const reopen = []
+  for (let i = 0; i < 5; i++) reopen.push(['Microsoft Excel', 'Matrice v5', 1], ['Mail', 'autre', 1])
+  assert.ok(frustration(day(reopen), cfg).some(f => f.type === 'réouverture'))
+  const crash = frustration(day([['Microsoft Excel', 'x', 1, false, { plantages: ['Microsoft Excel'] }], ['Microsoft Excel', '', 8, true]]), cfg)
+  assert.equal(crash.length, 1, 'one crash on two nearby samples counts once')
+  assert.equal(crash[0].type, 'arrêt après plantage')
+})
+
+test('the evening question is short and about the most notable moment', () => {
+  assert.match(eveningQuestion({ frictions: [{ type: 'arrêt après plantage', heure: '14:20', detail: 'Microsoft Excel a planté, 8 min d\'inactivité ensuite' }] }), /^À 14:20 : Microsoft Excel a planté.*Qu'est-ce qui se passait \?$/)
+  assert.match(eveningQuestion({ slowdowns: [{ debut: '15:00', fin: '15:30', cause_regle: 'fatigue', signaux: { activite_pct: 20, sujet_principal: 'DAT' } }] }), /Entre 15:00 et 15:30.*20 %.*« DAT ».*Pourquoi \?/)
+  assert.match(eveningQuestion({}), /ralenti ou agacé/)
+})
+
+test('backlog: proposals keep their status, weekly measures close the loop', () => {
+  const crit = { opportunites: [{ friction_id: 'attente-acces', titre: 'Attente des accès', nature: 'outil_existant', recommandation: 'Règle Outlook + suivi', gain_minutes_semaine: 60,
+    effort: 'heure', cout: 'gratuit', score: 6, confidentialite_ok: true, remarque: '' }], top: ['attente-acces'] }
+  let b = mergeBacklog({}, crit, [{ id: 'attente-acces', minutes_perdues_semaine: 120 }], '2026-11-20')
+  assert.equal(b['attente-acces'].statut, 'proposee'); assert.equal(b['attente-acces'].mesure_depart, 120); assert.equal(b['attente-acces'].top, true)
+  b = setStatus(b, 'attente-acces', 'installee', 'règle créée', '2026-11-21')
+  b = mergeBacklog(b, crit, [{ id: 'attente-acces', minutes_perdues_semaine: 40 }], '2026-11-27')
+  assert.equal(b['attente-acces'].statut, 'installee', 'status kept')
+  assert.deepEqual(effect(b['attente-acces']), { avant: 120, apres: 40, gain: 80, semaines: 1 })
+  assert.throws(() => setStatus(b, 'inconnue', 'acceptee'), /inconnue/)
+  assert.throws(() => setStatus(b, 'attente-acces', 'fait'), /Statut inconnu/)
+})
+
+test('issues carry an anonymised summary and the spec, never raw titles', () => {
+  const o = { id: 'x', titre: 'Pièces jointes oubliées', nature: 'add_on', gain_minutes_semaine: 15, effort: 'jour', cout: 'gratuit', mesure_depart: 20, proposee_le: '2026-11-20', recommandation: 'Vérifier avant envoi', remarque: '' }
+  const body = issueBody(o, '# Spec\n\nProblème…')
+  assert.match(body, /add-on à développer/)
+  assert.match(body, /### Spécification/)
+  assert.match(body, /observateur-id: x$/)
+})
+
+test('GitHub: top proposals become issues once; a public repository is refused', async () => {
+  const { publish } = await import('./equipe.mjs')
+  const specs = tmp()
+  const calls = []
+  const realFetch = globalThis.fetch
+  const prevToken = process.env.GITHUB_TOKEN
+  process.env.GITHUB_TOKEN = 'test'
+  const make = isPrivate => async (url, init = {}) => {
+    calls.push({ url, method: init.method ?? 'GET', body: init.body })
+    if (!init.method) return { ok: true, json: async () => ({ full_name: 'o/r', private: isPrivate }) }
+    return { ok: true, json: async () => ({ html_url: `https://github.com/o/r/issues/${calls.length}` }) }
+  }
+  const c = { ...cfg, equipe: { ...cfg.equipe, github: { publier: true, depot: 'o/r', label: 'observateur', depot_public_autorise: false } } }
+  const backlog = () => ({
+    a: { id: 'a', titre: 'A', nature: 'add_on', top: true, statut: 'proposee', confidentialite_ok: true, gain_minutes_semaine: 1, effort: 'jour', cout: '0', recommandation: 'r', issue: null },
+    b: { id: 'b', titre: 'B', nature: 'outil_existant', top: false, statut: 'proposee', confidentialite_ok: true, issue: null },
+    c: { id: 'c', titre: 'C', nature: 'add_on', top: true, statut: 'proposee', confidentialite_ok: false, issue: null },
+  })
+  try {
+    globalThis.fetch = make(true)
+    const b = backlog()
+    assert.deepEqual(await publish(c, b, specs), { publiees: 1 })
+    assert.match(b.a.issue, /issues\/2$/)
+    assert.equal(b.b.issue, null); assert.equal(b.c.issue, null, 'privacy flag blocks publication')
+    assert.deepEqual(JSON.parse(calls[1].body).labels, ['observateur', 'add-on'])
+    assert.deepEqual(await publish(c, b, specs), { publiees: 0 }, 'already published')
+    globalThis.fetch = make(false)
+    const r = await publish(c, backlog(), specs)
+    assert.equal(r.publiees, 0); assert.match(r.raison, /public/)
+  } finally {
+    globalThis.fetch = realFetch
+    if (prevToken === undefined) delete process.env.GITHUB_TOKEN; else process.env.GITHUB_TOKEN = prevToken
+  }
+})
+
+test('the scripts run from a folder whose name has a space (« observateur 2 »)', async () => {
+  const { cpSync, existsSync: exists } = await import('node:fs')
+  const { execFileSync } = await import('node:child_process')
+  const { fileURLToPath } = await import('node:url')
+  const { dirname } = await import('node:path')
+  const here = dirname(fileURLToPath(import.meta.url))
+  const root = tmp()
+  const dir = join(root, 'observateur 2')
+  cpSync(here, dir, { recursive: true })
+  const conf = join(root, 'config.json')
+  writeFileSync(conf, JSON.stringify({ dossier_donnees: join(root, 'journal'), dossier_rapports: join(root, 'rapports'), dossier_savoir: join(root, 'savoir') }))
+  const out = execFileSync(process.execPath, [join(dir, 'analyse.mjs'), 'jour', '2026-11-19', '--sans-claude', '--sans-mails'], { encoding: 'utf8', env: { ...process.env, OBSERVATEUR_CONFIG: conf } })
+  assert.match(out, /jour-2026-11-19\.md/)
+  assert.ok(exists(join(root, 'rapports', 'jour-2026-11-19.md')))
+})
+
+test('les résumés de conversation sont lus depuis Drive et gardés dans le savoir', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { conversationsDir, readConversations } = await import('./savoir.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'obs-conv-'))
+  const drive = join(home, 'Library', 'CloudStorage', 'GoogleDrive-x@y.z', 'My Drive', 'Observateur · conversations')
+  mkdirSync(drive, { recursive: true })
+  writeFileSync(join(drive, '2026-11-19.json'), JSON.stringify({ jour: '2026-11-19', frictions: [{ quoi: 'PST' }] }))
+  writeFileSync(join(drive, '2026-11-10.json'), JSON.stringify({ jour: '2026-11-10' }))
+  const cfg = { conversations: { dossier: 'auto' }, dossier_savoir: join(home, 'savoir') }
+  assert.equal(conversationsDir(cfg, home), drive)
+  const got = readConversations(cfg, '2026-11-19', '2026-11-19', conversationsDir(cfg, home))
+  assert.deepEqual(got.map(c => c.jour), ['2026-11-19'])
+  rmSync(drive, { recursive: true })
+  assert.equal(readConversations(cfg, '2026-11-19', '2026-11-19', join(home, 'absent'))[0].frictions[0].quoi, 'PST')
+  rmSync(home, { recursive: true })
+})
+
+test('sent mails: a past day is located by its distance from today', () => {
+  assert.equal(daysBack('2026-11-19', '2026-11-20'), 1)
+  assert.equal(daysBack('2026-11-20', '2026-11-20'), 0)
+  assert.equal(daysBack('2026-10-31', '2026-11-02'), 2)
+})
+
+test('askClaude says why Claude did not answer (expired login) instead of failing silently', async () => {
+  const dir = tmp(), bin = join(dir, 'claude')
+  writeFileSync(bin, `#!/bin/sh
+[ "$1" = "--version" ] && { echo 2.1; exit 0; }
+cat >/dev/null
+echo '{"is_error":true,"result":"Failed to authenticate: OAuth session expired"}'
+exit 1
+`, { mode: 0o755 })
+  const errors = [], orig = console.error
+  console.error = m => errors.push(String(m))
+  process.env.OBSERVATEUR_CLAUDE_BIN = bin
+  try { assert.equal(await askClaude('m', 's', 'u'), null) }
+  finally { console.error = orig; delete process.env.OBSERVATEUR_CLAUDE_BIN }
+  assert.match(errors.join('\n'), /OAuth session expired/)
+})
+
+test('les rapports sont copiés dans Drive « Observateur · rapports » à côté des conversations', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { publishToDrive } = await import('./savoir.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'obs-drive-'))
+  const root = join(home, 'Library', 'CloudStorage', 'GoogleDrive-x@y.z', 'My Drive')
+  mkdirSync(join(root, 'Observateur · conversations'), { recursive: true })
+  const rep = join(home, 'jour-2026-11-22.md'); writeFileSync(rep, '# Ma journée\n')
+  const dest = publishToDrive({}, rep, home)
+  assert.equal(dest, join(root, 'Observateur · rapports', 'jour-2026-11-22.md'))
+  assert.equal(readFileSync(dest, 'utf8'), '# Ma journée\n')
+  assert.equal(publishToDrive({ rapports_drive: false }, rep, home), null)
+  const nohome = mkdtempSync(join(tmpdir(), 'obs-nodrive-'))
+  assert.equal(publishToDrive({}, rep, nohome), null)
+  assert.ok(!existsSync(join(nohome, 'Library')))
+})
+
+// ── Cas d'échec : chaque étape est isolée, l'échec est consigné (« non lu : raison »), le rapport sort quand même ──
+
+test('échec · Drive : fichier illisible → relu par readFileSync, sinon ignoré et noté, sans planter', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { keepFile, readConversations } = await import('./savoir.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'obs-fail-'))
+  const drive = join(home, 'drive'); mkdirSync(drive)
+  writeFileSync(join(drive, '2026-11-19.json'), JSON.stringify({ jour: '2026-11-19' }))
+  // 1. copyFileSync échoue (erreur système -11 / EAGAIN d'un fichier Drive pas encore téléchargé) : relecture normale
+  const eagain = () => { throw Object.assign(new Error('EAGAIN: unknown system error -11'), { code: 'EAGAIN' }) }
+  const dst = join(home, 'copie.json')
+  assert.equal(keepFile(join(drive, '2026-11-19.json'), dst, eagain), true)
+  assert.equal(JSON.parse(readFileSync(dst, 'utf8')).jour, '2026-11-19')
+  // 2. rien ne marche (ici : un dossier à la place du fichier) : ignoré, noté, les autres jours restent lus
+  mkdirSync(join(drive, '2026-11-20.json'))
+  const cfg = { dossier_savoir: join(home, 'savoir') }
+  const issues = []
+  const got = readConversations(cfg, '2026-11-19', '2026-11-21', drive, issues)
+  assert.deepEqual(got.map(c => c.jour), ['2026-11-19'])
+  assert.equal(issues.length, 1)
+  assert.match(issues[0].raison, /2026-11-20\.json/)
+  assert.ok(!existsSync(join(cfg.dossier_savoir, 'conversations', '2026-11-20.json')))
+})
+
+test('échec · Drive : dossier absent ou savoir illisible → liste vide, aucune exception', async () => {
+  const { mkdtempSync, writeFileSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { readConversations } = await import('./savoir.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'obs-fail-'))
+  const issues = []
+  assert.deepEqual(readConversations({ dossier_savoir: join(home, 's') }, '2026-11-19', '2026-11-19', join(home, 'absent'), issues), [])
+  // le « dossier savoir » est en fait un fichier : mkdir impossible
+  writeFileSync(join(home, 'fichier'), 'x')
+  const bad = readConversations({ dossier_savoir: join(home, 'fichier') }, '2026-11-19', '2026-11-19', join(home, 'absent'), issues)
+  assert.deepEqual(bad, [])
+  assert.equal(issues.length, 1)
+  assert.equal(issues[0].etape, 'conversations')
+})
+
+test('échec · Mail qui expire : lecture notée, fichier déjà gardé utilisé, rapport non bloqué', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { mailStep } = await import('./analyse.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'obs-mail-'))
+  mkdirSync(join(home, 'donnees')); mkdirSync(join(home, 'mails'))
+  const cfg2 = { ...cfg, mails: { ...cfg.mails, actif: true }, dossier_donnees: join(home, 'donnees') }
+  const timeout = () => { throw Object.assign(new Error('spawnSync osascript ETIMEDOUT'), { code: 'ETIMEDOUT' }) }
+  const issues = []
+  // aucun fichier gardé : null + note
+  assert.equal(await mailStep(cfg2, '2026-11-20', issues, timeout), null)
+  assert.equal(issues.length, 1)
+  assert.match(issues[0].raison, /ETIMEDOUT/)
+  // fichier gardé : il sert malgré l'échec
+  const today = localDay()
+  writeFileSync(join(home, 'mails', `${today}.jsonl`), JSON.stringify({ sujet: 's', texte: 't', destinataires: 1, copies: 0, domaines: [], pieces_jointes: 0, date: '' }) + '\n')
+  const m = await mailStep(cfg2, today, issues, timeout)
+  assert.equal(m.envoyes, 1)
+  assert.equal(issues.length, 2)
+})
+
+test('échec · journal du jour vide : le rapport sort, avec les étapes non lues', () => {
+  const s = dayStats([], cfg)
+  const md = renderDay('2026-11-21', s, cfg, { issues: [{ etape: 'mails', raison: 'ETIMEDOUT' }] })
+  assert.match(md, /Aucune activité enregistrée/)
+  assert.match(md, /non lu : ETIMEDOUT/)
+  assert.equal(readDay('/nonexistent', '2026-11-21').length, 0)
+})
+
+test('échec · rapport avec activité : section « Non lu » présente seulement s\'il y a un échec', () => {
+  const recs = [{ t: '2026-11-21T08:00:00', app: 'Mail', titre: 'x', idle: 1 }]
+  const s = dayStats(recs, cfg)
+  assert.doesNotMatch(renderDay('2026-11-21', s, cfg), /Non lu/)
+  assert.match(renderDay('2026-11-21', s, cfg, { issues: [{ etape: 'drive', raison: 'EAGAIN' }] }), /Non lu[\s\S]*drive[\s\S]*non lu : EAGAIN/)
+})
+
+test('échec · profil.md absent : lecture vide, copie Drive ignorée, aucune exception', async () => {
+  const { mkdtempSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { publishToDrive, readProfile } = await import('./savoir.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'obs-prof-'))
+  assert.equal(readProfile({ dossier_savoir: join(home, 'savoir') }), '')
+  assert.equal(publishToDrive({}, join(home, 'savoir', 'profil.md'), home, 'portrait.md'), null)
 })

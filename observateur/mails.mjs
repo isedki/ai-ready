@@ -10,14 +10,16 @@ import { localDay, maskText, redact }         from './lib.mjs'
 
 const RS = String.fromCharCode(30), US = String.fromCharCode(31)
 
-const SCRIPT = days => `
-set d to (current date) - ${days - 1} * days
+/** AppleScript des messages envoyés le jour situé `back` jours avant aujourd'hui (0 = aujourd'hui). */
+const SCRIPT = back => `
+set d to (current date) - ${back} * days
 set time of d to 0
+set e to d + 1 * days
 set RS to (ASCII character 30)
 set US to (ASCII character 31)
 set out to ""
 tell application "Mail"
-  repeat with m in (messages of sent mailbox whose date sent ≥ d)
+  repeat with m in (messages of sent mailbox whose date sent ≥ d and date sent < e)
     set t to ""
     repeat with r in to recipients of m
       set t to t & (address of r) & ","
@@ -58,11 +60,18 @@ export function parseSent(raw, mine = []) {
   })
 }
 
-export function collectSent(cfg, days = 1) {
-  const raw = execFileSync('osascript', ['-e', SCRIPT(days)], { encoding: 'utf8', timeout: 120_000, maxBuffer: 64 * 1024 * 1024 })
+/** Nombre de jours entre `day` (AAAA-MM-JJ) et aujourd'hui, en dates locales. */
+export function daysBack(day, today = localDay()) {
+  return Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${day}T12:00:00Z`)) / 86_400_000)
+}
+
+export function collectSent(cfg, day = localDay()) {
+  const back = daysBack(day)
+  if (!(back >= 0)) throw new Error(`jour invalide : ${day}`)
+  const raw = execFileSync('osascript', ['-e', SCRIPT(back)], { encoding: 'utf8', timeout: 180_000, maxBuffer: 64 * 1024 * 1024 })
   const mails = parseSent(raw, cfg.mails.mes_adresses)
   const dir = join(cfg.dossier_donnees, '..', 'mails')
   mkdirSync(dir, { recursive: true, mode: 0o700 })
-  writeFileSync(join(dir, `${localDay()}.jsonl`), mails.map(m => JSON.stringify(m)).join('\n') + (mails.length ? '\n' : ''), { mode: 0o600 })
+  writeFileSync(join(dir, `${day}.jsonl`), mails.map(m => JSON.stringify(m)).join('\n') + (mails.length ? '\n' : ''), { mode: 0o600 })
   return mails
 }
