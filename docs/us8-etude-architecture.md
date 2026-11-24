@@ -254,3 +254,6 @@ Inventaire fait sur les consignes versionnées dans `agent/prompts/` (les tâche
 
 ### 12.4 Rappel d'automatisation
 Conformément à rg-38 : le spike est un script jetable avec test hors ligne ; Issam n'a que trois commandes à copier après deux actions chez Google (inscription, création du client) ; tout le reste est scripté.
+
+### 12.5 Compte utilisé (précision d'Issam, 24/11)
+Le compte Gmail est un **compte personnel** : le mode « personnel » de Google s'applique (client OAuth réservé à ce seul compte, pas de vérification d'application, aucun administrateur à convaincre). Deux inconnues restent à lever par le spike : (a) un compte personnel est-il accepté dans le programme Developer Preview (la page ne le dit pas) ; (b) le jeton de renouvellement d'une application « en test » expire-t-il à 7 jours (règle connue de Google pour l'audience « externe », à confirmer par la relance de `verifier` à J+7). Si (b) se confirme, repli : renouveler le consentement chaque semaine par `./spike.sh connexion` (une commande, 30 secondes) ou passer l'application en production en mode personnel.

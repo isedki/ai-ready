@@ -10,7 +10,7 @@
 ## Ce que tu dois faire (une seule fois)
 Prérequis : Node 20 ou plus (`node -v`), un navigateur connecté à ton compte Google.
 
-1. **Inscription au programme préliminaire de Google Workspace** : ouvre https://developers.google.com/workspace/preview et suis le lien d'inscription. Tu dois voir une confirmation d'inscription. (Si ton compte appartient à une organisation, un administrateur peut devoir l'autoriser : dis-le-moi, c'est le résultat qui compte.)
+1. **Inscription au programme préliminaire de Google Workspace** : ouvre https://developers.google.com/workspace/preview et suis le lien d'inscription. Tu dois voir une confirmation d'inscription. (Compte Gmail personnel : aucun administrateur à prévenir. Non précisé par Google : si un compte personnel est accepté dans le programme ; si l'inscription est refusée, note le message exact, c'est un résultat du spike.)
 2. **Créer le client OAuth en mode personnel** : ouvre
    https://console.cloud.google.com/auth/overview/personal?apis=ws,wsmcp,tasksmcp&clientType=desktop&isAgent=true
    Choisis (ou crée) un projet, donne un nom (ex. « spike-us8 »), **laisse cochée** la case « Use this client for an AI-powered agent », accepte la politique, puis copie l'**identifiant du client** et le **secret**. La console active elle-même les API nécessaires.
