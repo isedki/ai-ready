@@ -159,3 +159,15 @@ test('classement par importance : blocages, accès, flux, recette et retards pè
   }
   assert.equal(noter({ messages: [msg], texte: 'token tokyo' }, maintenant, cfg).score, neutre.score, 'pas de faux positif sur un mot contenant « ko »')
 })
+
+test('brouillon : destinataires en texte ou en liste acceptés, corps vide refusé', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'br-'))
+  process.env.PILOTE_DATA = dir
+  const { IMPL } = await import('../src/outils.mjs')
+  await IMPL.ecrire_brouillon({ a: 'x@y.test, z@y.test', cc: ['c@y.test'], objet: 'O', corps: 'Bonjour', justification_routage: 'r', etat: 'pret' })
+  await IMPL.ecrire_brouillon({ a: ['x@y.test'], objet: 'O', corps: 'Bonjour', justification_routage: 'r', etat: 'bizarre' })
+  const f = fs.readdirSync(path.join(dir, 'brouillons'))
+  assert.equal(f.length, 2)
+  assert.match(fs.readFileSync(path.join(dir, 'brouillons', f[0]), 'utf8'), /x@y\.test, z@y\.test|c@y\.test/)
+  await assert.rejects(() => IMPL.ecrire_brouillon({ a: [], objet: 'O', corps: '  ', justification_routage: 'r', etat: 'pret' }), /corps du brouillon vide/)
+})

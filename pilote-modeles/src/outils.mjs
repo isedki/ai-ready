@@ -164,6 +164,10 @@ export const IMPL = {
     return f && fs.existsSync(f) ? fs.readFileSync(f, 'utf8').slice(0, 8000) : "Pas d'export du suivi fourni."
   },
   async ecrire_brouillon(a) {
+    // Tolérant : destinataires en liste OU en texte (« a@x, b@y »), champs manquants remplacés par une valeur explicite.
+    const liste = (v) => (Array.isArray(v) ? v : String(v ?? '').split(/[,;]/)).map((x) => String(x).trim()).filter(Boolean)
+    a = { ...a, a: liste(a.a), cc: liste(a.cc), objet: String(a.objet ?? '(sans objet)'), corps: String(a.corps ?? ''), justification_routage: String(a.justification_routage ?? 'non précisée'), etat: a.etat === 'pret' ? 'pret' : 'a_completer' }
+    if (!a.corps.trim()) throw new Error('corps du brouillon vide : fournis le texte complet')
     fs.mkdirSync(BROUILLONS_DIR, { recursive: true, mode: 0o700 })
     const nom = `${new Date().toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 6)}.md`
     const md = `# Brouillon (${a.etat === 'pret' ? 'prêt' : 'à compléter'}) — NON ENVOYÉ\n\n**À** : ${(a.a || []).join(', ')}\n**Cc** : ${(a.cc || []).join(', ')}\n**Objet** : ${a.objet}\n**Répond au fil** : ${a.repond_au_fil || '—'}\n\n**Routage** : ${a.justification_routage}\n\n---\n${a.corps}\n`
