@@ -13,7 +13,9 @@
     "agent": "tsx scripts/agent.ts",
     "copilote:mcp": "tsx scripts/copilote-mcp.ts",
     "test:agent": "node --import tsx --test lib/agent/*.test.ts",
-    "test:observateur": "node --test observateur/observateur.test.mjs"
+    "test:observateur": "node --test observateur/observateur.test.mjs",
+    "test:us6": "node --test us6-activite/activite.test.mjs",
+    "us6:index": "node us6-activite/index-md.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.72",
