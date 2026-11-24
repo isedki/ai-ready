@@ -1,0 +1,4 @@
+{
+  "_aide": "Autres outils externes à Claude à afficher dans la console. Une entrée = une carte ; chaque action est une commande FIXE (liste d'arguments, relative au dépôt), jamais saisie dans la page. Exemple d'entrée (retire le préfixe _ pour l'activer) : { \"id\": \"mon-outil\", \"titre\": \"Mon outil\", \"description\": \"À quoi il sert\", \"actions\": [ { \"id\": \"lancer\", \"libelle\": \"Lancer\", \"cmd\": [\"node\", \"mon-outil/lancer.mjs\"], \"confirmer\": true } ] }",
+  "outils": []
+}

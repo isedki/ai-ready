@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pilote US-8 : agent Veille et Coach (mode ombre) via OpenRouter. Une commande par action.
-# Usage : ./pilote.sh install | statut | passage | mode ombre|brouillons | planifier on|off | pause | reprendre | couts | reglage | connexion | verifier | modeles | retrouver "mots" | tester | desinstaller [--purger]
+# Usage : ./pilote.sh install | console | raccourci | statut | passage | mode ombre|brouillons | planifier on|off | pause | reprendre | couts | reglage | connexion | verifier | modeles | retrouver "mots" | tester | desinstaller [--purger]
 set -euo pipefail
 cd "$(dirname "$0")"
 HOME_P="${PILOTE_HOME:-$HOME/.config/us8-pilote}"
@@ -82,16 +82,21 @@ case "${1:-aide}" in
   passage) prereq; PILOTE_FORCER=1 node src/passage.mjs ;;
   couts) prereq; node src/couts.mjs ;;
   modeles) prereq; node src/modeles.mjs ;;
+  console) prereq; exec node console/serveur.mjs ;;
+  raccourci)
+    R="$HOME/Desktop/Pilote US-8.command"
+    printf '#!/bin/bash\nexec "%s/pilote.sh" console\n' "$PWD" > "$R"; chmod +x "$R"
+    dit "Raccourci créé sur le Bureau : « Pilote US-8.command » (double-clic pour ouvrir la console)." ;;
   statut) prereq; node src/statut.mjs; launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 && dit "Planification : ACTIVE" || dit "Planification : EN PAUSE (ou non installée)" ;;
   mode) prereq; shift; cmd_mode "$@" ;;
   planifier) case "${2:-}" in on) plan_on ;; off) plan_off ;; *) dit "Usage : ./pilote.sh planifier on|off" ;; esac ;;
   pause) plan_off ;;
   reprendre) prereq; plan_on ;;
   retrouver) prereq; shift; node src/retrouver.mjs "$@" ;;
-  tester) prereq; node --test test/pilote.test.mjs ;;
+  tester) prereq; node --test test/pilote.test.mjs test/console.test.mjs ;;
   desinstaller)
-    launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true; rm -f "$PLIST"
-    dit "Planificateur retiré."
+    launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true; rm -f "$PLIST" "$HOME/Desktop/Pilote US-8.command"
+    dit "Planificateur et raccourci retirés."
     if [ "${2:-}" = "--purger" ]; then rm -rf "$HOME_P" "$DATA_P"; dit "Secrets, journaux, rapports et brouillons supprimés. Révoque aussi la clé OpenRouter et l'accès Google (voir README)."; else dit "Secrets et journaux conservés ($HOME_P, $DATA_P). Ajoute --purger pour tout effacer."; fi ;;
   *) sed -n '2,3p' "$0" ;;
 esac

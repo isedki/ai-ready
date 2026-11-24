@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Console du pilote</title>
+<style>
+  :root { --fond:#f6f6f4; --carte:#fff; --texte:#1d1d1b; --doux:#6b6b66; --ligne:#e2e2dd; --accent:#1f5fd1; --ok:#1c7a3d; --alerte:#b3261e; --attente:#a15c00; }
+  @media (prefers-color-scheme: dark) { :root { --fond:#141413; --carte:#1d1d1b; --texte:#ecece8; --doux:#9a9a93; --ligne:#2d2d2a; --accent:#6ea0ff; --ok:#5cc27d; --alerte:#ff8a80; --attente:#e0a24a; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--fond); color:var(--texte); font:15px/1.5 -apple-system, system-ui, "Segoe UI", sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:22px; margin:0 0 4px; } h2 { font-size:15px; margin:0 0 12px; text-transform:uppercase; letter-spacing:.04em; color:var(--doux); }
+  .sous { color:var(--doux); margin:0 0 20px; }
+  .carte { background:var(--carte); border:1px solid var(--ligne); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .ligne { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .etat { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+  .etat div small { display:block; color:var(--doux); } .etat div b { font-size:16px; }
+  button, .lien { font:inherit; border:1px solid var(--ligne); background:var(--carte); color:var(--texte); border-radius:9px; padding:9px 14px; cursor:pointer; text-decoration:none; display:inline-block; }
+  button:hover, .lien:hover { border-color:var(--accent); }
+  button.primaire { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  button:disabled { opacity:.5; cursor:wait; }
+  .segment button { border-radius:0; margin-left:-1px; } .segment button:first-child { border-radius:9px 0 0 9px; margin:0; } .segment button:last-child { border-radius:0 9px 9px 0; }
+  .segment button.actif { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .badge { display:inline-block; padding:1px 9px; border-radius:99px; font-size:13px; border:1px solid var(--ligne); }
+  .ok { color:var(--ok); } .ko { color:var(--alerte); } .att { color:var(--attente); }
+  pre { background:var(--fond); border:1px solid var(--ligne); border-radius:9px; padding:12px; overflow:auto; max-height:320px; white-space:pre-wrap; margin:12px 0 0; font:13px/1.45 ui-monospace, Menlo, monospace; }
+  table { width:100%; border-collapse:collapse; font-size:14px; } td, th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--ligne); } th { color:var(--doux); font-weight:500; }
+  input { font:inherit; padding:9px 12px; border:1px solid var(--ligne); border-radius:9px; background:var(--carte); color:var(--texte); min-width:220px; }
+  .vide { color:var(--doux); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pilote : Veille et Coach</h1>
+  <p class="sous">Modèles via OpenRouter, en parallèle de claude.ai. Cette page ne répond qu'à ce Mac.</p>
+
+  <section class="carte" aria-label="État">
+    <h2>État</h2>
+    <div class="etat" id="etat"><span class="vide">Chargement…</span></div>
+  </section>
+
+  <section class="carte" aria-label="Actions">
+    <h2>Actions</h2>
+    <div class="ligne">
+      <button class="primaire" id="b-passage">Lancer un passage maintenant</button>
+      <button id="b-plan"></button>
+      <span class="segment"><button id="b-ombre">Mode ombre</button><button id="b-brouillons">Brouillons Gmail</button></span>
+    </div>
+    <div class="ligne" style="margin-top:10px">
+      <button id="b-statut">Statut détaillé</button>
+      <button id="b-couts">Coûts</button>
+      <button id="b-verifier">Vérifier l'installation</button>
+    </div>
+    <p class="sous" style="margin:12px 0 0" id="aide-mode"></p>
+    <pre id="sortie" hidden></pre>
+  </section>
+
+  <section class="carte" aria-label="Ouvrir">
+    <h2>Ouvrir</h2>
+    <div class="ligne">
+      <a class="lien" id="l-gmail" target="_blank" rel="noopener noreferrer" href="#">Brouillons du pilote dans Gmail</a>
+      <button id="o-rapports">Dossier des rapports</button>
+      <button id="o-brouillons">Dossier des brouillons locaux</button>
+    </div>
+    <div class="ligne" style="margin-top:12px">
+      <input id="mots" placeholder="Retrouver un mail : mots de l'objet">
+      <button id="b-retrouver">Est-il bien vu et classé ?</button>
+    </div>
+  </section>
+
+  <section class="carte" aria-label="Derniers passages">
+    <h2>Derniers passages</h2>
+    <table><thead><tr><th>Quand</th><th>Modèle</th><th>Résultat</th><th>Coût</th></tr></thead><tbody id="derniers"></tbody></table>
+  </section>
+
+  <section class="carte" aria-label="Autres outils">
+    <h2>Autres outils externes à Claude</h2>
+    <div id="externes"><span class="vide">Aucun outil ajouté pour l'instant (voir README, « Ajouter un outil à la console »).</span></div>
+  </section>
+</main>
+<script>
+const T = '__TOKEN__';
+const $ = (id) => document.getElementById(id);
+const api = (chemin, corps) => fetch(chemin, corps ? { method: 'POST', headers: { 'x-token': T, 'content-type': 'application/json' }, body: JSON.stringify(corps) } : { headers: { 'x-token': T } }).then((r) => r.json());
+const tpl = (tag, texte, cls) => { const e = document.createElement(tag); if (texte != null) e.textContent = texte; if (cls) e.className = cls; return e; };
+let etat = null;
+
+function carteEtat(titre, valeur, cls) { const d = tpl('div'); d.append(tpl('small', titre), tpl('b', valeur, cls)); return d; }
+function afficherEtat(e) {
+  etat = e; const z = $('etat'); z.replaceChildren(
+    carteEtat('Mode d’écriture', e.mode === 'brouillons' ? `Brouillons Gmail (${e.etiquette})` : 'Ombre (fichiers locaux)', e.mode === 'brouillons' ? 'att' : 'ok'),
+    carteEtat('Planification', e.planification ? `Active (${e.horaires.join(', ')})` : 'En pause', e.planification ? 'ok' : 'att'),
+    carteEtat('Autorisation brouillons', e.autorisation_brouillons ? 'Accordée' : 'Manquante : ./pilote.sh connexion', e.autorisation_brouillons ? 'ok' : 'ko'),
+    carteEtat('Passage en cours', e.passage_en_cours_min == null ? 'Aucun' : `Depuis ${e.passage_en_cours_min} min`),
+    ...e.modeles.map((m) => carteEtat(`Modèle ${m.cle}`, `${m.ok}/${m.max} réussis · ${m.id.split('/').pop()}`)),
+    carteEtat('Dépense', `${e.depense_usd.toFixed(2)} $ / ${e.plafond_usd} $`));
+  $('b-plan').textContent = e.planification ? 'Mettre en pause' : 'Reprendre la planification';
+  $('b-ombre').classList.toggle('actif', e.mode === 'ombre'); $('b-brouillons').classList.toggle('actif', e.mode === 'brouillons');
+  $('aide-mode').textContent = e.mode === 'brouillons' ? 'Le modèle A crée de vrais brouillons Gmail balisés. Rien n’est jamais envoyé.' : 'Les brouillons restent des fichiers locaux ; Gmail n’est pas modifié.';
+  $('l-gmail').href = 'https://mail.google.com/mail/u/0/#search/' + encodeURIComponent('label:' + e.etiquette);
+  const t = $('derniers'); t.replaceChildren(...e.derniers.map((j) => { const tr = tpl('tr'); const ok = j.statut === 'ok';
+    tr.append(tpl('td', new Date(j.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })), tpl('td', j.modele), tpl('td', j.statut, ok ? 'ok' : j.statut.startsWith('refuse') ? 'att' : 'ko'), tpl('td', j.cout ? j.cout.toFixed(4) + ' $' : '—')); return tr; }));
+}
+async function rafraichir() { try { afficherEtat(await api('/api/etat')); } catch { $('etat').replaceChildren(tpl('span', 'Console arrêtée : relance ./pilote.sh console', 'ko')); } }
+
+async function lancer(bouton, corps, { confirmer } = {}) {
+  if (confirmer && !confirm(confirmer)) return;
+  const sortie = $('sortie'); sortie.hidden = false; sortie.textContent = 'En cours…'; if (bouton) bouton.disabled = true;
+  try {
+    let j = await api('/api/action', corps);
+    if (j.erreur) { sortie.textContent = j.erreur; return; }
+    while (j.statut === 'en cours') { await new Promise((r) => setTimeout(r, 2000)); j = await api('/api/jobs/' + j.id); sortie.textContent = 'En cours… (un passage dure 1 à 3 minutes)'; }
+    sortie.textContent = (j.sortie || '').trim() || (j.statut === 'terminé' ? 'Terminé.' : j.statut);
+  } finally { if (bouton) bouton.disabled = false; rafraichir(); }
+}
+$('b-passage').onclick = (e) => lancer(e.target, { action: 'passage' }, { confirmer: 'Lancer un passage maintenant ? Il appelle OpenRouter (quelques centimes)' + (etat && etat.mode === 'brouillons' ? ' et crée de vrais brouillons Gmail balisés.' : '.') });
+$('b-plan').onclick = (e) => lancer(e.target, { action: etat && etat.planification ? 'pause' : 'reprendre' });
+$('b-ombre').onclick = (e) => lancer(e.target, { action: 'mode-ombre' });
+$('b-brouillons').onclick = (e) => lancer(e.target, { action: 'mode-brouillons' }, { confirmer: 'Passer en mode brouillons Gmail ? Le modèle A créera de vrais brouillons (étiquette PILOTE-US8). Rien n’est envoyé.' });
+$('b-statut').onclick = (e) => lancer(e.target, { action: 'statut' });
+$('b-couts').onclick = (e) => lancer(e.target, { action: 'couts' });
+$('b-verifier').onclick = (e) => lancer(e.target, { action: 'verifier' });
+$('o-rapports').onclick = () => api('/api/action', { action: 'ouvrir', param: 'rapports' });
+$('o-brouillons').onclick = () => api('/api/action', { action: 'ouvrir', param: 'brouillons' });
+$('b-retrouver').onclick = (e) => lancer(e.target, { action: 'retrouver', param: $('mots').value });
+
+async function externes() {
+  const liste = await api('/api/outils'); if (!liste.length) return;
+  const z = $('externes'); z.replaceChildren(...liste.map((o) => { const c = tpl('div'); c.style.marginBottom = '12px'; c.append(tpl('b', o.titre), tpl('div', o.description, 'sous'));
+    const l = tpl('div', null, 'ligne'); for (const a of o.actions) { const b = tpl('button', a.libelle); b.onclick = (ev) => lancer(ev.target, { action: 'externe', param: o.id + '/' + a.id }, a.confirmer ? { confirmer: a.libelle + ' ?' } : {}); l.append(b); } c.append(l); return c; }));
+}
+rafraichir(); externes(); setInterval(rafraichir, 10000);
+</script>
+</body>
+</html>

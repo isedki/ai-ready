@@ -301,3 +301,6 @@ Après 3 passages comparés, `deepseek/deepseek-v4.1-flash` : 1 réussi sur 3, a
 - **Alertes d'échec** (jeton Google, clé, crédit, passage coupé) et **doc d'exploitation mise à jour** (`pilote-modeles/README.md`).
 - **Fusion dans `main`** approuvée par Issam (locale, sans envoi vers GitHub).
 - **Reste :** 5 passages réussis par modèle sur cette version, jugement de qualité d'Issam sur les brouillons Gmail réels, test de réinstallation par une autre personne, décision conformité (contrat de traitement de données), accès au suivi hors claude.ai, lecture des pièces jointes.
+
+### 13.4 Console locale (24/11, demande d'Issam)
+Interface web minimale (`pilote-modeles/console/`, sans dépendance) ouverte par `./pilote.sh console` ou un raccourci sur le Bureau (`./pilote.sh raccourci`) : état, lancer un passage, pause et reprise de la planification, mode ombre ou brouillons, coûts, vérification, lien vers les brouillons `PILOTE-US8`, « retrouver un mail ». Écoute 127.0.0.1 seulement, jeton aléatoire, contrôle Host/Origin, actions en liste blanche (3 tests de sécurité). Les autres outils externes à Claude s'y ajoutent par une entrée de `console/outils.json` (README §11).
