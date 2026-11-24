@@ -41,7 +41,11 @@ if (acces) for (const [nom, url] of Object.entries(SERVERS)) {
         const a = await c.call(outil, pickArgs(def, args))
         r.lecture = !a.error && !a.result?.isError
         r.elements = countItems(a.result)
-        if (!r.lecture) r.erreur = `appel refusé : ${(a.error?.message || '').slice(0, 120)}`
+        if (!r.lecture) {
+          // Message d'erreur du serveur (pas de contenu de mail) : utile pour comprendre le refus.
+          const txt = a.error?.message || (a.result?.content || []).map((x) => x.text || '').join(' ')
+          r.erreur = `appel refusé (HTTP ${a.status}) : ${String(txt).replace(/\s+/g, ' ').slice(0, 300)}`
+        }
       } else r.erreur = `outil ${outil} absent`
     }
   } catch (e) { r.erreur = String(e.message).slice(0, 120) }
