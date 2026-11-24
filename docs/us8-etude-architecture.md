@@ -184,3 +184,37 @@ Les règles rg-37 sont respectées : configuration versionnée, une commande ide
 **Conséquence sur l'architecture.** Le lanceur parle déjà MCP : chaque connecteur réexposé s'ajoute en une ligne dans `config/pilote.json` (adresse, jeton en variable d'environnement, liste d'outils autorisés), sans toucher au lanceur ni à la passerelle. Il faut donc, dès le pilote, garder cette interface « connecteur = entrée de configuration » et ne pas coder en dur le Copilote. La réexposition elle-même (accès Google, consentement, clés, lecture seule d'abord, brouillons ensuite selon rg-33) reste une **histoire séparée**, à planifier après les premiers résultats du pilote ; elle ne bloque pas le pilote en mode ombre.
 
 Reste à Issam : créer lui-même le compte et la clé OpenRouter (jamais dans le chat) au moment du développement, et donner le go de la phase 3 par le bouton de validation de l'onglet Agents.
+
+## 11. Complément (24/11) : peut-on refaire le même fonctionnement, avec les mêmes connecteurs, via OpenRouter ?
+
+**Réponse courte : fonctionnellement oui pour les connecteurs Google et le Copilote, pas « à l'identique » ni sans travail.** OpenRouter n'est qu'une porte vers des modèles : il ne fournit ni connecteurs, ni planification, ni boucle d'agent. Ces trois éléments sont aujourd'hui fournis par claude.ai et doivent être reconstruits chez nous.
+
+### 11.1 Ce qui existe déjà, par connecteur
+
+| Connecteur actuel | Équivalent hors claude.ai | Statut vérifié (24/11) |
+|---|---|---|
+| Gmail | Serveur MCP distant officiel de Google (lire, chercher, fil, **créer un brouillon** ; l'envoi n'est pas mentionné) | **Developer Preview** (inscription au programme requise), authentification OAuth, étendues `gmail.readonly` / `gmail.compose` / `gmail.modify` |
+| Drive | Idem (étendues `drive.readonly`, `drive.file`) | Developer Preview |
+| Calendar | Idem (étendues lecture, libre/occupé, événements) | Developer Preview |
+| Copilote | Déjà réexposé en MCP HTTP à jeton (US-5) | Livré, à valider par Issam |
+| Suivi (artifact, base lue/écrite par les agents) | **Aucun équivalent vérifié** : son accès passe par claude.ai | Non vérifié. Solutions : exposer le suivi par une petite route MCP à jeton (comme US-5) si son stockage est joignable, ou lire un export local et écrire dans un fichier. À étudier avant le pilote. |
+
+Les connecteurs claude.ai eux-mêmes ne sont **pas** réutilisables hors de claude.ai : l'authentification est liée à Anthropic (les recherches n'ont montré aucun accès par API à ces connecteurs ; Anthropic les appelle depuis son infrastructure). On ne « branche » donc pas OpenRouter sur les connecteurs actuels ; on se branche sur les mêmes services par leurs propres serveurs MCP.
+
+### 11.2 Comment OpenRouter les utilise
+
+- L'API d'OpenRouter n'accepte pas de serveur MCP distant directement dans la requête (aucun paramètre MCP natif trouvé). Deux voies documentées : le kit d'agent d'OpenRouter (paquet MCP, serveurs distants en HTTP, pas stdio) ou la conversion manuelle des outils MCP en outils au format OpenAI. Le lanceur de la §2 fait cette conversion : il lit la liste d'outils du serveur MCP, la passe au modèle, exécute l'appel demandé et renvoie le résultat.
+- Cela reproduit le même fonctionnement que claude.ai **si le modèle appelle bien les outils** : c'est le risque de qualité déjà identifié (§4), à mesurer au pilote.
+- Sources : [OpenRouter, outils MCP du kit d'agent](https://openrouter.ai/docs/agent-sdk/call-model/mcp-tools) ; [OpenRouter, serveurs MCP](https://openrouter.ai/docs/guides/coding-agents/mcp-servers) ; [Google, serveurs MCP Workspace](https://developers.google.com/workspace/guides/configure-mcp-servers).
+
+### 11.3 Ce qui change, honnêtement
+
+1. **Authentification Google à notre charge.** Issam consent une fois (OAuth), le lanceur garde le jeton de renouvellement en local (hors dépôt) et le rafraîchit. Un jeton d'accès seul expire en 1 heure. **Non confirmé par la page de Google** : qu'un script puisse échanger un jeton de renouvellement avec ces serveurs (la page ne décrit que des clients interactifs, et demande que le client OAuth soit déclaré « pour un agent IA »). C'est le premier point à tester, avant tout développement du reste.
+2. **Statut Preview** : disponibilité, quotas et tarifs non précisés ; compte personnel ou compte d'entreprise inwi : la page propose un mode personnel (compte Google d'Issam seul) ; pour une boîte d'entreprise, accord de l'administrateur probablement nécessaire. À confirmer par Issam.
+3. **Planification et boucle d'agent** reconstruites (launchd + lanceur) : les tâches claude.ai bénéficient aujourd'hui de fonctions que nous n'aurons pas d'office (sous-agents, compétences, notifications Push, accès aux fichiers). Chaque fonction utilisée par un agent doit être listée et reprise ou abandonnée.
+4. **Sécurité** : Google recommande de filtrer les contenus contre l'injection de consignes ; vrai aussi pour nous (mails = données non fiables ; lecture seule d'abord).
+5. **Exécution** : le Mac doit être allumé (déjà le cas pour le Copilote).
+
+### 11.4 Verdict et étape ajoutée avant le pilote
+
+Même mode de fonctionnement : **réalisable par reconstruction, pas par simple bascule.** Pour confirmer sans risque, ajouter au plan une **étape 0 « test de faisabilité des connecteurs »** (aucun modèle, aucun coût) : (a) Issam active le programme et crée un client OAuth « agent » en mode personnel ; (b) un script de dix lignes liste les outils du serveur Gmail, lit un fil, avec un jeton de renouvellement stocké en local ; (c) vérifier le même schéma pour Calendar et Drive ; (d) trancher pour le suivi. Si (b) échoue, repli : le pilote reste en mode ombre sur Copilote + export du suivi, sans Gmail, comme prévu au §4. Cette étape remplace la question 3 par une décision concrète : la réexposition de Gmail n'est plus à construire, c'est de la configuration.
