@@ -31,6 +31,10 @@ Filtres : agent, jour (14 jours au plus). Les âges sont recalculés chaque minu
 
 Livrable : `livrables/lv-AAAAMMJJ-<agent>-<type>-<court>` avec `{agent, type, titre, url ou fil, heure, jour, source}`. Même id = mise à jour, pas de doublon. Battement : `phase` (debut | etape | fin) et `etape` dans l'entrée de journal. Aucune donnée personnelle de tiers.
 
+## Fichiers produits
+
+Règle rg-40 §6 : tout fichier produit pour Issam est créé ou copié dans le sous-dossier du jour et inscrit dans `livrables` (type fichier, lien Drive). Le soir, l'étape C copie ceux qui n'y sont pas encore. Sans cette règle appliquée, le sous-dossier ne contient que `index.md` (cas du 24/11).
+
 ## Refaire l'index du jour (une seule action)
 
 Bouton **« Refaire l'index du jour »** de l'onglet : copie un texte à coller dans Claude, qui exécute la procédure ci-dessous. La même procédure est l'étape C de la tâche du soir `resume-conversations-frictions`.
