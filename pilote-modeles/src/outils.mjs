@@ -123,10 +123,10 @@ export const IMPL = {
   },
   async gmail_lire_fil({ thread_id }) {
     const f = await api(`gmail.googleapis.com/gmail/v1/users/me/threads/${q(thread_id)}?format=full`)
-    return JSON.stringify((f.messages || []).slice(-8).map((m) => {
+    return JSON.stringify((f.messages || []).slice(-5).map((m) => {
       const { texte, pj } = texteDe(m.payload)
       const h = m.payload?.headers
-      return { id: m.id, de: entete(h, 'from'), a: entete(h, 'to'), cc: entete(h, 'cc'), date: entete(h, 'date'), objet: entete(h, 'subject'), texte: texte.join('\n').slice(0, 3000), pieces_jointes: pj }
+      return { id: m.id, de: entete(h, 'from'), a: entete(h, 'to'), cc: entete(h, 'cc'), date: entete(h, 'date'), objet: entete(h, 'subject'), texte: texte.join('\n').slice(0, 2000), pieces_jointes: pj }
     }))
   },
   async calendrier_evenements({ jours = 2 }) {

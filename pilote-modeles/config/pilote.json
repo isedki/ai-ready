@@ -30,13 +30,13 @@
     "par_passage_usd": 0.1,
     "total_usd": 5.0,
     "passages_max": 5,
-    "tours": 12,
-    "sortie_max_jetons": 4000,
+    "tours": 16,
+    "sortie_max_jetons": 8000,
     "resultat_outil_max_caracteres": 8000,
     "rapport_court_caracteres": 300,
     "appels_max_par_outil": 6,
     "appels_max": {
-      "gmail_lire_fil": 12
+      "gmail_lire_fil": 8
     }
   },
   "planning": [

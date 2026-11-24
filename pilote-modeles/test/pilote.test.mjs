@@ -196,3 +196,24 @@ test('brouillon : ton adresse est ajoutée d\'office en Cc', async () => {
   const f = fs.readdirSync(path.join(dir, 'brouillons'))
   assert.match(fs.readFileSync(path.join(dir, 'brouillons', f[0]), 'utf8'), /\*\*Cc\*\* : moi@pro\.test/)
 })
+
+test('dernier tour : outils interdits pour forcer le rapport', async () => {
+  const vus = []
+  const or = await listen(async (req, res) => {
+    const corps = JSON.parse(await lire(req)); vus.push(corps)
+    const message = corps.tool_choice === 'none' ? { role: 'assistant', content: '## Résumé\n' + 'Rapport final. '.repeat(30) }
+      : { role: 'assistant', content: null, tool_calls: [{ id: 'c' + vus.length, type: 'function', function: { name: 'suivi_lire', arguments: '{}' } }] }
+    res.setHeader('content-type', 'application/json')
+    res.end(JSON.stringify({ choices: [{ message, finish_reason: corps.tool_choice === 'none' ? 'stop' : 'tool_calls' }], usage: { prompt_tokens: 100, completion_tokens: 10, cost: 0.0001 } }))
+  })
+  const m = await monde()
+  m.fin()
+  const env = { ...m.env, OPENROUTER_BASE: `http://127.0.0.1:${or.address().port}` }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dt-'))
+  env.PILOTE_DATA = dir; env.PILOTE_HOME = m.home
+  await new Promise((ok) => execFile('node', ['src/passage.mjs'], { env, cwd: RACINE }, ok))
+  or.close()
+  assert.ok(vus.some((c) => c.tool_choice === 'none'), 'un tour sans outils a été imposé')
+  const j = fs.readFileSync(path.join(dir, 'journal', fs.readdirSync(path.join(dir, 'journal'))[0]), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
+  assert.ok(j.every((e) => e.statut === 'ok' && e.taille_rapport > 300), JSON.stringify(j))
+})
