@@ -7,15 +7,20 @@ import { DEFINITIONS, IMPL, classerFils } from './outils.mjs'
 
 const BASE = () => process.env.OPENROUTER_BASE || 'https://openrouter.ai/api/v1'
 
-export function depenseTotale() {
-  let t = 0, n = 0
-  if (!fs.existsSync(JOURNAL_DIR)) return { usd: 0, passages: 0 }
-  for (const f of fs.readdirSync(JOURNAL_DIR).filter((x) => x.endsWith('.jsonl'))) {
+export function depenseTotale(depuis = '') {
+  // usd : toutes les dépenses (coupe-circuit réel) ; par modèle : essais et passages réussis depuis `depuis` (version actuelle du pilote).
+  let usd = 0
+  const par = {}
+  if (fs.existsSync(JOURNAL_DIR)) for (const f of fs.readdirSync(JOURNAL_DIR).filter((x) => x.endsWith('.jsonl'))) {
     for (const l of fs.readFileSync(path.join(JOURNAL_DIR, f), 'utf8').split('\n').filter(Boolean)) {
-      try { const j = JSON.parse(l); t += j.cout_usd || 0; if (!String(j.statut).startsWith('refuse')) n += 1 } catch {}
+      try {
+        const j = JSON.parse(l); usd += j.cout_usd || 0
+        if (String(j.statut).startsWith('refuse') || j.at < depuis) continue
+        const m = (par[j.modele] ||= { essais: 0, ok: 0 }); m.essais++; if (j.statut === 'ok') m.ok++
+      } catch {}
     }
   }
-  return { usd: t, passages: n }
+  return { usd, par }
 }
 const journaliser = (e) => fs.appendFileSync(path.join(JOURNAL_DIR, `${new Date().toISOString().slice(0, 10)}.jsonl`), JSON.stringify(e) + '\n', { mode: 0o600 })
 
@@ -26,10 +31,12 @@ export async function passage(cle, { passageId = new Date().toISOString() } = {}
   const pl = cfg.plafonds
   const base = { at: new Date().toISOString(), passage: passageId, agent: cfg.agent, modele }
 
-  const dep = depenseTotale()
+  const dep = depenseTotale(cfg.compter_depuis || '')
   if (!env.OPENROUTER_API_KEY) { journaliser({ ...base, statut: 'refuse_cle_absente', cout_usd: 0 }); return { statut: 'refuse_cle_absente' } }
   if (dep.usd >= pl.total_usd) { journaliser({ ...base, statut: 'refuse_plafond_total', cout_usd: 0 }); return { statut: 'refuse_plafond_total' } }
-  if (dep.passages >= pl.passages_max * cfg.modeles_par_passage.length) { journaliser({ ...base, statut: 'refuse_passages_max', cout_usd: 0 }); return { statut: 'refuse_passages_max' } }
+  const mod = dep.par[modele] || { essais: 0, ok: 0 }
+  if (mod.ok >= pl.passages_max) { journaliser({ ...base, statut: 'refuse_passages_max', cout_usd: 0 }); return { statut: 'refuse_passages_max' } }
+  if (mod.essais >= (pl.essais_max_par_modele || 15)) { journaliser({ ...base, statut: 'refuse_essais_max', cout_usd: 0 }); return { statut: 'refuse_essais_max' } }
 
   const prix = cfg.prix_par_million_usd[modele] || [0, 0]
   const systeme = fs.readFileSync(path.join(RACINE, 'agents', 'veille-coach.md'), 'utf8')

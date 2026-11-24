@@ -217,3 +217,19 @@ test('dernier tour : outils interdits pour forcer le rapport', async () => {
   const j = fs.readFileSync(path.join(dir, 'journal', fs.readdirSync(path.join(dir, 'journal'))[0]), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
   assert.ok(j.every((e) => e.statut === 'ok' && e.taille_rapport > 300), JSON.stringify(j))
 })
+
+test('plafond de passages : compté par modèle sur les passages réussis de la version actuelle', async () => {
+  const m = await monde()
+  fs.mkdirSync(path.join(m.data, 'journal'), { recursive: true })
+  const ligne = (modele, statut, at) => JSON.stringify({ at, modele, statut, cout_usd: 0.01 })
+  fs.writeFileSync(path.join(m.data, 'journal', 'x.jsonl'), [
+    ...Array(5).fill(0).map(() => ligne('anthropic/claude-haiku-5.5', 'ok', '2099-01-01T00:00:00Z')),
+    ...Array(9).fill(0).map(() => ligne('openai/gpt-oss-120b', 'coupe_tours', '2000-01-01T00:00:00Z')),   // anciens essais : ne comptent pas
+  ].join('\n') + '\n')
+  await m.lancer('src/passage.mjs')
+  m.fin()
+  const j = m.journal().filter((e) => e.at > '2020' && e.at < '2099')
+  const statuts = Object.fromEntries(j.map((e) => [e.modele, e.statut]))
+  assert.equal(statuts['anthropic/claude-haiku-5.5'], 'refuse_passages_max')
+  assert.equal(statuts['openai/gpt-oss-120b'], 'ok')
+})

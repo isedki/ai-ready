@@ -37,7 +37,8 @@
     "appels_max_par_outil": 6,
     "appels_max": {
       "gmail_lire_fil": 8
-    }
+    },
+    "essais_max_par_modele": 15
   },
   "planning": [
     {
@@ -144,5 +145,6 @@
       ]
     }
   },
-  "mots_importants_plafond": 8
+  "mots_importants_plafond": 8,
+  "compter_depuis": "2026-11-24T10:33:22Z"
 }
