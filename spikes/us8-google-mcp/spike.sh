@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Spike US-8 : un jeton de renouvellement permet-il à un script d'utiliser les serveurs MCP Google ?
-# Usage : ./spike.sh sonde | reglage | connexion | verifier | tester | nettoyer
+# Usage : ./spike.sh sonde | reglage | connexion | verifier | planb | tester | nettoyer
 set -euo pipefail
 cd "$(dirname "$0")"
 DIR="${SPIKE_DIR:-$HOME/.config/us8-spike}"
@@ -16,6 +16,7 @@ case "${1:-aide}" in
     echo "Enregistré dans $DIR/env (droits 600, hors dépôt). Étape suivante : ./spike.sh connexion" ;;
   connexion) node login.mjs ;;
   verifier)  node check.mjs ;;
+  planb)     node check-rest.mjs ;;
   tester)    node --test ;;
   nettoyer)  rm -rf "$DIR"; echo "Jeton, secret et résultat supprimés. Pense à révoquer l'accès sur https://myaccount.google.com/permissions" ;;
   *) sed -n '2,3p' "$0" ;;
