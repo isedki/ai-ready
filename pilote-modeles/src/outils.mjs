@@ -103,7 +103,7 @@ export function classerFils(query = 'newer_than:2d', max = 80) {
   return p
 }
 
-export const contexte = { cle: '' }
+export const contexte = { cle: '', forcerBrouillons: false }
 
 let etiquetteId = null
 async function etiquette(nom) {
@@ -221,7 +221,7 @@ export const IMPL = {
     fs.writeFileSync(path.join(BROUILLONS_DIR, nom), md, { mode: 0o600 })
     let suite = ''
     const ec = charger().ecriture_gmail
-    if (mode() === 'brouillons' && ec?.modeles?.includes(contexte.cle)) {
+    if ((mode() === 'brouillons' || contexte.forcerBrouillons) && ec?.modeles?.includes(contexte.cle)) {
       try { suite = ' ' + (await brouillonGmail(a, contexte.cle)) } catch (e) { throw new Error(`brouillon_gmail : copie locale écrite, mais ${String(e.message).replace(/^brouillon_gmail : /, '')}`) }
     }
     return `Brouillon enregistré localement (${nom}). Rien n'a été envoyé.${suite}`

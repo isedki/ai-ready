@@ -26,6 +26,8 @@
   .ok { color:var(--ok); } .ko { color:var(--alerte); } .att { color:var(--attente); }
   pre { background:var(--fond); border:1px solid var(--ligne); border-radius:9px; padding:12px; overflow:auto; max-height:320px; white-space:pre-wrap; margin:12px 0 0; font:13px/1.45 ui-monospace, Menlo, monospace; }
   table { width:100%; border-collapse:collapse; font-size:14px; } td, th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--ligne); } th { color:var(--doux); font-weight:500; }
+  textarea, select { font:inherit; padding:9px 12px; border:1px solid var(--ligne); border-radius:9px; background:var(--carte); color:var(--texte); }
+  .msg { border-left:3px solid var(--ligne); padding:2px 10px; margin:8px 0; white-space:pre-wrap; } .msg.moi { border-color:var(--accent); } .res { border-bottom:1px solid var(--ligne); padding:8px 0; } .res small { color:var(--doux); display:block; }
   input { font:inherit; padding:9px 12px; border:1px solid var(--ligne); border-radius:9px; background:var(--carte); color:var(--texte); min-width:220px; }
   .vide { color:var(--doux); }
 </style>
@@ -55,6 +57,31 @@
     </div>
     <p class="sous" style="margin:12px 0 0" id="aide-mode"></p>
     <pre id="sortie" hidden></pre>
+  </section>
+
+  <section class="carte" aria-label="Recherche">
+    <h2>Recherche (sans modèle, lecture seule)</h2>
+    <div class="ligne">
+      <input id="r-q" placeholder="Un mot, une référence, un nom" style="flex:1">
+      <label><input type="checkbox" id="r-cop" checked style="min-width:0"> Copilote</label>
+      <label><input type="checkbox" id="r-mail" checked style="min-width:0"> Mails</label>
+      <button id="r-go">Chercher</button>
+    </div>
+    <div id="r-res" class="vide" style="margin-top:12px"></div>
+  </section>
+
+  <section class="carte" aria-label="Demander au pilote">
+    <h2>Demander au pilote</h2>
+    <p class="sous" style="margin:0 0 10px">Réponses sourcées ; brouillons Gmail créés si demandé (étiquette PILOTE-US8), jamais envoyés. Modèle économique : relis toujours un brouillon.</p>
+    <div id="d-fil"></div>
+    <textarea id="d-q" rows="3" placeholder="Ex. : qui valide l'ouverture de flux ? Prépare une réponse au fil …" style="width:100%"></textarea>
+    <div class="ligne" style="margin-top:8px">
+      <button class="primaire" id="d-go">Envoyer la demande</button>
+      <label>Modèle <select id="d-mod"><option value="defaut">Économique (Haiku)</option><option value="secours">Renforcé (Sonnet, plus cher)</option></select></label>
+      <button id="d-nouv">Nouvelle discussion</button>
+      <button id="d-suppr">Supprimer cette discussion</button>
+    </div>
+    <p class="sous" style="margin:8px 0 0" id="d-info"></p>
   </section>
 
   <section class="carte" aria-label="Ouvrir">
@@ -134,6 +161,42 @@ async function externes() {
   const z = $('externes'); z.replaceChildren(...liste.map((o) => { const c = tpl('div'); c.style.marginBottom = '12px'; c.append(tpl('b', o.titre), tpl('div', o.description, 'sous'));
     const l = tpl('div', null, 'ligne'); for (const a of o.actions) { const b = tpl('button', a.libelle); b.onclick = (ev) => lancer(ev.target, { action: 'externe', param: o.id + '/' + a.id }, a.confirmer ? { confirmer: a.libelle + ' ?' } : {}); l.append(b); } c.append(l); return c; }));
 }
+
+// --- Recherche (US-9) : texte libre envoyé à une route dédiée, jamais à une commande ---
+$('r-go').onclick = async (e) => {
+  const z = $('r-res'); z.textContent = 'Recherche…'; e.target.disabled = true;
+  try {
+    const r = await api('/api/recherche', { requete: $('r-q').value, copilote: $('r-cop').checked, mails: $('r-mail').checked });
+    if (r.erreur) { z.textContent = r.erreur; return; }
+    z.replaceChildren();
+    for (const [nom, bloc] of [['Copilote', r.copilote], ['Mails', r.mails]]) {
+      if (!bloc) continue;
+      z.append(tpl('b', nom + (bloc.etat !== 'ok' ? ' : ' + bloc.etat : ` (${bloc.resultats.length})`), bloc.etat === 'ok' ? '' : 'att'));
+      for (const x of bloc.resultats) { const d = tpl('div', null, 'res'); d.append(tpl('div', x.titre), tpl('small', `${x.source} · ${x.date}`), tpl('div', x.extrait)); z.append(d); }
+    }
+  } finally { e.target.disabled = false; }
+};
+// --- Demander au pilote (US-16) ---
+let discussion = null;
+function afficherFil(d) {
+  discussion = d && d.id ? d.id : null;
+  $('d-fil').replaceChildren(...((d && d.echanges) || []).flatMap((x) => [tpl('div', x.q, 'msg moi'), tpl('div', x.r, 'msg')]));
+}
+async function chargerFil() { afficherFil(await api('/api/discussion')); }
+$('d-nouv').onclick = async () => { afficherFil(await api('/api/discussion/nouvelle', {})); $('d-info').textContent = 'Nouvelle discussion.'; };
+$('d-suppr').onclick = async () => { if (!discussion || !confirm('Supprimer cette discussion (fichier local) ?')) return; await api('/api/discussion/supprimer', { id: discussion }); afficherFil(null); $('d-info').textContent = 'Discussion supprimée.'; };
+const MSG = { refuse_cle_absente: 'Clé OpenRouter absente : ./pilote.sh reglage', refuse_plafond_jour: 'Plafond journalier atteint (config/pilote.json, conversation.plafonds).', refuse_plafond_total: 'Plafond total atteint.', refuse_occupe: 'Un passage ou une autre demande est en cours : réessaie dans un instant.', erreur_http_402: 'Crédit OpenRouter épuisé.', erreur_http_401: 'Clé OpenRouter refusée : ./pilote.sh reglage', coupe_plafond_demande: 'Coupé : plafond par demande atteint.', coupe_tours: 'Pas de réponse dans le nombre de tours prévu.', demande_trop_longue: 'Demande trop longue.' };
+$('d-go').onclick = async (e) => {
+  const texte = $('d-q').value.trim(); if (!texte) return;
+  if (!discussion) afficherFil(await api('/api/discussion/nouvelle', {}));
+  e.target.disabled = true; $('d-info').textContent = 'Le pilote travaille… (jusqu’à une minute)';
+  try {
+    const r = await api('/api/demande', { discussion, texte, modele: $('d-mod').value });
+    if (r.reponse) { $('d-q').value = ''; await chargerFil(); $('d-info').textContent = `Coût : ${r.cout.toFixed(4)} $` + (r.brouillons_demandes ? ` · ${r.brouillons_demandes} brouillon(s) demandé(s), à relire dans Gmail (PILOTE-US8), rien n’est envoyé.` : ''); }
+    else $('d-info').textContent = MSG[r.statut] || ('Échec : ' + (r.statut || r.erreur));
+  } finally { e.target.disabled = false; rafraichir(); }
+};
+chargerFil();
 rafraichir(); externes(); setInterval(rafraichir, 10000);
 </script>
 </body>

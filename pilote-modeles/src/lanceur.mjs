@@ -24,6 +24,7 @@ export function classeErreur(msg) {
 }
 
 export function depenseTotale(depuis = '') {
+  const cfgAgent = charger().agent
   // usd : toutes les dépenses (coupe-circuit réel) ; par modèle : essais et passages réussis depuis `depuis` (version actuelle du pilote).
   let usd = 0
   const par = {}
@@ -31,7 +32,7 @@ export function depenseTotale(depuis = '') {
     for (const l of fs.readFileSync(path.join(JOURNAL_DIR, f), 'utf8').split('\n').filter(Boolean)) {
       try {
         const j = JSON.parse(l); usd += j.cout_usd || 0
-        if (String(j.statut).startsWith('refuse') || j.at < depuis) continue
+        if (String(j.statut).startsWith('refuse') || j.at < depuis || (j.agent && j.agent !== cfgAgent)) continue
         const m = (par[j.modele] ||= { essais: 0, ok: 0 }); m.essais++; if (j.statut === 'ok') m.ok++
       } catch {}
     }

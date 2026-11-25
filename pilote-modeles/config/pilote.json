@@ -152,5 +152,20 @@
       "A"
     ],
     "etiquette": "PILOTE-US8"
+  },
+  "conversation": {
+    "modele": "A",
+    "modele_secours": "ref",
+    "brouillons_gmail": true,
+    "plafonds": {
+      "par_demande_usd": 0.05,
+      "par_jour_usd": 1.0,
+      "tours": 10,
+      "historique_echanges": 6,
+      "resultat_outil_max_caracteres": 6000,
+      "sortie_max_jetons": 3000,
+      "texte_max_caracteres": 4000
+    },
+    "conservation_jours": 30
   }
 }

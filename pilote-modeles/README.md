@@ -83,7 +83,7 @@ Décision : garder, étendre ou abandonner, chiffrée avec `./pilote.sh couts`.
 | `erreur_http_404` / « no endpoints » | `./pilote.sh modeles`, changer le modèle dans `config/pilote.json` |
 | `erreur_google_jeton` | `./pilote.sh connexion` (jusqu'à 7 jours de validité en mode test) |
 | `brouillon_gmail` dans les erreurs | `./pilote.sh connexion` (autorisation brouillons), puis `./pilote.sh statut` |
-| `coupe_tours`, `rapport_trop_court` | lire le journal ; resserrer `agents/veille-coach.md` |
+| `coupe_tours`, `rapport_trop_court` | lire le journal ; resserrer `agents/conversation.md` (prompt de la conversation), `agents/veille-coach.md` |
 | `refuse_passages_max`, `refuse_plafond_total` | plafond atteint, voulu : décision d'Issam |
 | « Un passage est déjà en cours » | normal (verrou) ; sinon attendre 20 min, le verrou expire seul |
 | aucun passage à l'heure | Mac éteint ou en veille : passage sauté ; `./pilote.sh statut` |
@@ -112,6 +112,18 @@ La carte apparaît au rechargement de la page, sous « Autres outils externes à
 
 ## 12. Test de réinstallation propre
 `./pilote.sh tester` installe dans un dossier vierge, relance l'installation, désinstalle avec `--purger` et vérifie l'absence de résidu. Test humain : une personne qui ne connaît pas le projet suit uniquement ce document sur un Mac vierge.
+
+## 13. Recherche et conversation (US-9 et US-16, depuis la console)
+Deux cartes de la console, utiles surtout quand il n'y a plus de crédit Claude. Le texte saisi va à des routes dédiées (jeton, hôte et origine contrôlés) : il n'est **jamais** passé à une commande.
+- **Recherche (US-9)** : sans modèle, sans coût. Copilote (outils `search` et `read_around` seulement) et mails (Gmail en lecture, même consentement que le pilote). Résultat : titre, source, date, extrait. Sans consentement Google : « non autorisé ». Le journal ne garde que le nombre de résultats et la durée.
+- **Demander au pilote (US-16)** : demande libre, outils des passages (Gmail, Agenda, Drive, Copilote dont `kind: annuaire` et `kind: regle`, suivi) sauf la notification. **Brouillons Gmail réels** (étiquette `PILOTE-US8`) même si le mode global est « ombre » ; jamais d'envoi, de corbeille ni de suppression (liste blanche de `src/google.mjs`). Modèle économique par défaut (Haiku 5.5), « Renforcé » (Sonnet 5.5, plus cher) sur choix explicite.
+- **Plafonds** (`config/pilote.json`, bloc `conversation`, modifiables) : 0,05 $ par demande, 1 $ par jour, 10 tours ; le plafond total de 5 $ reste le coupe-circuit global. Les lignes de conversation ne consomment pas les compteurs d'évaluation (5 passages réussis, 15 essais).
+- **Continuité et conservation** : les 6 derniers échanges sont rejoués à chaque demande ; la discussion est enregistrée dans `~/.local/share/us8-pilote/rapports/conversations/` (droits 600, jamais dans le journal) et purgée après `conservation_jours` (30) à l'ouverture de la console. Boutons « Nouvelle discussion » et « Supprimer cette discussion ».
+- **Une demande à la fois**, et jamais en même temps qu'un passage (même verrou).
+- **Ce qui n'est pas équivalent à l'agent principal** : pas d'artifacts, pas d'écriture dans le Suivi, pas de planification ni de mémoire entre sessions, pas de navigateur ni de shell ; qualité d'un petit modèle : relire chaque brouillon, un fait sans source n'est pas fiable.
+- **Incidents** : « Clé OpenRouter absente » : `./pilote.sh reglage` ; « Plafond journalier atteint » : attendre demain ou relever `conversation.plafonds.par_jour_usd` ; `erreur_http_402` : crédit OpenRouter épuisé ; « autorisation brouillons manquante » ou jeton expiré : `./pilote.sh connexion` ; « Un passage ou une autre demande est en cours » : réessayer. Journal lisible : `./pilote.sh logs` (lignes `conversation` et `recherche`).
+- Vérification et tests : `./pilote.sh verifier` (autorisation, bloc `conversation`, dossier), `./pilote.sh tester` (hors ligne, sans clé ni coût).
+- Non fait : modèle local ollama (voir `docs/us16-pilote-conversation.md`).
 
 ## Fichiers
 `pilote.sh` (toutes les commandes), `console/` (page et serveur local, liste d'outils), `config/pilote.json` (modèles, prix, plafonds, horaires, mots-clés d'importance, étiquette), `agents/veille-coach.md` (consigne), `src/` (lanceur, outils, brouillons Gmail à liste blanche, verrou, alertes, statut), `test/` (tests hors ligne), `.env.example` (modèle de secrets, sans valeur).

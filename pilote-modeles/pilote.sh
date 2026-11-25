@@ -72,6 +72,9 @@ cmd_verifier() {
   [ "$(stat -f %Lp "$HOME_P/env" 2>/dev/null || stat -c %a "$HOME_P/env")" = "600" ] && ok "droits du fichier de secrets (600)" || ko_ "droits du fichier de secrets : chmod 600 $HOME_P/env"
   if [ -z "${PILOTE_SANS_LAUNCHD:-}" ]; then launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 && ok "planificateur actif" || ko_ "planificateur absent : ./pilote.sh install"; fi
   node src/modeles.mjs >/dev/null 2>&1 && ok "modèles, outils, zéro rétention et prix conformes (./pilote.sh modeles pour le détail)" || dit "  (contrôle des modèles non concluant : ./pilote.sh modeles)"
+  grep -q 'gmail.modify' "$HOME_P/google-token.json" 2>/dev/null && ok "autorisation brouillons Gmail (conversation et passages)" || ko_ "autorisation brouillons manquante : ./pilote.sh connexion"
+  node -e "const c=JSON.parse(require('fs').readFileSync('config/pilote.json','utf8')).conversation;const p=c&&c.plafonds;if(!(p&&p.par_demande_usd>0&&p.par_jour_usd>0&&p.tours>0&&c.conservation_jours>0&&c.modele))process.exit(1)" && ok "conversation : modèle, plafonds et conservation définis (config/pilote.json)" || ko_ "conversation : bloc « conversation » incomplet dans config/pilote.json"
+  mkdir -p "$DATA_P/rapports/conversations" && chmod 700 "$DATA_P/rapports/conversations" && ok "dossier des discussions (droits 700)"
   return $ko
 }
 case "${1:-aide}" in
@@ -94,7 +97,7 @@ case "${1:-aide}" in
   pause) plan_off ;;
   reprendre) prereq; plan_on ;;
   retrouver) prereq; shift; node src/retrouver.mjs "$@" ;;
-  tester) prereq; node --test test/pilote.test.mjs test/console.test.mjs ;;
+  tester) prereq; node --test test/pilote.test.mjs test/console.test.mjs test/conversation.test.mjs ;;
   desinstaller)
     launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true; rm -f "$PLIST" "$HOME/Desktop/Pilote US-8.command"
     dit "Planificateur et raccourci retirés."

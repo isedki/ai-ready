@@ -12,6 +12,7 @@ export const TOKEN_FILE = path.join(HOME, 'google-token.json')
 export const JOURNAL_DIR = path.join(DATA, 'journal')
 export const RAPPORTS_DIR = path.join(DATA, 'rapports')
 export const BROUILLONS_DIR = path.join(DATA, 'brouillons')
+export const CONVERSATIONS_DIR = path.join(DATA, 'rapports', 'conversations')
 
 export const charger = () => JSON.parse(fs.readFileSync(process.env.PILOTE_CONFIG || path.join(RACINE, 'config', 'pilote.json'), 'utf8'))
 

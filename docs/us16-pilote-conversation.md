@@ -1,6 +1,12 @@
 # US-16 · Converser avec le pilote US-8 quand il n'y a plus de crédit Claude
 
-**Statut : à faire (non développée)** (rg-29). Rédigée le 25/11/2026 à la demande d'Issam. Spécification seulement : aucun code écrit, aucun fichier existant modifié. Rien ici n'est « livré » ni « validé ».
+**Statut : développée avec US-9, à valider par Issam** (rg-29). Rien ici n'est « livré » : les tests hors ligne passent (30/30), mais **aucune conversation réelle** (OpenRouter, Gmail) n'a été faite : critères 5 et 11 « non vérifié » tant qu'Issam ne l'a pas fait. Rédigée le 25/11/2026 ; développée le même jour sur décision d'Issam (« go pour les dev », US-9 d'abord).
+
+### Écarts entre la spec et le développement (à connaître)
+- **Boucle d'outils** : la conversation a sa propre boucle (`src/conversation.mjs`), qui réutilise les mêmes `DEFINITIONS`/`IMPL` ; `passage()` n'a pas été refactoré pour partager la boucle (risque pour les passages planifiés). Duplication connue ; refactor à décider.
+- **Historique** : seuls le texte des questions et des réponses est rejoué (pas les résultats d'outils), plafonné à 6 échanges.
+- **Lecture seule du Copilote (US-9)** : la recherche passe par le serveur MCP local avec une liste blanche (`search`, `read_around`, testée) ; ce serveur ouvre la base en lecture-écriture, il n'y a donc pas de connexion SQLite en lecture seule au sens strict du critère 1 de US-9.
+- **Brouillons** : forcés en vrais brouillons Gmail pour la conversation (réglage `conversation.brouillons_gmail`), indépendamment du mode global ; le modèle de secours (Sonnet, `ref`) n'est pas dans `ecriture_gmail.modeles` : il produit une copie locale seulement.
 
 ## Besoin
 En tant que coordinateur, quand je n'ai plus de crédit Claude, je veux travailler avec le pilote US-8 comme avec l'agent principal : taper une demande libre dans la console locale (`pilote-modeles/console`), obtenir une réponse sourcée, faire créer des **brouillons Gmail** (jamais d'envoi), interroger la base Copilote, l'annuaire (`kind: annuaire`) et les processus/règles (`kind: regle`). Modèles via OpenRouter (facturation séparée de Claude).

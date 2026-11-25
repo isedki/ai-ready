@@ -10,6 +10,8 @@ import { charger, mode, JOURNAL_DIR, RAPPORTS_DIR, BROUILLONS_DIR, VERROU } from
 import { depenseTotale } from '../src/lanceur.mjs'
 import { scopesJeton } from '../src/google.mjs'
 import { lignesJournal, finPlanificateur, alertes } from '../src/logs.mjs'
+import { rechercher } from '../src/recherche.mjs'
+import { demander, nouvelleDiscussion, lireDiscussion, derniereDiscussion, supprimerDiscussion, purger } from '../src/conversation.mjs'
 
 const RACINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DEPOT = path.resolve(RACINE, '..')
@@ -61,7 +63,8 @@ async function etat() {
 const hostOk = (h) => [`127.0.0.1:${port()}`, `localhost:${port()}`].includes(h)
 const port = () => server.address()?.port ?? PORT
 const json = (res, code, o) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(JSON.stringify(o)) }
-const lire = (req) => new Promise((ok) => { let b = ''; req.on('data', (c) => { b += c; if (b.length > 10000) req.destroy() }); req.on('end', () => ok(b)) })
+const lire = (req) => new Promise((ok) => { let b = ''; req.on('data', (c) => { b += c; if (b.length > 12000) req.destroy() }); req.on('end', () => ok(b)) })
+const vue = (d) => d && { id: d.id, echanges: d.echanges.map(({ at, q, r, outils }) => ({ at, q, r, outils })) }
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -84,6 +87,23 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/outils') return json(res, 200, outilsExternes().map(({ id, titre, description, actions }) => ({ id, titre, description, actions: (actions || []).map(({ id: a, libelle, confirmer }) => ({ id: a, libelle, confirmer: !!confirmer })) })))
     const m = url.pathname.match(/^\/api\/jobs\/(\d+)$/)
     if (req.method === 'GET' && m) { const j = jobs.get(m[1]); return j ? json(res, 200, j) : json(res, 404, { erreur: 'tâche inconnue' }) }
+    if (req.method === 'POST' && url.pathname === '/api/recherche') {
+      const c = JSON.parse((await lire(req)) || '{}')
+      const r = await rechercher({ requete: c.requete, copilote: c.copilote !== false, mails: c.mails !== false })
+      return json(res, r.erreur ? 400 : 200, r)
+    }
+    if (req.method === 'GET' && url.pathname === '/api/discussion') return json(res, 200, vue(derniereDiscussion()) || {})
+    if (req.method === 'POST' && url.pathname === '/api/discussion/nouvelle') return json(res, 200, vue(nouvelleDiscussion()))
+    if (req.method === 'POST' && url.pathname === '/api/discussion/supprimer') {
+      const c = JSON.parse((await lire(req)) || '{}')
+      return json(res, 200, { supprimee: supprimerDiscussion(c.id) })
+    }
+    if (req.method === 'POST' && url.pathname === '/api/demande') {
+      const c = JSON.parse((await lire(req)) || '{}')
+      if (!lireDiscussion(c.discussion)) return json(res, 404, { statut: 'discussion_inconnue' })
+      const r = await demander({ discussion: c.discussion, texte: c.texte, modele: c.modele === 'secours' ? 'secours' : 'defaut' })
+      return json(res, r.statut === 'refuse_occupe' ? 409 : 200, r)
+    }
     if (req.method === 'POST' && url.pathname === '/api/action') {
       const { action, param } = JSON.parse((await lire(req)) || '{}')
       if (action === 'retrouver') {
@@ -112,6 +132,7 @@ const server = http.createServer(async (req, res) => {
   } catch (e) { json(res, 500, { erreur: String(e.message).slice(0, 200) }) }
 })
 
+try { purger() } catch {}
 server.listen(PORT, '127.0.0.1', () => {
   const adresse = `http://127.0.0.1:${server.address().port}/?t=${TOKEN}`
   console.log(`Console du pilote : ${adresse}\n(Ctrl+C pour arrêter ; la page ne répond qu'à ce Mac.)`)
