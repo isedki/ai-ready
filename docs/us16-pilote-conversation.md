@@ -54,11 +54,22 @@ US-9 (`docs/us-console-recherche.md`) : recherche sans agent, lecture seule, ré
 - Mémoire persistante des conversations, planification, artifacts, accès à d'autres boîtes que celle déjà consentie.
 - Exposition hors de ce Mac.
 
-## Points à trancher par Issam (avec recommandation par défaut)
-1. **Plafonds de la conversation** : 0,05 $ par demande et 1 $ par jour, ou autre ? *Défaut : ceux-ci ; le plafond total de 5 $ reste le coupe-circuit global, à relever si l'usage devient quotidien.*
-2. **Modèle par défaut** : Haiku 5.5 (A), avec Sonnet 5.5 sur demande explicite ? *Défaut : oui.*
-3. **Brouillons Gmail depuis la conversation** : activés d'emblée (mode `brouillons`) ou copie locale seulement dans un premier temps ? *Défaut : activés, étiquette `PILOTE-US8`, jamais d'envoi.*
-4. **Continuité** : une demande = un contexte (défaut) ou fil de discussion gardé en mémoire vive tant que la console est ouverte (jamais écrit sur disque) ?
-5. **Conservation des réponses** : aucune (défaut), ou fichier local dans `rapports/` comme les passages ?
-6. **Ollama local** : l'essai de lecture seule hors ligne est-il voulu dans un second lot ?
-7. **Ordre** : développer US-9 d'abord (socle de saisie sans modèle), puis US-16 ? *Défaut : oui.*
+## Décisions d'Issam (25/11/2026)
+1. **Plafonds** : 0,05 $ par demande et 1 $ par jour, **ajustables** (dans `config/pilote.json`, sans modifier le code).
+2. **Modèle** : Haiku 5.5 par défaut, Sonnet 5.5 sur demande explicite.
+3. **Brouillons Gmail** : activés d'emblée (mode `brouillons`, étiquette `PILOTE-US8`, jamais d'envoi).
+4. **Continuité** : l'historique de la discussion est gardé entre les demandes (voir précision ci-dessous).
+5. **Conservation des réponses** : les réponses sont conservées (voir précision ci-dessous).
+6. **Ordre** : US-9 d'abord (socle de saisie), puis US-16.
+
+Lecture retenue pour 4 et 5 (réponse d'Issam elliptique : à corriger si inexacte) : Issam retient l'option non défaut, soit continuité et conservation.
+
+### Conséquences sur les critères
+- **Critère 8 (journaux)** : inchangé pour `journal/` (jamais de contenu). La conservation vit dans un dossier séparé, `rapports/conversations/` (hors dépôt, droits 0600, comme `rapports/`), un fichier par discussion : demande, réponse, sources citées. Ce dossier peut contenir des extraits de mails : il n'est jamais copié dans un journal, une alerte ni un message d'erreur.
+- **Continuité** : l'historique est rejoué à chaque demande, avec un plafond (par défaut les 6 derniers échanges, résultats d'outils de plus de 2 échanges élidés) pour borner le coût ; un bouton « Nouvelle discussion » repart de zéro. Le plafond journalier de 1 $ s'applique à la somme des demandes. Un redémarrage de la console ne perd pas la discussion en cours, puisqu'elle est relue depuis `rapports/conversations/`.
+- **Rétention** : durée de conservation et purge à fixer (point restant 1) ; en attendant, un bouton « Supprimer cette discussion » efface le fichier.
+- **Critère 7 (coût)** : le coût d'une demande croît avec l'historique ; le test vérifie que le plafond par demande coupe aussi une discussion longue.
+
+## Points restant à trancher
+1. **Durée de conservation** des discussions (défaut proposé : 30 jours, purge automatique à l'ouverture de la console).
+2. **Ollama local** : l'essai de lecture seule hors ligne est-il voulu dans un second lot ? (non traité dans la réponse du 25/11 ; hors premier lot par défaut).
