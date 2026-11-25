@@ -54,7 +54,11 @@
     var to = Array.isArray(o.to) ? o.to : null;
     if (!to || to.length !== 1 || addr(to[0]) !== self) return no('dest_different', 'destinataire refusé : « ' + (Array.isArray(o.to) ? o.to.join(', ') : String(o.to)) + ' » n\'est pas exactement le compte d\'Issam');
     if ((Array.isArray(o.cc) && o.cc.length) || (Array.isArray(o.bcc) && o.bcc.length)) return no('cc_bcc', 'Cc et Cci interdits : le plan n\'a qu\'un destinataire, Issam');
-    var subj = 'Plan du jour ' + o.day;
+    var subj = 'Plan du jour ' + o.day, rv = o.renvoi;
+    if (rv !== undefined && rv !== null) {
+      if (!isObj(rv) || !(rv.n >= 2 && rv.n <= 9 && rv.n % 1 === 0) || !isStr(rv.voulu_par)) return no('renvoi_invalide', 'renvoi explicite invalide : {n entier de 2 à 9, voulu_par : qui l\'a demandé et quand} requis');
+      subj += ' (v' + rv.n + ')';
+    }
     if (o.subject !== subj) return no('objet', 'objet attendu « ' + subj + ' », reçu « ' + cut(o.subject, 60) + ' »');
     if (!Array.isArray(o.sent)) return no('envoyes_illisibles', 'mails envoyés du jour illisibles : l\'unicité du plan ne peut pas être prouvée, aucun envoi');
     for (var i = 0; i < o.sent.length; i++) {
