@@ -1,4 +1,5 @@
-// Construit la page du Suivi avec l'onglet Activité à partir de la version publiée (lue avec Artifact read).
+// Construit la page du Suivi avec la vue en direct (US-18) à partir de la version publiée (lue avec Artifact read).
+// La version publiée contient déjà l'onglet Activité d'US-6 : il est REMPLACÉ (décision d'Issam, 25/11), pas doublé.
 // Usage : node us6-activite/build-page.mjs <page-publiee.html> <page-sortie.html>
 // Chaque point d'ancrage doit exister exactement une fois, sinon le script s'arrête sans rien écrire.
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -8,26 +9,28 @@ const here = dirname(fileURLToPath(import.meta.url)), rd = (f) => readFileSync(j
 const [, , inp, out] = process.argv;
 if (!inp || !out) { console.error('usage : build-page.mjs <entrée> <sortie>'); process.exit(2); }
 let h = readFileSync(inp, 'utf8');
-if (h.includes('id="viewL"')) { console.error('la page contient déjà l\'onglet Activité : partir de la version publiée sans cet onglet'); process.exit(3); }
-const once = (anchor, repl) => { const n = h.split(anchor).length - 1; if (n !== 1) { console.error('ancre trouvée ' + n + ' fois (attendu 1) : ' + anchor.slice(0, 70)); process.exit(4); } h = h.replace(anchor, () => repl); };
-once('</style>\n\n<div class="wrap">', '</style>\n<style id="us6-css">\n' + rd('page.css') + '</style>\n\n<div class="wrap">');
-once('id="tabC" aria-controls="viewC" aria-selected="false" type="button">Conseil</button>', 'id="tabC" aria-controls="viewC" aria-selected="false" type="button">Conseil</button>\n    <button class="tab" role="tab" id="tabL" aria-controls="viewL" aria-selected="false" type="button">Activité</button>');
-once('  <section id="viewS" role="tabpanel"', `  <section id="viewL" role="tabpanel" aria-labelledby="tabL" hidden>
-    <div class="gs-head"><div class="jday">Activité des agents : chaque donnée porte sa source et son âge, « — » = inconnu</div><div class="jday">En direct · âges recalculés chaque minute · heures en UTC</div></div>
-    <div class="vfilters ac-filters"><label for="acAgent">Agent</label><select id="acAgent"><option value="">Tous les agents</option></select><label for="acDay">Jour</label><select id="acDay"></select></div>
+if (!h.includes('id="viewL"')) { console.error('la page publiée ne contient pas l\'onglet Activité (US-6) : rien à remplacer'); process.exit(3); }
+const fail = (msg) => { console.error(msg); process.exit(4); };
+const count = (s, a) => s.split(a).length - 1;
+// remplace ce qui est entre deux ancres (début inclus, fin exclue), chacune présente exactement une fois
+const between = (start, end, repl) => {
+  if (count(h, start) !== 1) fail('ancre de début trouvée ' + count(h, start) + ' fois (attendu 1) : ' + start.slice(0, 70));
+  const i = h.indexOf(start), j = h.indexOf(end, i + start.length);
+  if (j < 0 || count(h, end) < 1) fail('ancre de fin introuvable : ' + end.slice(0, 70));
+  h = h.slice(0, i) + repl + h.slice(j);
+};
+const once = (anchor, repl) => { if (count(h, anchor) !== 1) fail('ancre trouvée ' + count(h, anchor) + ' fois (attendu 1) : ' + anchor.slice(0, 70)); h = h.replace(anchor, () => repl); };
+
+between('<style id="us6-css">', '</style>', '<style id="us6-css">\n' + rd('page.css'));
+between('  <section id="viewL"', '  <section id="viewS"', `  <section id="viewL" role="tabpanel" aria-labelledby="tabL" hidden>
+    <div class="gs-head"><div class="jday">Activité : ce que tu as à faire, puis l'état réel de chaque routine. Chaque ligne porte sa source ; « — » = inconnu, jamais deviné.</div><div class="jday">En direct = à jour au dernier passage de la Veille · heure du Maroc (= UTC)</div></div>
     <div id="acMount" aria-live="polite"><div class="jday">Lecture des données…</div></div>
   </section>
 
-  <section id="viewS" role="tabpanel"`);
-once('<script>\n(function(){', '<script id="us6-core">\n' + rd('activite-core.js') + '\n</script>\n<script id="us6-view">\n' + rd('activite-view.js') + '\n</script>\n<script>\n(function(){');
-once('const TABS=["J","A","P","V","S","E","C"];const TABNAME={J:"Aujourd\'hui",A:"Actions",P:"Chemin critique",V:"Vigilance",S:"Statut global",E:"Agents",C:"Conseil"};', 'const TABS=["J","A","P","V","S","E","C","L"];const TABNAME={J:"Aujourd\'hui",A:"Actions",P:"Chemin critique",V:"Vigilance",S:"Statut global",E:"Agents",C:"Conseil",L:"Activité"};');
-once('["A","P","V","S","E","C"].includes(s.tab)', '["A","P","V","S","E","C","L"].includes(s.tab)');
-once('if(t==="C")renderConseil();if(!silent)', 'if(t==="C")renderConseil();if(t==="L")renderActivite();if(!silent)');
-once('"Agents","Conseil"];', '"Agents","Conseil","Activité"];');
-once('  render();\n  (async()=>{', rd('page-wiring.js') + '  render();\n  (async()=>{');
-once('db.collection("agents").onSnapshot(snap=>{ag=snap.docs.map(d=>Object.assign({id:d.id},d.data()||{}));if(!$("viewE").hidden)renderAgents();renderConseil()},()=>{});',
-  'db.collection("agents").onSnapshot(snap=>{ag=snap.docs.map(d=>Object.assign({id:d.id},d.data()||{}));actAg=actFrom("agents",snap);if(!$("viewE").hidden)renderAgents();renderConseil();renderActivite()},err=>actFail("agents",err));\n    db.collection("livrables").onSnapshot(snap=>{actLv=actFrom("livrables",snap);renderActivite()},err=>actFail("livrables",err));');
-once('db.collection("reglages").onSnapshot(snap=>{const d=snap.docs.find(x=>x.id==="mode");modeDoc=d?(d.data()||{}):null;renderJ()},()=>{});',
-  'db.collection("reglages").onSnapshot(snap=>{const d=snap.docs.find(x=>x.id==="mode");modeDoc=d?(d.data()||{}):null;const dv=snap.docs.find(x=>x.id==="drive-livrables");try{const x=dv?dv.data():null;driveDoc=x&&ACT.httpsUrl(x.url)?{url:x.url,nom:x.nom}:null}catch(e){driveDoc=null}renderJ();renderActivite()},()=>{});');
+`);
+between('<script id="us6-core">', '<script id="us6-view">', '<script id="us6-core">\n' + rd('activite-core.js') + '\n</script>\n');
+between('<script id="us6-view">', '<script>\n(function(){', '<script id="us6-view">\n' + rd('activite-view.js') + '\n</script>\n<script id="us18-fiches" type="application/json">\n' + JSON.stringify(JSON.parse(rd('routines-fiches.json'))).replace(/</g, '\\u003c') + '\n</script>\n');
+between('  /* ---------- US-6 : onglet Activité', '  /* ---------- US-15 : bloc « Plan du jour »', rd('page-wiring.js'));
+once('jour=d?Object.assign({date:d.id},d.data()||{}):null;renderJ();renderConseil()}', 'jour=d?Object.assign({date:d.id},d.data()||{}):null;renderJ();renderConseil();renderActivite()}');
 writeFileSync(out, h);
 console.log('ok : ' + out + ' (' + h.length + ' octets)');

@@ -1,8 +1,41 @@
-# US-6 · Onglet Activité et index Drive des livrables
+# US-6 · Onglet Activité et index Drive des livrables — remplacé en partie par US-18
 
-Exploitation courte. Rien ici n'est un secret : aucune clé, aucun accès Drive en dehors des connecteurs de la session Claude.
+> **US-18 (à valider par Issam, rg-29)** : l'onglet Activité est remplacé par une vue en direct. Les cartes « agents » (jusqu'à 22, dont des sessions de développement et des étiquettes), les filtres et le seuil unique de 36 h ouvrées n'existent plus. La section « Vue en direct (US-18) » ci-dessous fait foi pour l'onglet ; le reste (index Drive, règle rg-40, tests) reste valable.
 
-## Ce que la page montre, et d'où ça vient
+## Vue en direct (US-18)
+
+De haut en bas :
+1. **Bandeau de la photo** `agents/runs` : heure, âge, auteur. Absente : « Photo des routines absente : la Veille ne l'a pas encore écrite ». Illisible ou en erreur (`agents/runs.erreur`) : la cause. Plus de 18 h ouvrées sans nouvelle photo : « photo ancienne ». « En direct » = à jour au dernier passage de la Veille (3 par jour), pas à la seconde.
+2. **À faire par toi**, dans cet ordre, chaque ligne avec sa source : US au statut à valider (`agents/story-*.progres.a_valider`), brouillons ou livrables obsolètes (`jour/<aujourd'hui>.perimes`), prompts prêts à coller (documents `agents/*` de `type: prompt` et `statut: a_coller`, avec `titre` et `pour`), passages à observer (routine en échec, passage absent, inactive, photo ancienne).
+3. **Tableau, une ligne par routine réelle** (photo `agents/runs`) : état, dernier passage (UTC = heure du Maroc), prochain passage (celui de la photo, sinon calculé du cron), seuil, ce qu'elle a produit (dernière entrée de journal ou livrable rattaché, avec sa source). Clic sur la ligne : fiche (ce qu'elle lit, produit, son garde-fou, son modèle) tirée de `us6-activite/routines-fiches.json`.
+4. Passages sans champ agent, anomalies, noms écartés (étiquettes `Équipe`, `Principal`, `Agent principal`, `Agent non indiqué`, sessions `Développeur US-n`).
+
+### Photo écrite par la Veille (`agents/runs`)
+`{at, par, routines:[{id, nom, cron, enabled, modele, dernier:{at, statut}, prochain}], erreur?}`. Prompt de la Veille : `data/outputs/veille-coach-fusion-prompt-v2.txt`, étape 5bis (à coller par Issam dans la routine ; la page ne l'écrit pas). Les tâches locales (Observateur Mac, US-14, Contrôle des coûts) sont « non lisibles » tant qu'une ligne de photo ne les couvre pas.
+
+### Règles des états
+| État | Règle |
+|---|---|
+| **Passage absent** (rouge) | routine activée dont le dernier passage connu est antérieur au dernier passage prévu par son cron, plus 30 min de tolérance, mesuré à l'heure de la photo (un passage prévu après la photo n'est pas encore jugé) |
+| **Échec** (rouge) | `dernier.statut` de type FAILED, erreur, annulé, timeout |
+| **Inactif** (rouge) | dernier passage plus ancien que le seuil de la routine |
+| **Seuil** | plus long intervalle entre deux passages du cron (62 jours de part et d'autre) + 30 min : 72 h 30 pour lun-ven, 7 j 30 min pour un hebdomadaire. Jamais un seuil unique |
+| **Désactivée / Non lisible / Absente de la photo** | gris ou orange, sans alerte |
+
+Cron : 5 champs, préfixe `CRON_TZ=Africa/Casablanca` (ou UTC/GMT) accepté, Maroc = UTC (décision d'Issam, 25/11). Un autre fuseau ou un cron illisible : seuil et passage attendu « — » avec la cause, rien n'est deviné.
+
+### Passages sans champ agent
+Un passage de journal sans `agent` n'est plus masqué : rattaché à « Veille et Coach » si l'id contient `coach-veille` (anomalie affichée « rattaché »), sinon listé dans « passages sans agent ». La cause reste corrigée à la source : la Veille écrit toujours `agent: "Veille et Coach"`.
+
+### Aperçu local, retour arrière
+```bash
+node us6-activite/apercu-demo.mjs <dossier-données> apercu.html            # photo SIMULÉE, bandeau EXEMPLE
+node us6-activite/apercu-demo.mjs <dossier-données> apercu.html --sans-photo
+node us6-activite/build-page.mjs <page-publiée.html> <sortie.html>         # remplace l'onglet de la version publiée
+```
+Retour arrière : ne pas publier la sortie ; la version publiée avant US-18 reste l'historique de l'artifact. Rien n'est publié sans validation d'Issam.
+
+## Ancien onglet (US-6, remplacé) : ce que la page montrait, et d'où ça vient
 
 Onglet **Activité** du Suivi (même artifact, mêmes droits). Un seul abonnement par collection, pas de lecture par document.
 
@@ -63,7 +96,7 @@ Limite : sans clé Drive, aucun script ne peut écrire seul dans Drive ; l'écri
 ## Tests
 
 ```bash
-npm run test:us6                       # 24 tests : cas d'échec d'abord, rendu avec DOM minimal
+npm run test:us6                       # 37 tests : cas d'échec d'abord, rendu avec DOM minimal
 node us6-activite/page-harness.mjs <page.html> <dossier-données|vide>   # exécute le script complet de la page
 node us6-activite/build-page.mjs <page-publiée.html> <sortie.html>      # ajoute l'onglet à la version publiée
 ```
