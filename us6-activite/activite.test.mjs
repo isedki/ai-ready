@@ -187,7 +187,7 @@ test('passage attendu et absent : rouge, avec l\'heure attendue ; la tolérance 
   // la photo date de 08:40 : le passage de 09:00 n'est pas encore attendu, pas de faux rouge
   const tot = D({ agents: [runsDoc([run('Phénix · Terrain et PO', '0 9 * * 3', { at: '2026-11-18T09:03:00Z', statut: 'SUCCEEDED' })], '2026-11-25T08:40:00Z')] });
   assert.notEqual(row(tot, 'Phénix · Terrain et PO').etat, 'absent');
-  const jamais = row(photo(null), 'Phénix · Terrain et PO'); assert.equal(jamais.etat, 'absent'); assert.match(jamais.absent, /aucun passage connu/);
+  const jamais = row(photo(null), 'Phénix · Terrain et PO'); assert.equal(jamais.etat, 'attente'); assert.equal(jamais.absent, null); assert.match(jamais.notes.join(), /aucun passage connu/); // pas de faux rouge sur une routine neuve
   const off = row(D({ agents: [runsDoc([run('Phénix · Terrain et PO', '0 9 * * 3', null, { enabled: false })])] }), 'Phénix · Terrain et PO'); assert.equal(off.etat, 'desactivee'); assert.equal(off.absent, null);
   const wk = D({ now: Date.parse('2026-11-28T14:30:00Z'), agents: [runsDoc([run('Phénix · Coach plan du jour', '0 8 * * 1-5', { at: '2026-11-27T08:05:00Z', statut: 'SUCCEEDED' })], '2026-11-28T14:20:00Z')] });
   assert.equal(row(wk, 'Phénix · Coach plan du jour').etat, 'ok'); // samedi : rien n'est attendu
@@ -297,4 +297,23 @@ test('build-page : si une ancre manque, le script refuse et n\'écrit rien', asy
   let r; try { execFileSync('node', [here + 'build-page.mjs', join(dir, 'pub.html'), join(dir, 'out.html')], { stdio: 'pipe' }); r = 'ok'; } catch (e) { r = String(e.stderr); }
   assert.match(r, /ok|ancre/); // la page factice n'a pas toutes les ancres : le script doit refuser net, jamais écrire à moitié
   if (r !== 'ok') assert.ok(!(() => { try { readFileSync(join(dir, 'out.html')); return true; } catch (e) { return false; } })(), 'rien n\'est écrit si une ancre manque');
+});
+test('format réel écrit par la Veille (25/11 15h13) : fuseau en suffixe, jamais lancé, en cours, désactivée, photo partielle', () => {
+  assert.equal(ACT.parseCron('0 15 * * * (Africa/Casablanca)').ok, true);
+  assert.equal(ACT.parseCron('0 15 * * * (Europe/Paris)').ok, false);
+  const r = (nom, cron, at, statut, extra = {}) => ({ id: 't', nom, cron: cron + ' (Africa/Casablanca)', enabled: true, modele: 'm', dernier: { at, statut }, ...extra });
+  const d = D({ now: Date.parse('2026-11-25T15:20:00Z'), agents: [{ id: 'runs', data: { at: '2026-11-25T15:13:00Z', par: 'veille-coach', erreur: 'list_triggers : 3e page non lue', routines: [
+    r('Phénix · Agent Veille et Coach 15h00', '0 15 * * *', '2026-11-25T15:09:32Z', 'en cours'),
+    r('Phénix · Agent Veille et Coach 11h40', '40 11 * * *', null, 'jamais lancé'),
+    r('Phénix · Matin (objectifs et brouillons, 8h00)', '0 8 * * 1-5', '2026-11-25T08:15:14Z', 'SUCCEEDED', { enabled: false, prochain: 'désactivée' }),
+    r('Phénix · Point hebdomadaire SI (vendredi)', '20 14 * * 5', null, 'jamais lancé')] } }] });
+  assert.equal(row(d, 'Phénix · Agent Veille et Coach 15h00').etat, 'encours');
+  assert.match(row(d, 'Phénix · Agent Veille et Coach 15h00').seuilTxt, /déduit du cron/);
+  assert.equal(row(d, 'Phénix · Agent Veille et Coach 11h40').etat, 'attente');
+  assert.equal(row(d, 'Phénix · Matin (objectifs et brouillons, 8h00)').etat, 'desactivee');
+  assert.equal(row(d, 'Phénix · Matin (objectifs et brouillons, 8h00)').prochain, null);
+  assert.equal(row(d, 'Phénix · Point hebdomadaire SI (vendredi)').fiche, 'bilan-hebdo');
+  assert.equal(d.anomalies.length, 0);
+  assert.match(row(d, 'Formateur').notes.join(), /photo partielle/);
+  assert.ok(d.afaire.some((a) => /incomplète/.test(a.texte) && a.source === 'agents/runs.erreur'));
 });

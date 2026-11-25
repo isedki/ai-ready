@@ -76,7 +76,7 @@
     {
       "id": "bilan-hebdo",
       "nom": "Bilan hebdomadaire",
-      "cles": ["bilan"],
+      "cles": ["bilan", "point hebdomadaire"],
       "agents": ["Bilan hebdomadaire", "Bilan"],
       "local": false,
       "lit": "kb (p-regles, p-annuaire, p-suivi), Suivi (actions, risques), Gmail de la semaine.",
