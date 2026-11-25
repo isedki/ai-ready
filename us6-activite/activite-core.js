@@ -98,11 +98,17 @@
     if (!isObj(raw)) return { ok: false, id: id, cause: 'document mal formé (ce n\'est pas un objet)' };
     var p = parseWhen(raw.at);
     if (!p.ok || p.hm === null) return { ok: false, id: id, cause: 'champ at invalide : ' + (p.ok ? 'heure absente' : p.why) };
-    if (!isStr(raw.agent)) return { ok: false, id: id, cause: 'champ agent manquant' };
+    var texte = isStr(raw.quoi) ? raw.quoi.trim() : (isStr(raw.contenu) ? raw.contenu.trim() : null);
+    var agent = isStr(raw.agent) ? raw.agent.trim() : null;
+    if (!agent) {
+      /* US-18 : un passage sans champ agent n'est plus masqué. Rattaché à la Veille et Coach quand l'id le dit, sinon listé à part. */
+      if (/coach-veille/i.test(id)) { agent = 'Veille et Coach'; soft.push('champ agent manquant : rattaché à « Veille et Coach » (l\'id contient coach-veille)'); }
+      else return { ok: false, id: id, cause: 'champ agent manquant', orphan: { id: id, at: p, quoi: texte || (isStr(raw.etape) ? raw.etape.trim() : null) } };
+    }
     var phase = null;
     if (raw.phase !== undefined && raw.phase !== null && raw.phase !== '') { if (PHASES.indexOf(raw.phase) >= 0) phase = raw.phase; else soft.push('phase inconnue « ' + cut(raw.phase, 20) + ' » (attendu : debut, etape, fin) : ignorée'); }
-    if (!isStr(raw.quoi) && !isStr(raw.etape)) soft.push('ni « quoi » ni « etape » : affiché « — »');
-    return { ok: true, soft: soft, item: { id: id, agent: raw.agent.trim(), at: p, quoi: isStr(raw.quoi) ? raw.quoi.trim() : null, etape: isStr(raw.etape) ? raw.etape.trim() : null, phase: phase, source: isStr(raw.source) ? raw.source.trim() : null } };
+    if (!texte && !isStr(raw.etape)) soft.push('ni « quoi » ni « etape » : affiché « — »');
+    return { ok: true, soft: soft, item: { id: id, agent: agent, at: p, quoi: texte, etape: isStr(raw.etape) ? raw.etape.trim() : null, phase: phase, source: isStr(raw.source) ? raw.source.trim() : null } };
   }
 
   function normStory(id, raw) {
@@ -127,12 +133,13 @@
   function buildModel(inp) {
     var now = inp.now, anomalies = [], todayD = new Date(now).toISOString().slice(0, 10);
     var agentsIn = Array.isArray(inp.agents) ? inp.agents : [], livIn = Array.isArray(inp.livrables) ? inp.livrables : [];
-    var team = [], journal = [], stories = [], by = {};
+    var team = [], journal = [], stories = [], by = {}, orphans = [], runsDoc = null, prompts = [];
     function row(name) { var k = nkey(name); if (!by[k]) by[k] = { name: name, key: k, doc: null, journal: [], livrables: [] }; return by[k]; }
     function note(coll, id, cause, soft) { anomalies.push({ where: coll + '/' + id, cause: cause, soft: !!soft }); }
 
     agentsIn.forEach(function (d) {
       var id = d && d.id != null ? String(d.id) : '(sans id)', raw = d && d.data !== undefined ? d.data : d;
+      if (id === 'runs') { runsDoc = raw === undefined ? null : raw; return; } // la photo des routines (US-18) est lue par normRuns, qui dit elle-même ce qui ne va pas
       if (!isObj(raw)) { note('agents', id, 'document mal formé (ce n\'est pas un objet)'); return; }
       if (raw.type === 'agent') {
         if (!isStr(raw.nom)) { note('agents', id, 'agent sans champ nom : ignoré'); return; }
@@ -141,9 +148,11 @@
         team.push({ id: id, nom: raw.nom.trim(), quand: isStr(raw.quand) ? raw.quand : null, focus: isStr(raw.focus) ? raw.focus : null, dernier: dn });
       } else if (raw.type === 'journal') {
         var r = normJournal(id, raw);
-        if (!r.ok) { note('agents', id, r.cause); return; }
+        if (!r.ok) { note('agents', id, r.cause + (r.orphan ? ' : affiché dans « passages sans agent »' : '')); if (r.orphan) orphans.push(r.orphan); return; }
         r.soft.forEach(function (c) { note('agents', id, c, true); });
         journal.push(r.item);
+      } else if (raw.type === 'prompt' && raw.statut === 'a_coller') {
+        if (isStr(raw.titre)) prompts.push({ id: id, titre: raw.titre.trim(), pour: isStr(raw.pour) ? raw.pour.trim() : null }); else note('agents', id, 'prompt à coller sans titre : ignoré');
       } else if (raw.type === 'story' && (raw.statut === 'go' || raw.statut === 'encours')) {
         var s = normStory(id, raw); s.soft.forEach(function (c) { note('agents', id, c, true); }); stories.push(s);
       }
@@ -201,7 +210,217 @@
       return o;
     }).sort(function (a, b) { return String(a.ref).localeCompare(String(b.ref), 'fr', { numeric: true }); });
 
-    return { today: todayD, day: day, days: days, agents: rows, stories: st, anomalies: anomalies, agentNames: Object.keys(by).map(function (k) { return by[k].name; }).sort(), nLivrablesJour: livOk.filter(function (l) { return l.jour === day; }).length, nLivrables: livOk.length, nJournal: journal.length };
+    return { today: todayD, day: day, days: days, agents: rows, stories: st, anomalies: anomalies, journal: journal, livrablesOk: livOk, orphans: orphans, runsDoc: runsDoc, prompts: prompts, agentNames: Object.keys(by).map(function (k) { return by[k].name; }).sort(), nLivrablesJour: livOk.filter(function (l) { return l.jour === day; }).length, nLivrables: livOk.length, nJournal: journal.length };
+  }
+
+  /* ================= US-18 : vue en direct des routines ================= */
+  var GRACE_MIN = 30;            // tolérance après l'heure du cron avant de déclarer un passage absent
+  var EARLY_MIN = 10;            // un passage commencé jusqu'à 10 min avant l'heure du cron compte
+  var PHOTO_STALE_H = 18;        // heures ouvrées sans nouvelle photo (3 passages par jour : l'écart normal maximal est 17 h, du vendredi 15h05 au lundi 7h50)
+  var DAY = 86400000;
+  var TZ_UTC = { 'africa/casablanca': 1, 'utc': 1, 'gmt': 1, 'etc/utc': 1, 'etc/gmt': 1 };
+
+  function parseField(f, lo, hi, dow) {
+    var set = {}, parts = String(f).split(',');
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i], step = 1, ms = /^(.+)\/(\d+)$/.exec(p);
+      if (ms) { p = ms[1]; step = +ms[2]; if (step < 1) return null; }
+      var a, b, mr;
+      if (p === '*' || p === '?') { a = lo; b = hi; }
+      else if ((mr = /^(\d+)-(\d+)$/.exec(p))) { a = +mr[1]; b = +mr[2]; }
+      else if (/^\d+$/.test(p)) { a = +p; b = ms ? hi : a; }
+      else return null;
+      if (a < lo || b > hi || a > b) return null;
+      for (var v = a; v <= b; v += step) set[dow && v === 7 ? 0 : v] = 1;
+    }
+    return { set: set, star: parts.length === 1 && /^[*?]/.test(String(f)) };
+  }
+  /* Cron à 5 champs, avec un éventuel préfixe CRON_TZ=. Fuseau : Maroc = UTC (décision d'Issam, 25/11). Un autre fuseau n'est pas deviné. */
+  function parseCron(expr) {
+    if (!isStr(expr)) return { ok: false, why: 'cron absent' };
+    var t = expr.trim(), tz = null, m = /^(?:CRON_)?TZ=(\S+)\s+(.*)$/.exec(t);
+    if (m) { tz = m[1]; t = m[2]; if (!TZ_UTC[tz.toLowerCase()]) return { ok: false, why: 'fuseau « ' + cut(tz, 30) + ' » non géré' }; }
+    var f = t.split(/\s+/);
+    if (f.length !== 5) return { ok: false, why: 'cron à 5 champs attendu, reçu « ' + cut(expr, 40) + ' »' };
+    var mi = parseField(f[0], 0, 59), h = parseField(f[1], 0, 23), dm = parseField(f[2], 1, 31), mo = parseField(f[3], 1, 12), dw = parseField(f[4], 0, 7, true);
+    if (!mi || !h || !dm || !mo || !dw) return { ok: false, why: 'cron illisible : « ' + cut(expr, 40) + ' »' };
+    return { ok: true, tz: tz, min: Object.keys(mi.set).map(Number), hour: Object.keys(h.set).map(Number), dom: dm, mon: mo.set, dow: dw, expr: expr };
+  }
+  function dayMatches(c, d) {
+    if (!c.mon[d.getUTCMonth() + 1]) return false;
+    var okD = !!c.dom.set[d.getUTCDate()], okW = !!c.dow.set[d.getUTCDay()];
+    if (c.dom.star && c.dow.star) return true;
+    if (c.dom.star) return okW;
+    if (c.dow.star) return okD;
+    return okD || okW;
+  }
+  /* Passages du cron dans ]from, to], triés. Au plus 5000 : au-delà le cron est « trop fréquent pour être suivi ». */
+  function cronFires(c, from, to) {
+    var out = [], day = Math.floor(from / DAY) * DAY;
+    for (; day <= to; day += DAY) {
+      if (!dayMatches(c, new Date(day))) continue;
+      for (var i = 0; i < c.hour.length; i++) for (var j = 0; j < c.min.length; j++) {
+        var t = day + c.hour[i] * 3600000 + c.min[j] * 60000;
+        if (t > from && t <= to) { out.push(t); if (out.length > 5000) return null; }
+      }
+    }
+    return out.sort(function (a, b) { return a - b; });
+  }
+  function lastFire(c, ref) { var f = cronFires(c, ref - 62 * DAY, ref); return f && f.length ? f[f.length - 1] : null; }
+  function nextFire(c, ref) { var f = cronFires(c, ref, ref + 62 * DAY); return f && f.length ? f[0] : null; }
+  /* Seuil d'inactivité d'une routine : le plus long intervalle entre deux passages du cron (sur 62 jours de part et d'autre) + la tolérance.
+     Un agent quotidien lun-ven a donc 72 h + 30 min (vendredi → lundi), un hebdomadaire 7 j + 30 min, jamais un 36 h unique. */
+  function seuilMs(c, ref) {
+    var f = cronFires(c, ref - 62 * DAY, ref + 62 * DAY);
+    if (!f || f.length < 2) return null;
+    var g = 0; for (var i = 1; i < f.length; i++) g = Math.max(g, f[i] - f[i - 1]);
+    return g + GRACE_MIN * 60000;
+  }
+  function fmtDur(ms) { var h = Math.round(ms / 3600000); return h >= 48 ? Math.round(h / 24) + ' j' : h + ' h'; }
+
+  function statutNorm(s) {
+    var k = nkey(s);
+    if (/^(succeeded|success|ok|reussi|reussie|termine|completed|done)$/.test(k) || /succe|reussi/.test(k)) return 'ok';
+    if (/fail|echec|error|erreur|cancel|timeout|ko/.test(k)) return 'ko';
+    return 'inconnu';
+  }
+  function hasKey(name, key) { return new RegExp('(^|[^a-z0-9])' + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z0-9]|$)').test(name); }
+  /* Rattache un nom (routine de la photo ou agent du journal) à une fiche : nom ou alias exact, sinon la plus longue clé présente comme mots entiers. */
+  function ficheFor(fiches, name) {
+    var k = nkey(name), best = null, bl = 0;
+    for (var i = 0; i < fiches.length; i++) {
+      var f = fiches[i], names = [f.nom].concat(f.agents || []);
+      for (var j = 0; j < names.length; j++) if (nkey(names[j]) === k) return f;
+    }
+    for (var a = 0; a < fiches.length; a++) (fiches[a].cles || []).forEach(function (c) { var ck = nkey(c); if (ck.length > bl && hasKey(k, ck)) { best = fiches[a]; bl = ck.length; } });
+    return best;
+  }
+  function ecarte(cfg, name) {
+    var k = nkey(name), et = (cfg && cfg.etiquettes) || [];
+    for (var i = 0; i < et.length; i++) if (nkey(et[i]) === k) return 'étiquette';
+    if (cfg && cfg.motif_session_dev) { try { if (new RegExp(cfg.motif_session_dev, 'i').test(String(name).normalize('NFC'))) return 'session de développement'; } catch (e) { /* motif invalide : rien n'est écarté à tort */ } }
+    return null;
+  }
+
+  function normRuns(doc, anomalies, now) {
+    if (!doc) return { etat: 'absente', source: 'agents/runs' };
+    if (!isObj(doc)) { anomalies.push({ where: 'agents/runs', cause: 'document mal formé (ce n\'est pas un objet)', soft: false }); return { etat: 'illisible', source: 'agents/runs', cause: 'document mal formé' }; }
+    var at = parseWhen(doc.at);
+    var out = { etat: 'ok', source: 'agents/runs', erreur: isStr(doc.erreur) ? doc.erreur.trim() : null, par: isStr(doc.par) ? doc.par.trim() : null, at: null, routines: [] };
+    if (!at.ok || at.hm === null) {
+      anomalies.push({ where: 'agents/runs', cause: 'champ at invalide : ' + (at.ok ? 'heure absente' : at.why), soft: false });
+      out.etat = 'illisible'; out.cause = 'champ at invalide'; return out;
+    }
+    out.at = at; out.age = fmtAge(at.ms, now); out.label = fmtDM(at.ms);
+    out.stale = ouvreesHours(at.ms, now) > PHOTO_STALE_H;
+    if (!Array.isArray(doc.routines)) {
+      if (!out.erreur) { anomalies.push({ where: 'agents/runs', cause: 'routines absent ou pas une liste', soft: false }); out.etat = 'illisible'; out.cause = 'routines absent ou pas une liste'; }
+      else out.etat = 'erreur';
+      return out;
+    }
+    doc.routines.forEach(function (r, i) {
+      var w = 'agents/runs routines[' + i + ']';
+      if (!isObj(r) || !isStr(r.nom)) { anomalies.push({ where: w, cause: 'routine sans nom : ignorée', soft: false }); return; }
+      var d = null, st = null;
+      if (r.dernier !== undefined && r.dernier !== null) {
+        var pd = isObj(r.dernier) ? parseWhen(r.dernier.at) : { ok: false, why: 'dernier n\'est pas un objet' };
+        if (pd.ok && pd.hm !== null) { d = pd; st = r.dernier.statut; } else anomalies.push({ where: w + ' (' + r.nom + ')', cause: 'dernier.at invalide : ' + (pd.ok ? 'heure absente' : pd.why) + ' : traité comme « aucun passage connu »', soft: true });
+      }
+      var pr = null;
+      if (isStr(r.prochain)) { var pp = parseWhen(r.prochain); if (pp.ok && pp.hm !== null) pr = pp; else anomalies.push({ where: w + ' (' + r.nom + ')', cause: 'prochain invalide : ' + (pp.ok ? 'heure absente' : pp.why) + ' : calculé du cron', soft: true }); }
+      out.routines.push({ id: isStr(r.id) ? r.id.trim() : null, nom: r.nom.trim(), cron: isStr(r.cron) ? r.cron.trim() : null, enabled: r.enabled === false ? false : true, modele: isStr(r.modele) ? r.modele.trim() : null, dernier: d, statutBrut: isStr(st) ? st.trim() : null, statut: isStr(st) ? statutNorm(st) : null, prochain: pr });
+    });
+    return out;
+  }
+
+  function jourItems(d, day, anomalies) {
+    var res = { perimes: [], lu: false };
+    if (!d) return res;
+    var raw = d && d.data !== undefined ? d.data : d;
+    if (!isObj(raw)) { anomalies.push({ where: 'jour/' + day, cause: 'document mal formé (ce n\'est pas un objet)', soft: false }); return res; }
+    res.lu = true;
+    var P = raw.perimes;
+    if (P === undefined || P === null) return res;
+    if (!Array.isArray(P)) { anomalies.push({ where: 'jour/' + day + '.perimes', cause: 'pas une liste : ignoré', soft: false }); return res; }
+    P.forEach(function (x) {
+      if (isStr(x)) res.perimes.push(cut(x, 200));
+      else if (isObj(x) && (isStr(x.objet) || isStr(x.titre))) res.perimes.push(cut((x.objet || x.titre) + (isStr(x.raison) ? ' : ' + x.raison : ''), 200));
+      else anomalies.push({ where: 'jour/' + day + '.perimes', cause: 'élément sans libellé : ignoré', soft: true });
+    });
+    return res;
+  }
+
+  /* in : {agents, livrables, jour:{id,data}|null, fiches:{fiches:[...], ecartes:{...}}, now}
+     Une ligne par routine de la photo agents/runs, puis les routines connues des fiches mais absentes de la photo (tâches locales : « non lisible »). */
+  function buildDirect(inp) {
+    var now = inp.now, today = new Date(now).toISOString().slice(0, 10);
+    var cfg = inp.fiches || { fiches: [] }, fiches = Array.isArray(cfg.fiches) ? cfg.fiches : [];
+    var m = buildModel({ agents: inp.agents, livrables: inp.livrables, now: now, day: today });
+    var anomalies = m.anomalies;
+    var photo = normRuns(m.runsDoc, anomalies, now);
+    var jr = jourItems(inp.jour, today, anomalies);
+
+    /* ce que chaque routine a produit : dernière entrée de journal ou livrable du jour rattachée à sa fiche */
+    var prod = {}, ecartes = {};
+    function offer(name, ms, txt, src, lbl) {
+      var why = ecarte(cfg.ecartes, name), f = why ? null : ficheFor(fiches, name); // étiquettes et sessions de développement d'abord : « Développeur US-14 » ne doit pas devenir la fiche US-14
+      if (!f) { ecartes[nkey(name)] = { nom: name === UNKNOWN_AGENT ? 'Agent non indiqué' : name, motif: why || 'pas une routine connue' }; return; }
+      if (!prod[f.id] || ms > prod[f.id].ms) prod[f.id] = { ms: ms, txt: txt ? cut(String(txt).replace(/\s+/g, ' '), 160) : null, src: src, lbl: lbl || fmtDM(ms) + ' UTC' };
+    }
+    m.journal.forEach(function (j) { offer(j.agent, j.at.ms, j.quoi || j.etape, 'agents/' + j.id); });
+    m.livrablesOk.forEach(function (l) { offer(l.agent, l.heure ? l.heure.ms : Date.parse(l.jour + 'T00:00:00Z'), l.type + ' : ' + l.titre, 'livrables/' + l.id, l.heure ? null : l.jour.slice(8, 10) + '/' + l.jour.slice(5, 7) + ' (heure —)'); });
+    m.agents.forEach(function (a) { var w = ecarte(cfg.ecartes, a.name); if ((w || !ficheFor(fiches, a.name)) && !ecartes[nkey(a.name)]) ecartes[nkey(a.name)] = { nom: a.name, motif: w || 'pas une routine connue' }; });
+
+    var used = {}, rows = [];
+    function build(r, f) {
+      var o = { nom: r.nom, id: r.id, fiche: f ? f.id : null, ficheNom: f ? f.nom : null, local: !!(f && f.local), cron: r.cron, enabled: r.enabled, modele: r.modele, statutBrut: r.statutBrut, statut: r.statut, dernier: null, prochain: null, prochainSrc: null, seuil: null, seuilTxt: null, absent: null, echec: false, inactif: null, notes: [], etat: 'ok', source: 'agents/runs', quoi: null, quoiSrc: null };
+      if (r.dernier) o.dernier = { ms: r.dernier.ms, label: fmtDM(r.dernier.ms), age: fmtAge(r.dernier.ms, now) };
+      var c = r.cron ? parseCron(r.cron) : { ok: false, why: 'cron absent de la photo' };
+      var ref = photo.at ? Math.min(photo.at.ms, now) : now;
+      if (c.ok) {
+        var sm = seuilMs(c, now); if (sm) { o.seuil = sm; o.seuilTxt = fmtDur(sm) + ' (déduit du cron)'; } else o.notes.push('seuil non calculable : un seul passage dans la fenêtre du cron');
+        var nx = r.prochain || (function () { var t = nextFire(c, now); return t ? { ms: t } : null; })();
+        if (nx) { o.prochain = { ms: nx.ms, label: fmtDM(nx.ms) }; o.prochainSrc = r.prochain ? 'photo' : 'calculé du cron'; }
+        var F = lastFire(c, ref - GRACE_MIN * 60000);
+        if (r.enabled && F && (!r.dernier || r.dernier.ms < F - EARLY_MIN * 60000)) o.absent = 'attendu à ' + fmtDM(F) + ', ' + (r.dernier ? 'dernier passage connu ' + fmtDM(r.dernier.ms) : 'aucun passage connu');
+        if (r.enabled && r.dernier && o.seuil && ref - r.dernier.ms > o.seuil) o.inactif = 'inactif depuis ' + fmtDM(r.dernier.ms) + ' (seuil ' + fmtDur(o.seuil) + ')';
+      } else {
+        o.seuilTxt = '— (' + c.why + ')';
+        if (r.prochain) { o.prochain = { ms: r.prochain.ms, label: fmtDM(r.prochain.ms) }; o.prochainSrc = 'photo'; }
+        o.notes.push('seuil et passage attendu non calculables : ' + c.why);
+      }
+      if (r.statut === 'ko') o.echec = true;
+      if (f && prod[f.id]) { o.quoi = prod[f.id].txt; o.quoiSrc = prod[f.id].src; o.quoiAt = prod[f.id].lbl; }
+      o.etat = !r.enabled ? 'desactivee' : o.absent ? 'absent' : o.echec ? 'echec' : o.inactif ? 'inactif' : !r.dernier ? 'attente' : 'ok';
+      return o;
+    }
+    photo.routines && photo.routines.forEach(function (r) {
+      if (ecarte(cfg.ecartes, r.nom)) { ecartes[nkey(r.nom)] = { nom: r.nom, motif: ecarte(cfg.ecartes, r.nom) }; return; }
+      var f = ficheFor(fiches, r.nom); if (f) used[f.id] = 1;
+      rows.push(build(r, f));
+    });
+    fiches.forEach(function (f) {
+      if (used[f.id]) return;
+      var o = { nom: f.nom, id: null, fiche: f.id, ficheNom: f.nom, local: !!f.local, cron: null, enabled: null, modele: f.modele || null, statutBrut: null, statut: null, dernier: null, prochain: null, prochainSrc: null, seuil: null, seuilTxt: null, absent: null, echec: false, inactif: null, notes: [], source: f.local ? 'tâche locale' : 'agents/runs', quoi: null, quoiSrc: null };
+      if (prod[f.id]) { o.quoi = prod[f.id].txt; o.quoiSrc = prod[f.id].src; o.quoiAt = prod[f.id].lbl; }
+      if (f.local) { o.etat = 'non-lisible'; o.notes.push('tâche locale (launchd ou scheduled-tasks) : non lisible depuis claude.ai'); }
+      else if (photo.etat === 'ok') { o.etat = 'absente-photo'; o.notes.push('la photo ne contient pas cette routine'); }
+      else { o.etat = 'photo-absente'; }
+      rows.push(o);
+    });
+
+    var afaire = [];
+    m.stories.filter(function (s) { return s.aValider; }).forEach(function (s) { afaire.push({ kind: 'valider', texte: s.ref + (s.titre ? ' « ' + cut(s.titre, 90) + ' »' : '') + ' : à valider', source: s.source }); });
+    jr.perimes.forEach(function (t) { afaire.push({ kind: 'perime', texte: 'À décider (brouillon ou livrable obsolète) : ' + t, source: 'jour/' + today + '.perimes' }); });
+    m.prompts.forEach(function (p) { afaire.push({ kind: 'prompt', texte: 'Prompt prêt à coller : ' + cut(p.titre, 100) + (p.pour ? ' (pour ' + p.pour + ')' : ''), source: 'agents/' + p.id }); });
+    rows.forEach(function (r) {
+      if (r.etat === 'absent') afaire.push({ kind: 'observer', texte: 'Passage à observer : ' + r.nom + ' ' + r.absent, source: 'agents/runs' });
+      else if (r.etat === 'echec') afaire.push({ kind: 'observer', texte: 'Passage en échec à regarder : ' + r.nom + ' (' + (r.statutBrut || '—') + ', ' + (r.dernier ? r.dernier.label : '—') + ')', source: 'agents/runs' });
+      else if (r.etat === 'inactif') afaire.push({ kind: 'observer', texte: 'Passage à observer : ' + r.nom + ' ' + r.inactif, source: 'agents/runs' });
+    });
+    if (photo.etat === 'ok' && photo.stale) afaire.push({ kind: 'observer', texte: 'Photo des routines ancienne (' + photo.label + ', ' + photo.age + ') : vérifier que la Veille tourne', source: 'agents/runs' });
+
+    return { today: today, now: now, photo: photo, routines: rows, afaire: afaire, jourLu: jr.lu, ecartes: Object.keys(ecartes).map(function (k) { return ecartes[k]; }).sort(function (a, b) { return a.nom.localeCompare(b.nom, 'fr'); }), sansAgent: m.orphans.slice().sort(function (a, b) { return b.at.ms - a.at.ms; }).map(function (o) { return { id: o.id, label: fmtDM(o.at.ms), quoi: o.quoi, source: 'agents/' + o.id }; }), anomalies: anomalies, stories: m.stories };
   }
 
   /* ---- index.md du jour (déterministe : aucune heure de génération, donc deux exécutions sur les mêmes données donnent le même fichier) ---- */
@@ -247,6 +466,6 @@
     return lines.join('\n') + '\n';
   }
 
-  var api = { TYPES: TYPES, TYPE_LABEL: TYPE_LABEL, PHASES: PHASES, STALE_H: STALE_H, OPEN_H: OPEN_H, parseWhen: parseWhen, parseDernier: parseDernier, dayOnly: dayOnly, ouvreesHours: ouvreesHours, fmtDM: fmtDM, fmtAge: fmtAge, sanitize: sanitize, httpsUrl: httpsUrl, normLivrable: normLivrable, normJournal: normJournal, buildModel: buildModel, buildIndex: buildIndex };
+  var api = { TYPES: TYPES, TYPE_LABEL: TYPE_LABEL, PHASES: PHASES, STALE_H: STALE_H, OPEN_H: OPEN_H, parseWhen: parseWhen, parseDernier: parseDernier, dayOnly: dayOnly, ouvreesHours: ouvreesHours, fmtDM: fmtDM, fmtAge: fmtAge, sanitize: sanitize, httpsUrl: httpsUrl, normLivrable: normLivrable, normJournal: normJournal, buildModel: buildModel, buildIndex: buildIndex, buildDirect: buildDirect, parseCron: parseCron, cronFires: cronFires, lastFire: lastFire, nextFire: nextFire, seuilMs: seuilMs, ficheFor: ficheFor, GRACE_MIN: GRACE_MIN, PHOTO_STALE_H: PHOTO_STALE_H };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.ACT = api;
 })(typeof window !== 'undefined' ? window : this);

@@ -1,0 +1,166 @@
+{
+  "_lisez_moi": "US-18. Contenu statique des fiches de routines, tiré des prompts de data/outputs/*-prompt-v2.txt et de docs/us15-coach-plan-du-jour.md. Aucun état d'exécution ici : il vient de la photo agents/runs. `cles` = mots (sans accent, minuscules) qui rattachent une routine de la photo ou un nom d'agent du journal à cette fiche. `local` = tâche locale du Mac (launchd ou scheduled-tasks) : non lisible depuis claude.ai. `modele` = null : le modèle affiché est celui de la photo ; une valeur ici ne sert que de repli, écrite seulement si elle est dans le dépôt. Champ à null ou « pas de trace écrite » : rien n'est deviné.",
+  "fiches": [
+    {
+      "id": "coach-plan",
+      "nom": "Coach plan du jour",
+      "cles": ["plan du jour", "coach plan"],
+      "agents": ["Coach plan du jour"],
+      "local": false,
+      "lit": "Gmail, Suivi (actions, chemin critique, retours, verdicts) et profil retenu, en lecture seule.",
+      "produit": "Plan de 3 à 5 priorités sourcées, envoyé à 8h00 (lun-ven, heure du Maroc) par un mail « Plan du jour » à Issam seul ; document plans/pl-<jour>.",
+      "garde_fou": "Seul mail envoyé : à Issam, sans Cc ni Cci ; un plan déjà envoyé n'est jamais renvoyé ; jamais de priorité sans source (docs/us15-coach-plan-du-jour.md).",
+      "modele": null,
+      "source": "docs/us15-coach-plan-du-jour.md"
+    },
+    {
+      "id": "veille-coach",
+      "nom": "Veille et Coach",
+      "cles": ["veille"],
+      "agents": ["Veille et Coach", "Veille", "Coach", "Matin"],
+      "local": false,
+      "lit": "Gmail (vue SUMMARY, depuis le dernier passage), kb (p-regles, p-annuaire, p-suivi, p-checklists), jour et retours du jour, messages ouverts.",
+      "produit": "Faits datés, brouillons Gmail (jamais envoyés), bloc coach de l'heure suivante, passage dans jour.passages, photo agents/runs des routines.",
+      "garde_fou": "N'envoie rien, ne supprime rien (brouillons obsolètes dans jour.perimes pour Issam) ; aucune adresse hors annuaire ; toute étape non faite est écrite au journal.",
+      "modele": null,
+      "source": "data/outputs/veille-coach-fusion-prompt-v2.txt"
+    },
+    {
+      "id": "terrain-po",
+      "nom": "Terrain et PO",
+      "cles": ["terrain", "po"],
+      "agents": ["Terrain et PO", "Terrain", "Analyste terrain", "PO"],
+      "local": false,
+      "lit": "Suivi (stories, messages), kb (p-annuaire, p-suivi, p-profil-objectifs retenu), dossier Drive « Observateur · conversations ».",
+      "produit": "Patterns terrain, backlog trié par impact mesuré, sprint proposé (3 histoires au plus, statut propose), messages au Coach.",
+      "garde_fou": "N'envoie rien, ne supprime rien ; une histoire sans friction mesurée ni trait de profil retenu reste « non prouvée » ; rien ne démarre sans le go d'Issam (rg-29).",
+      "modele": null,
+      "source": "data/outputs/po-prompt-v2.txt"
+    },
+    {
+      "id": "formateur",
+      "nom": "Formateur",
+      "cles": ["formateur"],
+      "agents": ["Formateur"],
+      "local": false,
+      "lit": "kb (p-regles, p-profil, p-suivi), Suivi, recherche web (6 recherches au plus).",
+      "produit": "Deux capsules de formation dans jour/<jour>.tram (la seconde sur l'IA, en anglais) ; quiz le mercredi.",
+      "garde_fou": "N'envoie rien, pas d'événement d'agenda ni de notification ; aucun chiffre de mémoire, sources vérifiées par recherche du jour.",
+      "modele": null,
+      "source": "data/outputs/formateur-prompt-v2.txt"
+    },
+    {
+      "id": "controle-qualite",
+      "nom": "Contrôle qualité",
+      "cles": ["controle qualite", "verificateur", "qualite"],
+      "agents": ["Contrôle qualité", "Vérificateur"],
+      "local": false,
+      "lit": "Faits et brouillons écrits par les autres agents, contre leurs sources (Gmail, Suivi, kb).",
+      "produit": "Document agents/kpi-controle-<jour> (taux exact, erreurs par agent), une amélioration proposée, entrée de journal « Vérificateur ».",
+      "garde_fou": "Ne corrige jamais un brouillon, le liste seulement ; n'envoie rien ; une valeur sans source reste « — ».",
+      "modele": null,
+      "source": "data/outputs/controle-qualite-prompt-v2.txt"
+    },
+    {
+      "id": "observateur-profil",
+      "nom": "Observateur et Profil",
+      "cles": ["observateur et profil", "observateur profil"],
+      "agents": ["Observateur et Profil", "Observateur"],
+      "local": false,
+      "lit": "kb/p-profil-objectifs (traits retenus seulement), Suivi, recherche web (5 recherches au plus).",
+      "produit": "Constats neufs pour US-14, axes de progrès (donnée, repère, écart, geste, mesure), 5 messages aux agents au plus, 3 questions fermées au plus.",
+      "garde_fou": "N'écrit plus aucun profil (un seul producteur : US-14) ; n'utilise jamais un trait écarté ; aucun identifiant, IP ni téléphone recopié.",
+      "modele": null,
+      "source": "data/outputs/observateur-profil-prompt-v2.txt"
+    },
+    {
+      "id": "bilan-hebdo",
+      "nom": "Bilan hebdomadaire",
+      "cles": ["bilan"],
+      "agents": ["Bilan hebdomadaire", "Bilan"],
+      "local": false,
+      "lit": "kb (p-regles, p-annuaire, p-suivi), Suivi (actions, risques), Gmail de la semaine.",
+      "produit": "Point hebdomadaire SI (PDF et Excel de justification, brouillon pour Salah), bilan de semaine dans jour.bilan, événement d'agenda court.",
+      "garde_fou": "N'envoie aucun mail et ne supprime aucun brouillon ; une seule notification ; vendredi 16h20 (heure du Maroc).",
+      "modele": null,
+      "source": "data/outputs/bilan-hebdo-fusion-prompt-v2.txt"
+    },
+    {
+      "id": "recherche-emploi",
+      "nom": "Recherche d'emploi",
+      "cles": ["job search", "recherche d'emploi", "emploi"],
+      "agents": ["Recherche d'emploi", "Job search"],
+      "local": false,
+      "lit": "Sites d'offres et pages d'entreprises (web), tracker des offres ; jamais Gmail en lecture.",
+      "produit": "Jusqu'à 10 offres vérifiées en direct, un seul mail récapitulatif à Issam (vendredi, fin de journée), CV adapté seulement si Issam l'a demandé.",
+      "garde_fou": "Ne postule jamais, ne contacte personne ; seul envoi : un mail à Issam, sans Cc ni Cci ; budget de 30 recherches et 45 pages.",
+      "modele": null,
+      "source": "data/outputs/job-search-prompt-v2.txt"
+    },
+    {
+      "id": "developpeurs",
+      "nom": "Développeurs",
+      "cles": ["developpeurs"],
+      "agents": ["Développeurs"],
+      "local": false,
+      "lit": "pas de trace écrite dans le dépôt",
+      "produit": "pas de trace écrite dans le dépôt",
+      "garde_fou": "rg-29 : rien n'est « livré » sans validation d'Issam.",
+      "modele": null,
+      "source": "agents/ag-dev (Suivi)"
+    },
+    {
+      "id": "rapport-mensuel",
+      "nom": "Rapport mensuel",
+      "cles": ["rapport mensuel", "mensuel"],
+      "agents": ["Rapport mensuel"],
+      "local": false,
+      "lit": "pas de trace écrite dans le dépôt (cité dans docs/us8-etude-architecture.md)",
+      "produit": "pas de trace écrite dans le dépôt",
+      "garde_fou": "pas de trace écrite dans le dépôt",
+      "modele": null,
+      "source": "docs/us8-etude-architecture.md"
+    },
+    {
+      "id": "observateur-mac",
+      "nom": "Observateur (Mac)",
+      "cles": ["observateur mac", "observateur (mac)"],
+      "agents": ["Observateur (Mac)"],
+      "local": true,
+      "lit": "Application au premier plan du Mac toutes les 30 s, puis conversations Claude (observateur/README.md).",
+      "produit": "Journal d'observation local, relais vers Drive « Observateur · conversations ».",
+      "garde_fou": "Tâche locale : tourne seulement Mac allumé et app ouverte ; outille la personne, ne l'évalue jamais.",
+      "modele": null,
+      "source": "observateur/README.md, docs/observateur-exploitation.md"
+    },
+    {
+      "id": "us14-profil",
+      "nom": "US-14 Profil (Mac)",
+      "cles": ["us-14", "us14", "profil (mac)"],
+      "agents": ["US-14"],
+      "local": true,
+      "lit": "Constats de l'Observateur, journaux des jours, faits datés (us14-apprentissage/).",
+      "produit": "Profil d'Issam (kb/p-profil-objectifs) après contrôle critique ; les traits écartés ne sont pas repris.",
+      "garde_fou": "Unique producteur du profil ; contre-exemples sur 7 jours ; profil privé, corrigeable par Issam.",
+      "modele": null,
+      "source": "docs/us14-apprentissage.md"
+    },
+    {
+      "id": "controle-couts",
+      "nom": "Contrôle des coûts (Mac)",
+      "cles": ["controle des couts", "controle-agents-cout", "couts"],
+      "agents": ["Contrôle des coûts"],
+      "local": true,
+      "lit": "pas de trace écrite dans le dépôt (tâche locale du vendredi)",
+      "produit": "Coût des agents (controle-agents-cout) ; peut écrire une ligne de photo des tâches locales.",
+      "garde_fou": "pas de trace écrite dans le dépôt",
+      "modele": null,
+      "source": "data/outputs/controle-qualite-prompt-v2.txt (mention)"
+    }
+  ],
+  "ecartes": {
+    "_note": "Noms jamais affichés comme agents : étiquettes et sessions de développement jetables.",
+    "etiquettes": ["Équipe", "Principal", "Agent principal", "Agent non indiqué", "—"],
+    "motif_session_dev": "^Développeur\\s+US-?\\d+"
+  }
+}

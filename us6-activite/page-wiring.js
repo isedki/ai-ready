@@ -1,5 +1,6 @@
-  /* ---------- US-6 : onglet Activité (logique dans ACT, rendu dans ACTV, tous deux testés hors page) ---------- */
-  let actAg=[],actLv=[],driveDoc=null,fAgent="",fDay="";const actSrc={agents:{coll:"agents",ok:false},livrables:{coll:"livrables",ok:false}};
+  /* ---------- US-18 : onglet Activité, vue en direct (logique dans ACT.buildDirect, rendu dans ACTV.renderDirect, tous deux testés hors page) ---------- */
+  let actAg=[],actLv=[],driveDoc=null;const actSrc={agents:{coll:"agents",ok:false},livrables:{coll:"livrables",ok:false}};const actOpen={};
+  const FICHES=(()=>{try{return JSON.parse($("us18-fiches").textContent)}catch(e){return{fiches:[]}}})();
   const hmsUtc=()=>{const d=new Date();return pad(d.getUTCHours())+":"+pad(d.getUTCMinutes())+":"+pad(d.getUTCSeconds())+" UTC"};
   const errTxt=e=>cutErr((e&&e.code?e.code+" : ":"")+((e&&e.message)||"cause inconnue"));
   const cutErr=s=>String(s).length>140?String(s).slice(0,140)+"…":String(s);
@@ -12,14 +13,9 @@
   function renderActivite(){
     const root=$("viewL");if(!root||root.hidden)return;
     try{
-      fAgent=$("acAgent").value;fDay=$("acDay").value;
-      const m=ACT.buildModel({agents:actAg,livrables:actLv,now:Date.now(),day:fDay,agent:fAgent});
-      ACTV.fillOptions(document,$("acAgent"),[["","Tous les agents"]].concat(m.agentNames.map(n=>[n,n==="—"?"Agent non indiqué":n])),fAgent);
-      ACTV.fillOptions(document,$("acDay"),m.days.slice(0,14).map(d=>[d,fmtS(d)+(d===m.today?" (aujourd'hui)":"")]),m.day);
-      if($("acDay").value!==m.day)$("acDay").value=m.day;
-      ACTV.renderActivite(document,$("acMount"),m,{sources:[actSrc.agents,actSrc.livrables],drive:driveDoc,onIndex:actIndex,typeLabel:ACT.TYPE_LABEL});
+      const d=ACT.buildDirect({agents:actAg,livrables:actLv,jour:jour?{id:jour.date,data:jour}:null,fiches:FICHES,now:Date.now()});
+      ACTV.renderDirect(document,$("acMount"),d,{sources:[actSrc.agents,actSrc.livrables],drive:driveDoc,onIndex:actIndex,fiches:FICHES.fiches,open:actOpen,onToggle:(k,v)=>{actOpen[k]=v}});
     }catch(e){const b=document.createElement("div");b.className="ac-err";b.textContent="L'onglet Activité n'a pas pu s'afficher : "+errTxt(e)+". Les autres onglets ne sont pas touchés.";$("acMount").textContent="";$("acMount").appendChild(b)}
   }
-  $("acAgent").addEventListener("change",renderActivite);$("acDay").addEventListener("change",renderActivite);
   setInterval(()=>{if(!document.hidden&&!$("viewL").hidden)renderActivite()},60000);
 

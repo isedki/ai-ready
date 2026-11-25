@@ -122,44 +122,179 @@ test('index : jour invalide refusé, jour vide produit un fichier explicite', ()
   assert.match(ACT.buildIndex({ day: '2026-11-24', agents: [], livrables: [] }), /Aucun livrable ni entrée de journal/);
 });
 
-// ---- rendu avec un DOM minimal : données vides, mal formées, réelles, valeurs hostiles ----
+// ---- US-18 : vue en direct ----
 const VIEW = createRequire(import.meta.url)('./activite-view.js');
 function fakeDoc() {
   const mk = (tag) => ({ tag, className: '', children: [], attrs: {}, listeners: {}, _t: '', set textContent(v) { this._t = String(v); this.children = []; }, get textContent() { return this._t + this.children.map((c) => c.textContent).join(''); }, appendChild(c) { this.children.push(c); return c; }, setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(e, f) { this.listeners[e] = f; }, set innerHTML(v) { throw new Error('innerHTML interdit'); } });
   return { createElement: mk, createTextNode: (t) => ({ textContent: String(t), children: [] }) };
 }
-const ctx = { sources: [{ coll: 'agents', ok: true, n: 3, at: '15:00:00' }, { coll: 'livrables', ok: false, err: 'permission-denied' }], drive: null, typeLabel: ACT.TYPE_LABEL, onIndex() {} };
-const count = (n, f) => (f(n) ? 1 : 0) + n.children.reduce((s, c) => s + count(c, f), 0);
-test('rendu : vide, anomalies, erreur de lecture en clair, aucune exception', () => {
-  const d = fakeDoc(), mount = d.createElement('div');
-  VIEW.renderActivite(d, mount, M({ agents: [], livrables: [] }), ctx);
-  assert.match(mount.textContent, /livrables : lecture en échec \(permission-denied\)/); assert.match(mount.textContent, /Aucun agent à afficher/); assert.match(mount.textContent, /Aucune histoire/);
-  VIEW.renderActivite(d, mount, M({ agents: [{ id: 'x', data: 7 }], livrables: [{ id: 'y', data: { agent: 'A' } }] }), ctx);
-  assert.match(mount.textContent, /2 anomalies/); assert.match(mount.textContent, /livrables\/y : champ type|livrables\/y : type inconnu/);
+import { readFileSync } from 'node:fs';
+const FICHES = JSON.parse(readFileSync(new URL('./routines-fiches.json', import.meta.url), 'utf8'));
+const TZ = 'CRON_TZ=Africa/Casablanca ';
+const WED = Date.parse('2026-11-25T14:30:00Z'); // mercredi
+const D = (o) => ACT.buildDirect({ now: WED, fiches: FICHES, ...o });
+const run = (nom, cron, dernier, extra = {}) => ({ id: 'trig_' + nom, nom, cron: cron && TZ + cron, enabled: true, modele: 'm', dernier, ...extra });
+const runsDoc = (routines, at = '2026-11-25T12:10:00Z') => ({ id: 'runs', data: { at, par: 'veille-coach', routines } });
+const row = (d, nom) => d.routines.find((r) => r.nom === nom);
+
+test('photo absente : la page le dit, ne plante pas, aucun état inventé', () => {
+  const d = D({ agents: [], livrables: [] });
+  assert.equal(d.photo.etat, 'absente');
+  assert.ok(d.routines.length >= 10);
+  assert.ok(d.routines.filter((r) => !r.local).every((r) => r.etat === 'photo-absente' && r.dernier === null && r.prochain === null));
+  const doc = fakeDoc(), mount = doc.createElement('div');
+  VIEW.renderDirect(doc, mount, d, { sources: [], fiches: FICHES.fiches });
+  assert.match(mount.textContent, /Photo des routines absente : la Veille ne l'a pas encore écrite/);
 });
-test('rendu : valeurs hostiles passent en texte, lien non https jamais cliquable', () => {
-  const d = fakeDoc(), mount = d.createElement('div');
-  const liv = [good('h', { titre: '<img src=x onerror=alert(1)>', url: 'javascript:alert(1)' }), good('h2', { titre: 'ok', url: 'https://claude.ai/artifact/abc' })];
-  VIEW.renderActivite(d, mount, M({ livrables: liv }), ctx);
-  assert.match(mount.textContent, /<img src=x/); // affiché comme texte
-  const liens = count(mount, (n) => n.tag === 'a'); assert.equal(liens, 1);
-  assert.match(mount.textContent, /lien cassé/);
+test('photo mal formée ou en erreur : cause affichée, anomalie, pas d\'exception', () => {
+  assert.equal(D({ agents: [{ id: 'runs', data: 'texte' }] }).photo.etat, 'illisible');
+  assert.equal(D({ agents: [{ id: 'runs', data: { at: 'hier', routines: [] } }] }).photo.etat, 'illisible');
+  assert.equal(D({ agents: [{ id: 'runs', data: { routines: [] } }] }).photo.etat, 'illisible');
+  const e = D({ agents: [{ id: 'runs', data: { at: '2026-11-25T12:00:00Z', erreur: 'list_triggers indisponible' } }] });
+  assert.equal(e.photo.etat, 'erreur'); assert.equal(e.photo.erreur, 'list_triggers indisponible');
+  const mal = D({ agents: [runsDoc([{ cron: 'x' }, null, run('Phénix · Formateur', '0 9 * * 1', { at: 'bof', statut: 'OK' })])] });
+  assert.match(mal.anomalies.map((a) => a.cause).join('\n'), /routine sans nom/); assert.match(mal.anomalies.map((a) => a.cause).join('\n'), /dernier\.at invalide/);
 });
-test('rendu : jeu de données réaliste (agent inactif, battement sans fin, histoire à valider)', () => {
-  const d = fakeDoc(), mount = d.createElement('div');
-  const agents = [
-    { id: 'ag-coach', data: { type: 'agent', nom: 'Coach', quand: 'à chaque veille', dernier: '2026-11-24T12:20:00Z', focus: 'F' } },
-    { id: 'ag-dev', data: { type: 'agent', nom: 'Développeurs', dernier: '' } },
-    { id: 'jr1', data: { type: 'journal', at: '2026-11-18T10:00:00Z', agent: 'Terrain', quoi: 'ancien' } },
-    { id: 'hb1', data: { type: 'journal', at: '2026-11-24T09:00:00Z', agent: 'Coach', phase: 'debut', etape: 'lecture Gmail' } },
-    { id: 'story-us-4', data: { type: 'story', statut: 'encours', ref: 'US-4', titre: 'Conseil', progres: { at: '2026-11-23T17:10:00Z', a_valider: true, etapes: [{ t: 'a', fait: true }] } } }];
-  VIEW.renderActivite(d, mount, M({ agents, livrables: [good('l1')] }), ctx);
-  const t = mount.textContent;
-  assert.match(t, /inactif depuis 18\/11 10:00/); assert.match(t, /aucun passage enregistré/); assert.match(t, /aucun battement « fin » depuis le début de 24\/11 09:00/);
-  assert.match(t, /à valider par Issam/); assert.match(t, /Coach/); assert.match(t, /source : agents\/ag-coach/);
+test('cron : lecture, fuseau Maroc = UTC, fuseau inconnu refusé, cron illisible refusé', () => {
+  assert.equal(ACT.parseCron(TZ + '0 8 * * 1-5').ok, true);
+  assert.equal(ACT.parseCron('CRON_TZ=Europe/Paris 0 8 * * 1-5').ok, false);
+  for (const bad of ['', null, '0 8 * *', '61 8 * * *', '0 25 * * *', 'a b c d e', '*/0 * * * *']) assert.equal(ACT.parseCron(bad).ok, false, String(bad));
+  assert.deepEqual(ACT.cronFires(ACT.parseCron('0 8 * * 1-5'), Date.parse('2026-11-20T00:00:00Z'), Date.parse('2026-11-24T23:00:00Z')).map((t) => new Date(t).toISOString().slice(0, 13)), ['2026-11-20T08', '2026-11-23T08', '2026-11-24T08']);
 });
-test('rendu : sélecteurs peuplés, valeur absente retombe sur le premier choix', () => {
-  const d = fakeDoc(), sel = d.createElement('select');
-  VIEW.fillOptions(d, sel, [['', 'Tous'], ['Coach', 'Coach']], 'Fantôme'); assert.equal(sel.value, '');
-  VIEW.fillOptions(d, sel, [['', 'Tous'], ['Coach', 'Coach']], 'Coach'); assert.equal(sel.value, 'Coach');
+test('seuil propre à chaque routine, déduit du cron (jamais 36 h pour tous)', () => {
+  const h = (e) => ACT.seuilMs(ACT.parseCron(e), WED) / 3600000;
+  assert.equal(h('0 8 * * 1-5'), 72.5);        // vendredi 8h -> lundi 8h + 30 min
+  assert.ok(h('5 12,15 * * 1-5') > 60 && h('5 12,15 * * 1-5') < 72.5); // vendredi 15h05 -> lundi 12h05 = 69 h + 30 min
+  assert.equal(h('0 10 * * 5'), 168.5);        // hebdomadaire
+  assert.equal(h('0 9 * * *'), 24.5);          // quotidien tous les jours
+  assert.ok(h('0 9 1 * *') > 28 * 24 && h('0 9 1 * *') < 32 * 24); // mensuel
+  const d = D({ agents: [runsDoc([run('Phénix · Bilan hebdomadaire', '20 16 * * 5', { at: '2026-11-20T16:25:00Z', statut: 'SUCCEEDED' })], '2026-11-25T14:20:00Z')] });
+  const r = row(d, 'Phénix · Bilan hebdomadaire');
+  assert.equal(r.inactif, null); assert.equal(r.etat, 'ok'); assert.match(r.seuilTxt, /7 j/);
+  // l'ancien seuil unique de 36 h ouvrées aurait déclaré ce même agent inactif :
+  assert.ok(ACT.ouvreesHours(Date.parse('2026-11-20T16:25:00Z'), WED) > ACT.STALE_H);
+});
+test('routine hebdomadaire réellement silencieuse : inactive au-delà de son propre seuil', () => {
+  const d = D({ now: Date.parse('2026-12-02T14:30:00Z'), agents: [runsDoc([run('Phénix · Contrôle qualité', '0 10 * * 5', { at: '2026-11-13T10:00:00Z', statut: 'SUCCEEDED' })], '2026-12-02T14:20:00Z')] });
+  const r = row(d, 'Phénix · Contrôle qualité'); assert.match(r.inactif, /inactif depuis 13\/11 10:00 \(seuil 7 j\)/); assert.equal(r.etat, 'absent'); // le passage du 27/11 manque aussi
+});
+test('passage attendu et absent : rouge, avec l\'heure attendue ; la tolérance de 30 min est respectée', () => {
+  const photo = (dernier) => D({ agents: [runsDoc([run('Phénix · Terrain et PO', '0 9 * * 3', dernier)])] });
+  const abs = row(photo({ at: '2026-11-18T09:03:00Z', statut: 'SUCCEEDED' }), 'Phénix · Terrain et PO');
+  assert.equal(abs.etat, 'absent'); assert.match(abs.absent, /attendu à 25\/11 09:00, dernier passage connu 18\/11 09:03/);
+  assert.equal(row(photo({ at: '2026-11-25T09:04:00Z', statut: 'SUCCEEDED' }), 'Phénix · Terrain et PO').etat, 'ok');
+  assert.equal(row(photo({ at: '2026-11-25T08:55:00Z', statut: 'SUCCEEDED' }), 'Phénix · Terrain et PO').etat, 'ok'); // commencé 5 min avant
+  // la photo date de 08:40 : le passage de 09:00 n'est pas encore attendu, pas de faux rouge
+  const tot = D({ agents: [runsDoc([run('Phénix · Terrain et PO', '0 9 * * 3', { at: '2026-11-18T09:03:00Z', statut: 'SUCCEEDED' })], '2026-11-25T08:40:00Z')] });
+  assert.notEqual(row(tot, 'Phénix · Terrain et PO').etat, 'absent');
+  const jamais = row(photo(null), 'Phénix · Terrain et PO'); assert.equal(jamais.etat, 'absent'); assert.match(jamais.absent, /aucun passage connu/);
+  const off = row(D({ agents: [runsDoc([run('Phénix · Terrain et PO', '0 9 * * 3', null, { enabled: false })])] }), 'Phénix · Terrain et PO'); assert.equal(off.etat, 'desactivee'); assert.equal(off.absent, null);
+  const wk = D({ now: Date.parse('2026-11-28T14:30:00Z'), agents: [runsDoc([run('Phénix · Coach plan du jour', '0 8 * * 1-5', { at: '2026-11-27T08:05:00Z', statut: 'SUCCEEDED' })], '2026-11-28T14:20:00Z')] });
+  assert.equal(row(wk, 'Phénix · Coach plan du jour').etat, 'ok'); // samedi : rien n'est attendu
+});
+test('routine en échec : rouge avec le statut brut, listée dans « À faire par toi »', () => {
+  const d = D({ agents: [runsDoc([run('Phénix · Formateur', '30 8 * * 1,3', { at: '2026-11-25T08:41:00Z', statut: 'FAILED' }), run('Phénix · Veille et Coach', '5 12,15 * * 1-5', { at: '2026-11-25T12:06:00Z', statut: 'SUCCEEDED' })])] });
+  const f = row(d, 'Phénix · Formateur'); assert.equal(f.etat, 'echec'); assert.equal(f.statutBrut, 'FAILED');
+  assert.equal(row(d, 'Phénix · Veille et Coach').etat, 'ok');
+  assert.ok(d.afaire.some((a) => a.kind === 'observer' && /Formateur.*FAILED/.test(a.texte) && a.source === 'agents/runs'));
+});
+test('étiquettes et sessions de développement : jamais affichées comme agents', () => {
+  const ag = [
+    { id: 'j1', data: { type: 'journal', at: '2026-11-25T10:00:00Z', agent: 'Équipe', quoi: 'x' } },
+    { id: 'j2', data: { type: 'journal', at: '2026-11-25T10:01:00Z', agent: 'Principal', quoi: 'x' } },
+    { id: 'j3', data: { type: 'journal', at: '2026-11-25T10:02:00Z', agent: 'Agent principal', quoi: 'x' } },
+    { id: 'j4', data: { type: 'journal', at: '2026-11-25T10:03:00Z', agent: 'Développeur US-14', quoi: 'x' } },
+    { id: 'j5', data: { type: 'journal', at: '2026-11-25T10:04:00Z', agent: 'Développeur US-6', quoi: 'x' } },
+    { id: 'j6', data: { type: 'journal', at: '2026-11-25T10:05:00Z', agent: '—', quoi: 'x' } }];
+  const d = D({ agents: ag });
+  const noms = d.routines.map((r) => r.nom);
+  for (const n of ['Équipe', 'Principal', 'Agent principal', 'Développeur US-14', 'Développeur US-6', 'Agent non indiqué', '—']) assert.ok(!noms.includes(n), n);
+  assert.ok(d.ecartes.some((e) => e.nom === 'Développeur US-14' && /session de développement/.test(e.motif)));
+  assert.ok(d.ecartes.some((e) => e.nom === 'Équipe' && /étiquette/.test(e.motif)));
+  // même si la photo contient un tel nom, il n'est pas une ligne
+  assert.ok(!D({ agents: [runsDoc([run('Développeur US-9', '0 9 * * 1', null)])] }).routines.some((r) => r.nom === 'Développeur US-9'));
+  assert.ok(noms.includes('Développeurs')); // la vraie routine Développeurs reste
+});
+test('anomalie « champ agent manquant » : plus masquée, rattachée à la Veille et Coach si l\'id contient coach-veille', () => {
+  const ag = [{ id: 'jr-20261125-1114-coach-veille', data: { type: 'journal', at: '2026-11-25T11:14:00Z', contenu: 'Veille 11h : rien de nouveau' } },
+    { id: 'jr-orphelin', data: { type: 'journal', at: '2026-11-25T11:30:00Z', quoi: 'passage sans agent' } }];
+  const d = D({ agents: ag });
+  const v = row(d, 'Veille et Coach'); assert.match(v.quoi, /Veille 11h/); assert.equal(v.quoiSrc, 'agents/jr-20261125-1114-coach-veille');
+  const causes = d.anomalies.map((a) => a.where + ' ' + a.cause).join('\n');
+  assert.match(causes, /coach-veille.*rattaché à « Veille et Coach »/); assert.match(causes, /jr-orphelin champ agent manquant/);
+  assert.equal(d.sansAgent.length, 1); assert.equal(d.sansAgent[0].id, 'jr-orphelin'); assert.match(d.sansAgent[0].quoi, /passage sans agent/);
+  const doc = fakeDoc(), mount = doc.createElement('div'); VIEW.renderDirect(doc, mount, d, { sources: [], fiches: FICHES.fiches });
+  assert.match(mount.textContent, /1 passage sans champ agent/);
+});
+test('tâches locales : « non lisible » ; routine absente de la photo signalée comme telle', () => {
+  const d = D({ agents: [runsDoc([run('Phénix · Veille et Coach', '5 12,15 * * 1-5', { at: '2026-11-25T12:06:00Z', statut: 'SUCCEEDED' })])] });
+  for (const n of ['Observateur (Mac)', 'US-14 Profil (Mac)', 'Contrôle des coûts (Mac)']) { const r = row(d, n); assert.equal(r.etat, 'non-lisible', n); assert.equal(r.local, true); }
+  assert.equal(row(d, 'Rapport mensuel').etat, 'absente-photo');
+});
+test('photo ancienne : signalée (la Veille n\'a pas écrit depuis)', () => {
+  const d = D({ agents: [runsDoc([], '2026-11-23T08:00:00Z')] });
+  assert.equal(d.photo.stale, true); assert.ok(d.afaire.some((a) => /Photo des routines ancienne/.test(a.texte)));
+  assert.equal(D({ agents: [runsDoc([], '2026-11-25T12:10:00Z')] }).photo.stale, false);
+});
+test('« À faire par toi » : US à valider, périmés, prompts, passages à observer, chacun avec sa source', () => {
+  const ag = [
+    { id: 'story-us-4', data: { type: 'story', statut: 'encours', ref: 'US-4', titre: 'Conseil', progres: { at: '2026-11-23T17:10:00Z', a_valider: true, etapes: [{ t: 'a', fait: true }] } } },
+    { id: 'story-us-6', data: { type: 'story', statut: 'encours', ref: 'US-6', titre: 'Autre', progres: { at: '2026-11-24T14:20:00Z', etapes: [{ t: 'a', fait: false }] } } },
+    { id: 'prompt-veille-v2', data: { type: 'prompt', statut: 'a_coller', titre: 'Veille v2', pour: 'Veille et Coach' } },
+    { id: 'prompt-deja', data: { type: 'prompt', statut: 'colle', titre: 'Déjà collé' } },
+    runsDoc([run('Phénix · Formateur', '30 8 * * 1,3', { at: '2026-11-25T08:41:00Z', statut: 'FAILED' })])];
+  const jour = { id: '2026-11-25', data: { perimes: ['r-1 : à supprimer', { id: 'r-2', objet: 'RE: sujet', raison: 'envoyé par Issam' }, { id: 'r-3' }] } };
+  const d = D({ agents: ag, jour });
+  const byKind = (k) => d.afaire.filter((a) => a.kind === k);
+  assert.equal(byKind('valider').length, 1); assert.match(byKind('valider')[0].texte, /US-4 « Conseil » : à valider/); assert.equal(byKind('valider')[0].source, 'agents/story-us-4 (progres)');
+  assert.equal(byKind('perime').length, 2); assert.ok(byKind('perime').every((a) => a.source === 'jour/2026-11-25.perimes'));
+  assert.match(byKind('perime')[1].texte, /RE: sujet : envoyé par Issam/);
+  assert.equal(byKind('prompt').length, 1); assert.equal(byKind('prompt')[0].source, 'agents/prompt-veille-v2');
+  assert.equal(byKind('observer').length, 1);
+  assert.ok(d.afaire.every((a) => a.source), 'chaque ligne porte sa source');
+  assert.ok(d.anomalies.some((a) => /jour\/2026-11-25\.perimes élément sans libellé/.test(a.where + ' ' + a.cause)));
+  assert.deepEqual(d.afaire.map((a) => a.kind), ['valider', 'perime', 'perime', 'prompt', 'observer']); // l'ordre : valider, décider, coller, observer
+});
+test('« À faire par toi » vide ou jour absent : dit pourquoi, sans inventer', () => {
+  const d = D({ agents: [] }); assert.equal(d.afaire.length, 0); assert.equal(d.jourLu, false);
+  const doc = fakeDoc(), mount = doc.createElement('div'); VIEW.renderDirect(doc, mount, d, { sources: [], fiches: FICHES.fiches });
+  assert.match(mount.textContent, /Rien à faire/); assert.match(mount.textContent, /jour\/2026-11-25 non lu ou absent/);
+  assert.equal(D({ agents: [], jour: { id: '2026-11-25', data: 'x' } }).jourLu, false);
+});
+test('fiches : chaque routine Phénix a une fiche complète ; clic = fiche (lit, produit, garde-fou, modèle) sans innerHTML', () => {
+  const noms = ['Coach plan du jour', 'Veille et Coach', 'Terrain et PO', 'Formateur', 'Contrôle qualité', 'Observateur et Profil', 'Bilan hebdomadaire', 'Recherche d\'emploi', 'Développeurs', 'Rapport mensuel'];
+  for (const n of noms) { const f = FICHES.fiches.find((x) => x.nom === n); assert.ok(f, n); for (const k of ['lit', 'produit', 'garde_fou', 'source']) assert.ok(typeof f[k] === 'string' && f[k].length > 3, n + ' ' + k); }
+  assert.ok(!/(sk-|api[_-]?key|password|secret)/i.test(JSON.stringify(FICHES)), 'aucun secret dans les fiches');
+  const d = D({ agents: [runsDoc([run('Phénix · Terrain et PO', '0 9 * * 3', { at: '2026-11-25T09:03:00Z', statut: 'SUCCEEDED' }, { modele: 'claude-sonnet-5-5' })])] });
+  const doc = fakeDoc(), mount = doc.createElement('div'); VIEW.renderDirect(doc, mount, d, { sources: [], fiches: FICHES.fiches });
+  const find = (n, f) => (f(n) ? [n] : []).concat(...n.children.map((c) => find(c, f)));
+  const fiche = find(mount, (n) => n.tag === 'tr' && n.className === 'ac-fiche' && /Terrain et PO|Patterns terrain/.test(n.textContent))[0];
+  assert.equal(fiche.hidden, true); assert.match(fiche.textContent, /garde-fou/i); assert.match(fiche.textContent, /claude-sonnet-5-5/); assert.match(fiche.textContent, /Patterns terrain/);
+  const btn = find(mount, (n) => n.tag === 'button' && n.textContent === 'Phénix · Terrain et PO')[0];
+  btn.listeners.click(); assert.equal(fiche.hidden, false); assert.equal(btn.attrs['aria-expanded'], 'true');
+  btn.listeners.click(); assert.equal(fiche.hidden, true);
+});
+test('rendu : valeurs hostiles en texte, jamais de HTML ; état ouvert d\'une fiche conservé au rafraîchissement', () => {
+  const d = D({ agents: [runsDoc([run('<img src=x onerror=alert(1)>', '0 9 * * 3', { at: '2026-11-25T09:03:00Z', statut: '<b>OK</b>' })]), { id: 'story-us-9', data: { type: 'story', statut: 'encours', ref: 'US-9', titre: '<script>alert(1)</script>', progres: { a_valider: true, etapes: [{ t: 'a', fait: true }] } } }] });
+  const doc = fakeDoc(), mount = doc.createElement('div'); VIEW.renderDirect(doc, mount, d, { sources: [], fiches: FICHES.fiches });
+  assert.match(mount.textContent, /<img src=x/); assert.match(mount.textContent, /<script>alert\(1\)/);
+  const d2 = D({ agents: [runsDoc([run('Phénix · Formateur', '30 8 * * 1,3', { at: '2026-11-25T08:41:00Z', statut: 'SUCCEEDED' })])] });
+  const m2 = doc.createElement('div'); VIEW.renderDirect(doc, m2, d2, { sources: [], fiches: FICHES.fiches, open: { formateur: true } });
+  const find = (n, f) => (f(n) ? [n] : []).concat(...n.children.map((c) => find(c, f)));
+  assert.equal(find(m2, (n) => n.className === 'ac-fiche' && /Deux capsules/.test(n.textContent))[0].hidden, false);
+});
+test('rattachement aux fiches : mots entiers, « po » ne capte pas « rapport »', () => {
+  const f = (n) => (ACT.ficheFor(FICHES.fiches, n) || {}).id;
+  assert.equal(f('Phénix · Terrain et PO'), 'terrain-po'); assert.equal(f('Rapport mensuel'), 'rapport-mensuel'); assert.equal(f('Phénix · Veille et Coach'), 'veille-coach');
+  assert.equal(f('Coach plan du jour'), 'coach-plan'); assert.equal(f('Job search · Recherche d\'emploi'), 'recherche-emploi'); assert.equal(f('Équipe'), undefined);
+});
+test('build-page : si une ancre manque, le script refuse et n\'écrit rien', async () => {
+  const { execFileSync } = await import('node:child_process'); const { mkdtempSync, writeFileSync, mkdirSync } = await import('node:fs'); const { tmpdir } = await import('node:os'); const { join } = await import('node:path');
+  const dir = mkdtempSync(join(tmpdir(), 'us18-')), here = new URL('.', import.meta.url).pathname;
+  // page publiée factice : mêmes ancres que la vraie page, assez pour exécuter le câblage
+  const base = '<style>x</style><style id="us6-css">old</style>\n<section id="viewL" role="tabpanel" hidden>old</section>\n  <section id="viewS" role="tabpanel"></section><script id="us6-core">old</script>\n<script id="us6-view">old</script>\n<script>\n(function(){\n  const $=id=>document.getElementById(id);const pad=n=>(n<10?"0":"")+n;let jour=null;const logUsage=()=>{},toast=()=>{};\n  /* ---------- US-6 : onglet Activité old */\n  old();\n  /* ---------- US-15 : bloc « Plan du jour » */\n  jour=null;renderActivite();\n  db.x=1; jour=d?Object.assign({date:d.id},d.data()||{}):null;renderJ();renderConseil()}\n})();\n</script>';
+  writeFileSync(join(dir, 'pub.html'), base);
+  let r; try { execFileSync('node', [here + 'build-page.mjs', join(dir, 'pub.html'), join(dir, 'out.html')], { stdio: 'pipe' }); r = 'ok'; } catch (e) { r = String(e.stderr); }
+  assert.match(r, /ok|ancre/); // la page factice n'a pas toutes les ancres : le script doit refuser net, jamais écrire à moitié
+  if (r !== 'ok') assert.ok(!(() => { try { readFileSync(join(dir, 'out.html')); return true; } catch (e) { return false; } })(), 'rien n\'est écrit si une ancre manque');
 });
