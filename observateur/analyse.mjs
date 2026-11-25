@@ -401,8 +401,9 @@ async function main() {
     const md = renderDay(day, s, cfg, { base, mails, ai, learned, issues })
     const out = join(cfg.dossier_rapports, `jour-${day}.md`)
     writeFileSync(out, md + (s.actif_minutes && !ai && !noClaude ? '\n\n_Claude n\'a pas répondu (la cause est affichée dans le Terminal ou le journal ; souvent : connexion expirée, à refaire avec `claude` puis `/login`) : mesures et hypothèses par règle seulement._' : '') + '\n')
-    const copie = publishToDrive(cfg, out)
-    console.log(out + (copie ? `\nCopie Drive : ${copie}` : ''))
+    const dIssues = []
+    const copie = publishToDrive(cfg, out, undefined, undefined, dIssues)
+    console.log(out + (copie ? `\nCopie Drive : ${copie}` : '') + dIssues.map(i => `\nCopie Drive : ÉCHEC, ${i.raison}`).join(''))
   } else if (cmd === 'semaine') {
     const monday = new Date(ref); monday.setDate(ref.getDate() - ((ref.getDay() + 6) % 7))
     const days = []
@@ -425,10 +426,11 @@ async function main() {
     if (issues.length) md += '\n\n## Non lu\n\n' + issues.map(i => `- ${i.etape} : non lu : ${i.raison}`).join('\n')
     const out = join(cfg.dossier_rapports, `semaine-${days[0].day}.md`)
     writeFileSync(out, md + '\n')
-    const copie = publishToDrive(cfg, out)
+    const dIssues = []
+    const copie = publishToDrive(cfg, out, undefined, undefined, dIssues)
     const portrait = join(cfg.dossier_savoir, 'profil.md')
-    if (existsSync(portrait)) publishToDrive(cfg, portrait, undefined, 'portrait.md')
-    console.log(out + (copie ? `\nCopie Drive : ${copie}` : ''))
+    if (existsSync(portrait)) publishToDrive(cfg, portrait, undefined, 'portrait.md', dIssues)
+    console.log(out + (copie ? `\nCopie Drive : ${copie}` : '') + dIssues.map(i => `\nCopie Drive : ÉCHEC, ${i.raison}`).join(''))
   } else {
     console.log('Usage : node observateur/analyse.mjs jour|semaine [AAAA-MM-JJ] [--sans-claude] [--sans-mails] · note "texte"')
     process.exitCode = 1

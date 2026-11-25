@@ -211,7 +211,8 @@ async function team(cfg) {
   mkdirSync(cfg.dossier_rapports, { recursive: true })
   const out = join(cfg.dossier_rapports, `equipe-${day}.md`)
   writeFileSync(out, render(day, res, merged, pub) + '\n')
-  publishToDrive(cfg, out)
+  const dIssues = []
+  if (!publishToDrive(cfg, out, undefined, undefined, dIssues)) console.error('Copie Drive : ÉCHEC, ' + (dIssues.map(i => i.raison).join(' ; ') || 'désactivée'))
   return out
 }
 
