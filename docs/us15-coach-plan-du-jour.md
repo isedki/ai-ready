@@ -32,15 +32,15 @@ Les deux voies écrivent `verdicts/vd-…` mot pour mot ; un nouveau vote sur la
 - Recoupement avec « Phénix · Matin (8h00) » : les deux routines tournent à 8h00 ; elles ne partagent aucun document. Pas de désactivation sans ton accord.
 - La routine reçoit les connecteurs du compte (Gmail, Calendar, Drive, etc.), comme les autres routines Phénix.
 
-## Idempotence
-Avant d'envoyer, la routine relit les envoyés du jour : un plan déjà envoyé n'est jamais renvoyé (`deja_envoye`).
+## Idempotence et renvoi explicite
+Avant d'envoyer, la routine relit les envoyés du jour : un plan déjà envoyé n'est jamais renvoyé (`deja_envoye`). Un renvoi voulu par Issam se fait avec `renvoi: {n, voulu_par}` dans `check-send` : objet « Plan du jour AAAA-MM-JJ (vN) », même destinataire unique, sans Cc ; le même (vN) ne part pas deux fois. Le renvoi est tracé dans `plans/pl-<jour>.envoi.renvoi`. Exemple : renvoi (v2) du 25/11 à 09:38 UTC.
 
 ## Arrêt
 - Automatique (rg-42, `plan.mjs arret`) : moins de 50 % de priorités jugées bonnes sur 3 semaines (3 verdicts minimum), ou un fait faux non corrigé depuis 2 semaines. Moins de recul ou de verdicts : « — » avec la raison.
 - À la main : désactiver la routine (page de la routine, ou `RemoteTrigger update {enabled:false}`), retirer l'étape E du SKILL.md (copie d'origine sans E : `git`/sauvegarde non versionnée, supprimer le bloc « E) BILAN DU COACH »). Les passages A à D ne dépendent pas de E.
 
 ## Tests
-`npm run test:us15` (59 tests, cas d'échec d'abord : destinataire différent, Cc, envoyés illisibles, plan sans source, verdict sans phrase, réponse mal formée, passage manqué, journal illisible…).
+`npm run test:us15` (62 tests, cas d'échec d'abord : destinataire différent, Cc, envoyés illisibles, plan sans source, verdict sans phrase, réponse mal formée, passage manqué, journal illisible…).
 
 ## Limites connues
 - Un verdict mail incomplet (« P3 mauvaise » sans phrase) est refusé par `parseReply` ; il n'est pas encore enregistré comme « incomplet » (non codé).

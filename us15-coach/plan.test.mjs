@@ -315,3 +315,25 @@ test('titre court facultatif (court) utilisé dans le haut niveau, titre complet
   const m = PLAN.renderMail(plan({ priorites: [prio(1, { court: 'ZZ-TEST court' }), prio(2), prio(3)] }), NOW);
   assert.match(m.text, /P1 → ZZ-TEST court/); assert.match(m.text, /P1 · ZZ-TEST priorité 1/);
 });
+
+/* ---------- renvoi explicite (jamais un doublon silencieux) ---------- */
+const dejaEnvoye = { subject: 'Plan du jour ' + DAY, to: [SELF], date: '2026-11-25T08:13:00Z' };
+test('renvoi sans demande explicite : un second plan du jour reste refusé (deja_envoye)', () => {
+  assert.equal(PLAN.checkSend(send({ sent: [dejaEnvoye] })).code, 'deja_envoye');
+  assert.equal(PLAN.checkSend(send({ sent: [dejaEnvoye], subject: 'Plan du jour ' + DAY + ' (v2)' })).code, 'objet');
+});
+test('renvoi : demandeur obligatoire, numéro valide, objet « (vN) » ; destinataire inchangé (Issam seul, sans Cc)', () => {
+  const rv = { n: 2, voulu_par: 'Issam, 25/11' }, subj = 'Plan du jour ' + DAY + ' (v2)';
+  assert.equal(PLAN.checkSend(send({ sent: [dejaEnvoye], renvoi: { n: 2 }, subject: subj })).code, 'renvoi_invalide');
+  assert.equal(PLAN.checkSend(send({ sent: [dejaEnvoye], renvoi: { n: 1, voulu_par: 'x' }, subject: subj })).code, 'renvoi_invalide');
+  assert.equal(PLAN.checkSend(send({ sent: [dejaEnvoye], renvoi: rv })).code, 'objet');
+  assert.equal(PLAN.checkSend(send({ sent: [dejaEnvoye], renvoi: rv, subject: subj, to: ['autre@example.test'] })).code, 'dest_different');
+  assert.equal(PLAN.checkSend(send({ sent: [dejaEnvoye], renvoi: rv, subject: subj, cc: ['autre@example.test'] })).code, 'cc_bcc');
+  assert.equal(PLAN.checkSend(send({ renvoi: rv, subject: subj, sent: undefined })).code, 'envoyes_illisibles');
+  assert.equal(PLAN.checkSend(send({ sent: [dejaEnvoye], renvoi: rv, subject: subj })).ok, true);
+});
+test('renvoi : le même renvoi (v2) ne part pas deux fois', () => {
+  const rv = { n: 2, voulu_par: 'Issam, 25/11' }, subj = 'Plan du jour ' + DAY + ' (v2)';
+  const r = PLAN.checkSend(send({ sent: [dejaEnvoye, { subject: subj, to: [SELF], date: '2026-11-25T09:40:00Z' }], renvoi: rv, subject: subj }));
+  assert.equal(r.code, 'deja_envoye');
+});
