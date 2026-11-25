@@ -108,10 +108,12 @@
       if (/coach-veille/i.test(id)) { agent = 'Veille et Coach'; soft.push('champ agent manquant : rattaché à « Veille et Coach » (l\'id contient coach-veille)'); }
       else return { ok: false, id: id, cause: 'champ agent manquant', orphan: { id: id, at: p, quoi: texte || (isStr(raw.etape) ? raw.etape.trim() : null) } };
     }
+    /* « Coach » signe deux routines différentes : ses passages plan et bilan appartiennent au Coach plan du jour, pas à la Veille. */
+    if (nkey(agent) === 'coach' && (/^(plan|bilan)$/.test(nkey(raw.passage || '')) || /coach-(plan|bilan)/i.test(id))) agent = 'Coach plan du jour';
     var phase = null;
     if (raw.phase !== undefined && raw.phase !== null && raw.phase !== '') { if (PHASES.indexOf(raw.phase) >= 0) phase = raw.phase; else soft.push('phase inconnue « ' + cut(raw.phase, 20) + ' » (attendu : debut, etape, fin) : ignorée'); }
     if (!texte && !isStr(raw.etape)) soft.push('ni « quoi » ni « etape » : affiché « — »');
-    return { ok: true, soft: soft, item: { id: id, agent: agent, at: p, quoi: texte, etape: isStr(raw.etape) ? raw.etape.trim() : null, phase: phase, source: isStr(raw.source) ? raw.source.trim() : null } };
+    return { ok: true, soft: soft, item: { id: id, agent: agent, at: p, quoi: texte, etape: isStr(raw.etape) ? raw.etape.trim() : null, phase: phase, echec: isStr(raw.echec) && !/^(aucune?|non|none|null|-|—)$/i.test(raw.echec.trim()) ? raw.echec.trim() : null, source: isStr(raw.source) ? raw.source.trim() : null } };
   }
 
   function normStory(id, raw) {
@@ -221,6 +223,7 @@
   var EARLY_MIN = 10;            // un passage commencé jusqu'à 10 min avant l'heure du cron compte
   var PHOTO_STALE_H = 18;        // heures ouvrées sans nouvelle photo (3 passages par jour : l'écart normal maximal est 17 h, du vendredi 15h05 au lundi 7h50)
   var DAY = 86400000;
+  var PROD_AVANT = 15 * 60000, PROD_APRES = 90 * 60000; // fenêtre d'écriture au journal autour d'un passage
   var TZ_UTC = { 'africa/casablanca': 1, 'utc': 1, 'gmt': 1, 'etc/utc': 1, 'etc/gmt': 1 };
 
   function parseField(f, lo, hi, dow) {
@@ -368,17 +371,36 @@
     var jr = jourItems(inp.jour, today, anomalies);
 
     /* ce que chaque routine a produit : dernière entrée de journal ou livrable du jour rattachée à sa fiche */
-    var prod = {}, ecartes = {};
-    function offer(name, ms, txt, src, lbl) {
+    var prod = {}, offres = {}, partage = {}, ecartes = {};
+    function offer(name, ms, txt, src, lbl, echec) {
       var why = ecarte(cfg.ecartes, name), f = why ? null : ficheFor(fiches, name); // étiquettes et sessions de développement d'abord : « Développeur US-14 » ne doit pas devenir la fiche US-14
       if (!f) { ecartes[nkey(name)] = { nom: name === UNKNOWN_AGENT ? 'Agent non indiqué' : name, motif: why || 'pas une routine connue' }; return; }
-      if (!prod[f.id] || ms > prod[f.id].ms) prod[f.id] = { ms: ms, txt: txt ? cut(String(txt).replace(/\s+/g, ' '), 160) : null, src: src, lbl: lbl || fmtDM(ms) + ' UTC' };
+      var of = { ms: ms, txt: txt ? cut(String(txt).replace(/\s+/g, ' '), 160) : null, src: src, lbl: lbl || fmtDM(ms) + ' UTC', echec: echec || null };
+      (offres[f.id] = offres[f.id] || []).push(of);
+      if (!prod[f.id] || ms > prod[f.id].ms) prod[f.id] = of;
     }
-    m.journal.forEach(function (j) { offer(j.agent, j.at.ms, j.quoi || j.etape, 'agents/' + j.id); });
+    m.journal.forEach(function (j) { offer(j.agent, j.at.ms, j.quoi || j.etape, 'agents/' + j.id, null, j.echec); });
     m.livrablesOk.forEach(function (l) { offer(l.agent, l.heure ? l.heure.ms : Date.parse(l.jour + 'T00:00:00Z'), l.type + ' : ' + l.titre, 'livrables/' + l.id, l.heure ? null : l.jour.slice(8, 10) + '/' + l.jour.slice(5, 7) + ' (heure —)'); });
     m.agents.forEach(function (a) { var w = ecarte(cfg.ecartes, a.name); if ((w || !ficheFor(fiches, a.name)) && !ecartes[nkey(a.name)]) ecartes[nkey(a.name)] = { nom: a.name, motif: w || 'pas une routine connue' }; });
 
     var used = {}, rows = [];
+    (photo.routines || []).forEach(function (r) { if (r.enabled && !ecarte(cfg.ecartes, r.nom)) { var f = ficheFor(fiches, r.nom); if (f) partage[f.id] = (partage[f.id] || 0) + 1; } });
+    /* un journal nettement plus récent que le passage connu de la photo (ou sans passage connu) : la photo a vieilli, on le dit */
+    function vuAuJournal(o, f, c, ref) {
+      var j = null;
+      if (f) (offres[f.id] || []).forEach(function (x) { if (/^agents\//.test(x.src) && (!j || x.ms > j.ms)) j = x; });
+      if (!j || (o.dernier && j.ms <= o.dernier.ms + PROD_APRES) || j.ms > now + 300000) return;
+      o.dernier = { ms: j.ms, label: fmtDM(j.ms), age: fmtAge(j.ms, now), duJournal: true };
+      o.quoi = j.txt; o.quoiSrc = j.src; o.quoiAt = j.lbl; o.inactif = null; o.echec = !!j.echec;
+      /* le journal n'efface l'alerte que s'il couvre le dernier passage attendu */
+      var F = c && c.ok ? lastFire(c, ref - GRACE_MIN * 60000) : null;
+      o.absent = F && j.ms < F - EARLY_MIN * 60000 ? 'attendu à ' + fmtDM(F) + ', dernière trace au journal ' + fmtDM(j.ms) : null;
+      if (j.echec) o.notes.push('échec écrit au journal : ' + cut(j.echec, 160));
+      o.etat = o.absent ? 'absent' : j.echec ? 'echec' : 'journal';
+      /* un « prochain passage » antérieur à la dernière trace est périmé : recalculé */
+      if (o.prochain && o.prochain.ms <= j.ms) { var t = c && c.ok ? nextFire(c, now) : null; o.prochain = t ? { ms: t, label: fmtDM(t) } : null; o.prochainSrc = t ? 'calculé du cron' : null; }
+      o.notes.push('dernier passage lu dans le journal (' + j.src + ') : la photo des routines ne le montre pas');
+    }
     function build(r, f) {
       var o = { nom: r.nom, id: r.id, fiche: f ? f.id : null, ficheNom: f ? f.nom : null, local: !!(f && f.local), cron: r.cron, enabled: r.enabled, modele: r.modele, statutBrut: r.statutBrut, statut: r.statut, dernier: null, prochain: null, prochainSrc: null, seuil: null, seuilTxt: null, absent: null, echec: false, inactif: null, notes: [], etat: 'ok', source: 'agents/runs', quoi: null, quoiSrc: null };
       if (r.dernier) o.dernier = { ms: r.dernier.ms, label: fmtDM(r.dernier.ms), age: fmtAge(r.dernier.ms, now) };
@@ -398,9 +420,21 @@
       }
       if (r.statut === 'ko') o.echec = true;
       if (r.enabled && !r.dernier) o.notes.push('aucun passage connu : la photo ne donne pas la date de création, la page ne peut pas dire si un passage a manqué');
-      if (f && prod[f.id]) { o.quoi = prod[f.id].txt; o.quoiSrc = prod[f.id].src; o.quoiAt = prod[f.id].lbl; }
+      var p = null;
+      if (f && partage[f.id] > 1) {
+        /* plusieurs routines, une seule fiche : on n'attribue que ce qui a été écrit autour du passage de CETTE routine */
+        if (r.dernier) (offres[f.id] || []).forEach(function (x) { if (x.ms >= r.dernier.ms - PROD_AVANT && x.ms <= r.dernier.ms + PROD_APRES && (!p || x.ms > p.ms)) p = x; });
+        if (!p) o.notes.push('plusieurs routines partagent la fiche « ' + f.nom + ' » : rien d\'écrit au journal autour du passage de celle-ci');
+      } else if (f) p = prod[f.id] || null;
+      if (p) { o.quoi = p.txt; o.quoiSrc = p.src; o.quoiAt = p.lbl; }
+      /* la routine qui écrit la photo s'y voit forcément « en cours » : un journal écrit ensuite prouve que le passage a abouti */
+      if (r.statut === 'encours' && f && photo.par && nkey(photo.par) === nkey(f.id) && r.dernier && p && /^agents\//.test(p.src) && p.ms >= r.dernier.ms) {
+        r = Object.assign({}, r, { statut: 'ok' }); o.statut = 'ok'; o.statutBrut = 'terminé, journal écrit à ' + fmtDM(p.ms) + ' (la photo a été prise pendant le passage)';
+      }
       o.etat = !r.enabled ? 'desactivee' : o.absent ? 'absent' : o.echec ? 'echec' : o.inactif ? 'inactif' : !r.dernier ? 'attente' : r.statut === 'encours' ? 'encours' : 'ok';
       if (!r.enabled) { o.prochain = null; o.prochainSrc = null; } // une routine désactivée n'a pas de prochain passage
+      else if (!(f && partage[f.id] > 1)) vuAuJournal(o, f, c, ref);
+      if (p && p.echec && o.etat === 'ok') { o.echec = true; o.etat = 'echec'; o.notes.push('échec écrit au journal : ' + cut(p.echec, 160)); }
       return o;
     }
     photo.routines && photo.routines.forEach(function (r) {
@@ -415,6 +449,7 @@
       if (f.local) { o.etat = 'non-lisible'; o.notes.push('tâche locale (launchd ou scheduled-tasks) : non lisible depuis claude.ai'); }
       else if (photo.etat === 'ok') { o.etat = 'absente-photo'; o.notes.push(photo.erreur ? 'photo partielle (' + photo.erreur + ') : cette routine peut être dans la partie non lue' : 'la photo ne contient pas cette routine'); }
       else { o.etat = 'photo-absente'; }
+      if (!f.local) vuAuJournal(o, f);
       rows.push(o);
     });
 

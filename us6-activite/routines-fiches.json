@@ -65,7 +65,7 @@
       "id": "observateur-profil",
       "nom": "Observateur et Profil",
       "cles": ["observateur et profil", "observateur profil"],
-      "agents": ["Observateur et Profil", "Observateur"],
+      "agents": ["Observateur et Profil", "Observateur", "Profil"],
       "local": false,
       "lit": "kb/p-profil-objectifs (traits retenus seulement), Suivi, recherche web (5 recherches au plus).",
       "produit": "Constats neufs pour US-14, axes de progrès (donnée, repère, écart, geste, mesure), 5 messages aux agents au plus, 3 questions fermées au plus.",
