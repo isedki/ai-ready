@@ -90,6 +90,7 @@
       if (!id) errs.push(L + ' : identifiant manquant'); else if (seen[id]) errs.push('identifiant ' + id + ' en double'); else seen[id] = 1;
       if (!isStr(x.titre)) errs.push(L + ' : titre manquant');
       if (!isStr(x.raison)) errs.push(L + ' : raison manquante');
+      if (!isStr(x.action)) errs.push(L + ' : geste à faire manquant (champ action : une phrase, le premier geste concret)'); else if (x.action.length > 200) errs.push(L + ' : action trop longue (200 caractères au plus)');
       if (!Array.isArray(x.sources) || !x.sources.length) errs.push(L + ' : aucune source (jamais de priorité sans source)');
       else x.sources.forEach(function (s) { checkSource(s, L, errs); });
     });
@@ -106,33 +107,48 @@
     var d = s.date === '—' ? '— (' + (s.date_raison || 'date inconnue') + ')' : (ms(s.date) === null ? '—' : dayOnly ? s.date + ' (heure non écrite)' : stamp(ms(s.date))) + ' (' + ageLabel(s.date, now) + ')';
     return (SRC_LABEL[s.type] || s.type) + ' ' + s.ref + ' · ' + d;
   }
+  function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function renderMail(p, now) {
-    var L = [];
-    L.push('Plan du jour ' + p.jour + ' (heure du Maroc = GMT, généré à ' + hm(now) + ' UTC)');
-    L.push('');
-    L.push('PRIORITÉS');
-    (p.priorites || []).forEach(function (x) {
-      L.push(x.id + ' · ' + x.titre);
-      L.push('  Pourquoi : ' + x.raison);
-      L.push('  Sources : ' + (x.sources || []).map(function (s) { return srcLine(s, now); }).join(' ; '));
-    });
+    var pr = p.priorites || [], at = Array.isArray(p.attend) ? p.attend : [], bl = Array.isArray(p.bloque) ? p.bloque : [], nl = Array.isArray(p.non_lu) ? p.non_lu : [];
+    var court = function (x) { return isStr(x.court) ? x.court : x.titre; };
+    var head = 'Plan du jour ' + p.jour + ' (heure du Maroc = GMT, généré à ' + hm(now) + ' UTC)';
+    var mailsLine = null;
+    if (isObj(p.mails) && typeof p.mails.lus === 'number') mailsLine = p.mails.lus + ' ' + (p.mails.lus <= 1 ? 'fil Gmail lu' : 'fils Gmail lus') + ' depuis ' + (ms(p.mails.depuis) === null ? '—' : stamp(ms(p.mails.depuis))) + ' (source : ' + (p.mails.source || '—') + ')';
+    var vois = ['P1 bonne', 'P2 mauvaise : ta phrase', 'manquante : ce qui manquait'];
+    /* texte */
+    var L = [head, '', 'À FAIRE CE MATIN', '================'];
+    pr.forEach(function (x) { L.push(x.id + ' → ' + court(x)); L.push('     Geste : ' + (x.action || '—')); });
     if (isStr(p.moins_de_3_raison)) L.push('(moins de 3 priorités : ' + p.moins_de_3_raison + ')');
-    L.push('');
+    L.push('', 'EN ATTENTE : ' + at.length + ' réponse' + (at.length > 1 ? 's' : '') + ' attendue' + (at.length > 1 ? 's' : '') + ' · ' + bl.length + ' blocage' + (bl.length > 1 ? 's' : ''));
+    L.push('', 'DÉTAIL PAR PRIORITÉ', '===================');
+    pr.forEach(function (x) { L.push(x.id + ' · ' + x.titre); L.push('  Pourquoi : ' + x.raison); L.push('  Sources : ' + (x.sources || []).map(function (s) { return srcLine(s, now); }).join(' ; ')); L.push(''); });
     L.push('Attend ta réponse');
-    if (Array.isArray(p.attend) && p.attend.length) p.attend.forEach(function (x) { L.push('- ' + x.titre + ' — ' + srcLine(x.source, now)); }); else L.push('- — (rien trouvé dans les sources lues)');
-    L.push('');
-    L.push('Bloqué');
-    if (Array.isArray(p.bloque) && p.bloque.length) p.bloque.forEach(function (x) { L.push('- ' + x.titre + (x.raison ? ' : ' + x.raison : '') + ' — ' + srcLine(x.source, now)); }); else L.push('- — (rien trouvé dans les sources lues)');
-    if (isObj(p.mails) && typeof p.mails.lus === 'number') { L.push(''); L.push(p.mails.lus + ' ' + (p.mails.lus <= 1 ? 'fil Gmail lu' : 'fils Gmail lus') + ' depuis ' + (ms(p.mails.depuis) === null ? '—' : stamp(ms(p.mails.depuis))) + ' (source : ' + (p.mails.source || '—') + ')'); }
-    var nl = Array.isArray(p.non_lu) ? p.non_lu : [];
+    if (at.length) at.forEach(function (x) { L.push('- ' + x.titre + ' — ' + srcLine(x.source, now)); }); else L.push('- — (rien trouvé dans les sources lues)');
+    L.push('', 'Bloqué');
+    if (bl.length) bl.forEach(function (x) { L.push('- ' + x.titre + (x.raison ? ' : ' + x.raison : '') + ' — ' + srcLine(x.source, now)); }); else L.push('- — (rien trouvé dans les sources lues)');
+    if (mailsLine) { L.push('', mailsLine); }
     if (nl.length) { L.push(''); nl.forEach(function (x) { L.push('non lu : ' + x.source + ' — ' + x.raison); }); }
-    L.push('');
-    L.push('TON VERDICT : réponds à ce mail, une ligne par priorité (enregistré tel quel) :');
-    L.push('P1 bonne');
-    L.push('P2 mauvaise : ta phrase');
-    L.push('manquante : ce qui manquait');
+    L.push('', 'TON VERDICT : réponds à ce mail, une ligne par priorité (enregistré tel quel) :');
+    vois.forEach(function (v) { L.push(v); });
     L.push('Ou sur la page du Suivi, onglet Aujourd\'hui, bloc « Plan du jour ».');
-    return { subject: 'Plan du jour ' + p.jour, text: L.join('\n') };
+    /* html */
+    var H = ['<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:14px;line-height:1.45;color:#1a1a1a;max-width:640px">',
+      '<h2 style="margin:0 0 2px">Plan du jour ' + esc(p.jour) + '</h2><div style="color:#666;font-size:12px;margin-bottom:14px">heure du Maroc = GMT · généré à ' + hm(now) + ' UTC</div>',
+      '<div style="background:#f3f6fb;border-left:4px solid #2f6fdb;padding:10px 14px;border-radius:4px"><b>À faire ce matin</b><ol style="margin:8px 0 0 18px;padding:0">'];
+    pr.forEach(function (x) { H.push('<li style="margin-bottom:8px"><b>' + esc(x.id) + ' · ' + esc(court(x)) + '</b><br><span style="color:#2f6fdb">→ ' + esc(x.action || '—') + '</span></li>'); });
+    H.push('</ol></div>');
+    if (isStr(p.moins_de_3_raison)) H.push('<p style="color:#666">Moins de 3 priorités : ' + esc(p.moins_de_3_raison) + '</p>');
+    H.push('<p style="margin:12px 0"><b>' + at.length + '</b> réponse' + (at.length > 1 ? 's' : '') + ' attendue' + (at.length > 1 ? 's' : '') + ' · <b>' + bl.length + '</b> blocage' + (bl.length > 1 ? 's' : '') + ' (détail plus bas)</p>');
+    H.push('<h3 style="border-bottom:1px solid #ddd;padding-bottom:3px;margin-top:22px">Détail par priorité</h3>');
+    pr.forEach(function (x) { H.push('<div style="margin:12px 0"><b>' + esc(x.id) + ' · ' + esc(x.titre) + '</b><div><i>Pourquoi :</i> ' + esc(x.raison) + '</div><div style="color:#666;font-size:12px">Sources : ' + (x.sources || []).map(function (s) { return esc(srcLine(s, now)); }).join(' ; ') + '</div></div>'); });
+    H.push('<h3 style="border-bottom:1px solid #ddd;padding-bottom:3px">Attend ta réponse</h3><ul style="margin-top:4px">');
+    if (at.length) at.forEach(function (x) { H.push('<li>' + esc(x.titre) + '<br><span style="color:#666;font-size:12px">' + esc(srcLine(x.source, now)) + '</span></li>'); }); else H.push('<li>— (rien trouvé dans les sources lues)</li>');
+    H.push('</ul><h3 style="border-bottom:1px solid #ddd;padding-bottom:3px">Bloqué</h3><ul style="margin-top:4px">');
+    if (bl.length) bl.forEach(function (x) { H.push('<li>' + esc(x.titre) + (x.raison ? ' : ' + esc(x.raison) : '') + '<br><span style="color:#666;font-size:12px">' + esc(srcLine(x.source, now)) + '</span></li>'); }); else H.push('<li>— (rien trouvé dans les sources lues)</li>');
+    H.push('</ul>');
+    if (mailsLine || nl.length) { H.push('<div style="color:#666;font-size:12px;margin-top:14px">'); if (mailsLine) H.push(esc(mailsLine) + '<br>'); nl.forEach(function (x) { H.push('non lu : ' + esc(x.source) + ' — ' + esc(x.raison) + '<br>'); }); H.push('</div>'); }
+    H.push('<div style="background:#fff8e6;border-left:4px solid #e0a800;padding:10px 14px;border-radius:4px;margin-top:18px"><b>Ton verdict</b> : réponds à ce mail, une ligne par priorité (enregistré tel quel)<br>' + vois.map(esc).join('<br>') + '<br><span style="color:#666;font-size:12px">Ou sur la page du Suivi, onglet Aujourd\'hui, bloc « Plan du jour ».</span></div></div>');
+    return { subject: 'Plan du jour ' + p.jour, text: L.join('\n'), html: H.join('\n') };
   }
 
   /* ---------- verdict ---------- */

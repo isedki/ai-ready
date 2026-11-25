@@ -7,7 +7,7 @@ const SELF = 'moi@example.test';
 const DAY = '2026-11-25';
 const NOW = Date.parse('2026-11-25T08:05:00Z'); // mercredi
 const src = (o = {}) => ({ type: 'mail', ref: 'ZZ-TEST fil 1', date: '2026-11-24T15:07:00Z', ...o });
-const prio = (n, o = {}) => ({ id: 'P' + n, titre: 'ZZ-TEST priorité ' + n, raison: 'ZZ-TEST raison', sources: [src()], ...o });
+const prio = (n, o = {}) => ({ id: 'P' + n, titre: 'ZZ-TEST priorité ' + n, raison: 'ZZ-TEST raison', action: 'ZZ-TEST geste ' + n, sources: [src()], ...o });
 const plan = (o = {}) => ({ jour: DAY, priorites: [prio(1), prio(2), prio(3)], attend: [], bloque: [], non_lu: [], ...o });
 const send = (o = {}) => ({ to: [SELF], cc: [], bcc: [], subject: 'Plan du jour ' + DAY, day: DAY, self: SELF, sent: [], ...o });
 
@@ -292,4 +292,26 @@ test('page : plan du jour absent = message clair ; plan présent = priorités, v
 test('page : plan mal formé listé en anomalie, jamais affiché à moitié', () => {
   const vm = PLAN.viewModel({ plans: [{ id: 'pl-' + DAY, data: { jour: DAY, priorites: [prio(1, { sources: [] })] } }], verdicts: [], journal: [], now: NOW, day: DAY });
   assert.equal(vm.plan, null); assert.match(vm.anomalies.join('\n'), /plans\/pl-2026-11-25.*aucune source/);
+});
+
+/* ---------- mail : le haut niveau d'abord, actionnable ---------- */
+test('mail : « À faire ce matin » (priorité → geste) avant le détail ; version HTML formatée ; texte brut conservé', () => {
+  const m = PLAN.renderMail(plan({ attend: [{ titre: 'ZZ-TEST a', source: src() }], bloque: [] }), NOW);
+  assert.ok(m.text.indexOf('À FAIRE CE MATIN') < m.text.indexOf('DÉTAIL PAR PRIORITÉ'));
+  assert.match(m.text, /P1 → ZZ-TEST priorité 1\n {5}Geste : ZZ-TEST geste 1/);
+  assert.match(m.text, /EN ATTENTE : 1 réponse attendue · 0 blocage/);
+  assert.ok(m.html.indexOf('À faire ce matin') < m.html.indexOf('Détail par priorité'));
+  assert.match(m.html, /→ ZZ-TEST geste 2/); assert.match(m.html, /<ol/);
+});
+test('mail HTML : le texte venu des sources est échappé (aucune balise injectée)', () => {
+  const m = PLAN.renderMail(plan({ priorites: [prio(1, { titre: '<script>x</script>', action: 'a & b' }), prio(2), prio(3)] }), NOW);
+  assert.doesNotMatch(m.html, /<script>/); assert.match(m.html, /&lt;script&gt;/); assert.match(m.html, /a &amp; b/);
+});
+test('priorité sans geste (action) ou geste trop long : plan refusé', () => {
+  assert.match(PLAN.validatePlan(plan({ priorites: [prio(1, { action: undefined }), prio(2), prio(3)] }), DAY).errors.join(), /P1 : geste à faire manquant/);
+  assert.match(PLAN.validatePlan(plan({ priorites: [prio(1, { action: 'x'.repeat(201) }), prio(2), prio(3)] }), DAY).errors.join(), /action trop longue/);
+});
+test('titre court facultatif (court) utilisé dans le haut niveau, titre complet dans le détail', () => {
+  const m = PLAN.renderMail(plan({ priorites: [prio(1, { court: 'ZZ-TEST court' }), prio(2), prio(3)] }), NOW);
+  assert.match(m.text, /P1 → ZZ-TEST court/); assert.match(m.text, /P1 · ZZ-TEST priorité 1/);
 });

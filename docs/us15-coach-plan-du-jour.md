@@ -40,7 +40,7 @@ Avant d'envoyer, la routine relit les envoyés du jour : un plan déjà envoyé 
 - À la main : désactiver la routine (page de la routine, ou `RemoteTrigger update {enabled:false}`), retirer l'étape E du SKILL.md (copie d'origine sans E : `git`/sauvegarde non versionnée, supprimer le bloc « E) BILAN DU COACH »). Les passages A à D ne dépendent pas de E.
 
 ## Tests
-`npm run test:us15` (55 tests, cas d'échec d'abord : destinataire différent, Cc, envoyés illisibles, plan sans source, verdict sans phrase, réponse mal formée, passage manqué, journal illisible…).
+`npm run test:us15` (59 tests, cas d'échec d'abord : destinataire différent, Cc, envoyés illisibles, plan sans source, verdict sans phrase, réponse mal formée, passage manqué, journal illisible…).
 
 ## Limites connues
 - Un verdict mail incomplet (« P3 mauvaise » sans phrase) est refusé par `parseReply` ; il n'est pas encore enregistré comme « incomplet » (non codé).
