@@ -1,0 +1,6 @@
+.pl-v{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.pl-phrase{flex:1 1 220px;min-width:160px;border:1px solid var(--line);border-radius:6px;padding:5px 8px;background:var(--surface);color:inherit;font:inherit}
+.pl-err{color:var(--late);font-size:13px;margin:4px 0}
+.pl-warn{border-left:3px solid var(--late);padding:2px 8px;margin:4px 0;font-size:13px}
+.pl-cur{font-size:12px;opacity:.8;flex-basis:100%}
+.pl-m{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}

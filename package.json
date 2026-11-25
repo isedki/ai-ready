@@ -16,6 +16,7 @@
     "test:observateur": "node --test observateur/observateur.test.mjs",
     "test:us6": "node --test us6-activite/activite.test.mjs",
     "test:us14": "node --test us14-apprentissage/profil.test.mjs",
+    "test:us15": "node --test us15-coach/plan.test.mjs us15-coach/cli.test.mjs",
     "us6:index": "node us6-activite/index-md.mjs"
   },
   "dependencies": {
