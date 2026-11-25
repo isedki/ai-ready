@@ -7,7 +7,7 @@
 //   profil.md       le portrait écrit chaque vendredi à partir de tout cela
 //   conversations/  ce que l'assistant (Claude) a retenu de vos échanges du jour : tâches, priorités,
 //                   préférences, corrections, frictions (déposé chaque soir dans Drive)
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { homedir }                                                        from 'node:os'
 import { join }                                                           from 'node:path'
 import { expand }                                                         from './lib.mjs'
@@ -124,18 +124,57 @@ export function conversationsDir(cfg, home = homedir()) {
  * s'il existe, sinon à la racine du premier Drive trouvé. Désactivable : "rapports_drive": false.
  * Renvoie le chemin copié, ou null (pas de Drive, désactivé, erreur : le rapport local reste la source).
  */
-export function publishToDrive(cfg, file, home = homedir(), name) {
+export function publishToDrive(cfg, file, home = homedir(), name, issues = []) {
   if (cfg.rapports_drive === false || !existsSync(file)) return null
   try {
     const roots = driveRoots(home)
     const root = roots.find(r => existsSync(join(r, 'Observateur · conversations'))) ?? roots[0]
-    if (!root) return null
+    if (!root) { issues.push({ etape: 'drive', raison: 'Google Drive pour ordinateur introuvable (dossier ~/Library/CloudStorage/GoogleDrive-* absent : application fermée ou déconnectée)' }); return null }
     const dir = join(root, 'Observateur · rapports')
     mkdirSync(dir, { recursive: true })
     const dest = join(dir, name ?? file.split('/').pop())
-    copyFileSync(file, dest)
+    // Un rapport « Aucune activité » (journal brut purgé) ne remplace jamais un vrai rapport déjà sur Drive.
+    if (existsSync(dest) && isStub(file) && statSync(dest).size > statSync(file).size) {
+      issues.push({ etape: 'drive', raison: `${dest.split('/').pop()} : rapport vide non copié, le rapport existant sur Drive est conservé` })
+      return null
+    }
+    if (!keepFile(file, dest)) { issues.push({ etape: 'drive', raison: `${dest.split('/').pop()} : copie impossible (Drive occupé ou fichier verrouillé)` }); return null }
+    if (statSync(dest).size !== statSync(file).size) issues.push({ etape: 'drive', raison: `${dest.split('/').pop()} : taille différente après copie, synchronisation Drive à vérifier` })
     return dest
-  } catch { return null }
+  } catch (e) { issues.push({ etape: 'drive', raison: String(e.message ?? e).slice(0, 200) }); return null }
+}
+
+/** Un rapport sans activité : quelques dizaines d'octets, « Aucune activité enregistrée ». */
+export function isStub(file) { try { return statSync(file).size < 300 && /Aucune activité/.test(readFileSync(file, 'utf8')) } catch { return false } }
+
+/**
+ * État du relais : chaque rapport local (jour-*, semaine-*, equipe-*) comparé à sa copie Drive, et les jours
+ * ouvrés récents sans résumé de conversation. { absents, differents, vides_proteges, conversations_manquantes }.
+ */
+export function relaisEtat(cfg, home = homedir(), { depuis, jusqu = localDayStr(new Date()) } = {}) {
+  const roots = driveRoots(home)
+  const root = roots.find(r => existsSync(join(r, 'Observateur · conversations'))) ?? roots[0]
+  const etat = { drive: !!root, absents: [], differents: [], vides_proteges: [], conversations_manquantes: [] }
+  if (!root) return etat
+  const dir = join(root, 'Observateur · rapports')
+  for (const f of existsSync(cfg.dossier_rapports) ? readdirSync(cfg.dossier_rapports).filter(n => /^(jour|semaine|equipe)-\d{4}-\d{2}-\d{2}\.md$/.test(n)).sort() : []) {
+    if (depuis && f.replace(/^\D+-/, '').slice(0, 10) < depuis) continue
+    const local = join(cfg.dossier_rapports, f), dest = join(dir, f)
+    if (!existsSync(dest)) { (isStub(local) ? etat.vides_proteges : etat.absents).push(f); continue }
+    if (statSync(dest).size !== statSync(local).size) (isStub(local) && statSync(dest).size > statSync(local).size ? etat.vides_proteges : etat.differents).push(f)
+  }
+  const conv = join(root, 'Observateur · conversations')
+  const have = new Set(existsSync(conv) ? readdirSync(conv).filter(n => /^\d{4}-\d{2}-\d{2}\.json$/.test(n)).map(n => n.slice(0, 10)) : [])
+  for (const d of readDays(cfg)) if ((!depuis || d.jour >= depuis) && d.jour <= jusqu && d.actif_minutes > 0 && !have.has(d.jour)) etat.conversations_manquantes.push(d.jour)
+  return etat
+}
+const localDayStr = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+/** Recopie les rapports absents ou différents (jamais un rapport vide par-dessus un vrai). */
+export function relaisReparer(cfg, home = homedir(), opts = {}) {
+  const avant = relaisEtat(cfg, home, opts), copies = [], issues = []
+  for (const f of [...avant.absents, ...avant.differents]) { const r = publishToDrive(cfg, join(cfg.dossier_rapports, f), home, undefined, issues); if (r) copies.push(f) }
+  return { avant, copies, issues, apres: relaisEtat(cfg, home, opts) }
 }
 
 /**

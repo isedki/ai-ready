@@ -431,3 +431,32 @@ test('échec · Mail : le message d\'erreur dit la cause (délai, autorisation, 
   assert.match(mailError(new Error('execution error: Not authorized to send Apple events to Mail. (-1743)')), /non autorisée/)
   assert.match(mailError(new Error('Application isn\'t running. (-600)')), /pas lancé/)
 })
+
+// ── Relais Drive : écart détecté et réparé, rapport vide jamais sur un vrai ──
+test('relais · absents/différents détectés, réparés ; un rapport vide ne remplace pas un vrai ; échec = raison lisible', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, readFileSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { publishToDrive, relaisEtat, relaisReparer } = await import('./savoir.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'obs-relais-'))
+  const root = join(home, 'Library', 'CloudStorage', 'GoogleDrive-x@y.z', 'My Drive')
+  mkdirSync(join(root, 'Observateur · conversations'), { recursive: true }); mkdirSync(join(root, 'Observateur · rapports'))
+  const rap = join(home, 'rapports'); mkdirSync(rap)
+  const c = { dossier_rapports: rap, dossier_savoir: join(home, 'savoir') }
+  const STUB = '# Ma journée du 2026-11-19\n\nAucune activité enregistrée ce jour-là.\n'
+  writeFileSync(join(rap, 'jour-2026-11-19.md'), 'x'.repeat(2000)); writeFileSync(join(root, 'Observateur · rapports', 'jour-2026-11-19.md'), STUB)
+  writeFileSync(join(rap, 'jour-2026-11-23.md'), 'y'.repeat(900))
+  writeFileSync(join(rap, 'jour-2026-11-21.md'), STUB); writeFileSync(join(root, 'Observateur · rapports', 'jour-2026-11-21.md'), 'z'.repeat(900))
+  const e = relaisEtat(c, home, { jusqu: '2026-11-25' })
+  assert.deepEqual(e.absents, ['jour-2026-11-23.md']); assert.deepEqual(e.differents, ['jour-2026-11-19.md']); assert.deepEqual(e.vides_proteges, ['jour-2026-11-21.md'])
+  const r = relaisReparer(c, home, { jusqu: '2026-11-25' })
+  assert.deepEqual(r.copies.sort(), ['jour-2026-11-19.md', 'jour-2026-11-23.md'])
+  assert.equal(readFileSync(join(root, 'Observateur · rapports', 'jour-2026-11-21.md'), 'utf8').length, 900)
+  assert.deepEqual([r.apres.absents, r.apres.differents], [[], []])
+  const issues = []
+  assert.equal(publishToDrive({}, join(rap, 'jour-2026-11-21.md'), home, undefined, issues), null)
+  assert.match(issues[0].raison, /rapport vide non copié/)
+  const nohome = mkdtempSync(join(tmpdir(), 'obs-nodrive-'))
+  const i2 = []; assert.equal(publishToDrive({}, join(rap, 'jour-2026-11-23.md'), nohome, undefined, i2), null)
+  assert.match(i2[0].raison, /Google Drive pour ordinateur introuvable/)
+})

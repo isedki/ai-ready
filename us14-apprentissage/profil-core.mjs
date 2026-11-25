@@ -272,13 +272,15 @@ export async function ecrireSecurise({ doc, validate, today, noms, write, read }
 // ---- sortie lisible par les agents (kb/p-profil-objectifs, format des autres fiches kb)
 const SRC = (s) => `${s.type} ${s.ref}${s.date ? ` (${s.date})` : ''}${s.sens === 'contredit' ? ' [contredit]' : ''}`;
 const LAB = { fond: 'objectif de fond', sous_objectif: 'sous-objectif', contrainte: 'contrainte', anti_objectif: 'anti-objectif (ce qu\'il rejette)' };
-export function toKbChunks({ profil, autonomie, simplifs, today }) {
+export function toKbChunks({ profil, autonomie, simplifs, today, challenge }) {
+  const ecart = new Map((challenge?.traits || []).filter((t) => t.verdict !== 'retenu').map((t) => [t.id, t]));
   const src = 'Profil d\'objectifs US-14 : inférence de l\'agent depuis les décisions, règles, retours, frictions et constats de l\'Observateur (hypothèses)';
   const chunks = [{
     date: today, id: 'po-0', kind: 'profil', source: src, title: 'Profil d\'objectifs · lire avant de proposer',
     text: `# Profil d'objectifs d'Issam (US-14, mis à jour le ${today}, curseur : ${profil.curseur || 'aucun'})\nTOUT CE QUI SUIT EST UNE HYPOTHÈSE de l'agent, sauf statut « confirmé » ou « corrigé » avec retour d'Issam. À lire avant toute proposition (rg-41) ; cite l'id (ob-n) qui justifie ta proposition. Une proposition d'outil ou de développement cite aussi le problème terrain d'où elle vient (friction, écart, constat de l'Observateur). Mise à jour : lis seulement ce qui est postérieur au curseur. Aucune donnée de tiers ici. Si une proposition contredit un objectif, dis-le.`,
   }];
   for (const o of profil.objectifs) {
+    if (ecart.has(o.id)) continue;
     const ret = o.retour_issam ? `\nRetour d'Issam ${o.retour_issam.date} : « ${o.retour_issam.citation} »` : '';
     const cor = (o.corrections || []).map((c) => `\nCorrigé le ${c.date} (ancien texte : « ${c.ancien} ») : « ${c.citation} »`).join('');
     const hist = (o.historique || []).length ? `\nHistorique : ${o.historique.map((h) => `${h.date} ${h.evenement}${h.detail ? ' (' + h.detail + ')' : ''}`).join(' ; ')}` : '';
@@ -287,6 +289,10 @@ export function toKbChunks({ profil, autonomie, simplifs, today }) {
       text: `${o.id} · ${LAB[o.categorie] || o.categorie} · HYPOTHÈSE du ${o.date} · statut : ${o.statut}${o.a_reviser ? ' · À RÉVISER' : ''} · confiance : ${o.confiance} (${o.sources.filter((x) => x.sens !== 'contredit').length} sources qui appuient)\n${o.objectif}\nFausse si : ${o.refutation}\nQuestion pour Issam : ${o.question}\nSources : ${o.sources.map(SRC).join(' ; ')}${ret}${cor}${hist}`,
     });
   }
+  if (ecart.size) chunks.push({
+    date: today, id: 'po-ecartes', kind: 'profil', source: `Contrôle critique du ${challenge.date} (fenêtre ${challenge.fenetre.du} → ${challenge.fenetre.au})`, title: 'Profil · traits écartés par le contrôle (NE PAS REPRENDRE)',
+    text: `# Traits écartés : ne pas les reprendre dans une proposition ni une réponse\n${[...ecart.values()].map((t) => `- ${t.id} · ${t.verdict} : ${t.raisons.join(' ; ')}${t.contre_exemples.length ? ' · contre-exemples : ' + t.contre_exemples.map((c) => `${c.date} ${c.texte}`).join(' | ') : ''}`).join('\n')}`,
+  });
   if (profil.contradictions?.length) chunks.push({
     date: today, id: 'po-contradictions', kind: 'profil', source: 'Hypothèses du profil', title: 'Profil · contradictions entre hypothèses',
     text: `# Contradictions à trancher par Issam\n${profil.contradictions.map((c) => `- ${c.a} / ${c.b} : ${c.nature} Question : ${c.question}`).join('\n')}`,
