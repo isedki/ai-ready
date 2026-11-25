@@ -1,6 +1,6 @@
 # US-9 · Interroger la base Copilote et les mails depuis la console US-8
 
-**Statut : développée, à valider par Issam** (rg-29), le 25/11/2026 (`pilote-modeles/src/recherche.mjs`, carte « Recherche » de la console, tests dans `pilote-modeles/test/conversation.test.mjs`). Non vérifié sur données réelles (critère 6). Écart : la lecture Copilote passe par le serveur MCP local avec liste blanche `search`/`read_around`, pas par une connexion SQLite en lecture seule. Voir `docs/us16-pilote-conversation.md`.
+**Statut : développée, à valider par Issam** (rg-29), le 25/11/2026 (`pilote-modeles/src/recherche.mjs`, carte « Recherche » de la console, tests dans `pilote-modeles/test/conversation.test.mjs`). Non vérifié sur données réelles (critère 6). Lecture Copilote : serveur MCP local avec `COPILOTE_LECTURE_SEULE=1` (base en lecture seule, `ingest` retiré, testé) et liste blanche `search`/`read_around`. Voir `docs/us16-pilote-conversation.md`.
 
 ## Besoin
 En tant que coordinateur, je veux, depuis la console locale du pilote (`pilote-modeles/console`, ouverte sur ce Mac), chercher dans la base Copilote et dans mes mails envoyés/reçus, pour retrouver un passage, une décision ou un échange sans passer par un agent.

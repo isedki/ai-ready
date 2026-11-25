@@ -13,10 +13,13 @@ import { existsSync }                 from 'node:fs'
 import { ingestPaths }                from '../lib/copilote/ingest'
 import { listSources, readAround, search, type Hit } from '../lib/copilote/search'
 import { openStore, stats }           from '../lib/copilote/store'
+import { openReadOnly }               from '../lib/copilote/remote'
 
 if (existsSync('.env.local')) process.loadEnvFile('.env.local')
 
-const db = openStore()
+// COPILOTE_LECTURE_SEULE=1 : base ouverte en lecture seule (aucune écriture possible) et outil `ingest` retiré.
+const READONLY = process.env.COPILOTE_LECTURE_SEULE === '1'
+const db = READONLY ? openReadOnly() : openStore()
 const PROTOCOL = '2025-06-18'
 
 const TOOLS = [
@@ -63,6 +66,7 @@ async function call(name: string, a: Record<string, unknown>): Promise<string> {
     case 'read_around': return NOTE + fmt(readAround(db, Number(a.chunk_id), Math.min(Number(a.span ?? 1), 3)))
     case 'sources':     return JSON.stringify(listSources(db, { q: a.q as string | undefined, kind: a.kind as string | undefined, limit: Number(a.limit ?? 50) }), null, 1)
     case 'ingest': {
+      if (READONLY) throw new Error('Base ouverte en lecture seule : ingest refusé')
       const rep = await ingestPaths(db, (a.paths as string[]) ?? [])
       return `${rep.added} ajoutés, ${rep.replaced} mis à jour, ${rep.unchanged} inchangés, ${rep.failed.length} en échec, ${rep.chunks} passages écrits.${rep.failed.map(f => `\n! ${f.path} : ${f.error}`).join('')}`
     }
@@ -79,7 +83,7 @@ export async function handle(req: Req): Promise<object | null> {
     case 'initialize':
       return { protocolVersion: (req.params?.protocolVersion as string) ?? PROTOCOL, capabilities: { tools: {} }, serverInfo: { name: 'copilote', version: '1.0.0' } }
     case 'tools/list':
-      return { tools: TOOLS }
+      return { tools: READONLY ? TOOLS.filter(t => t.name !== 'ingest') : TOOLS }
     case 'tools/call': {
       const p = req.params ?? {}
       try {

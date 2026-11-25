@@ -161,3 +161,29 @@ test('US-16 : les lignes de conversation et de recherche ne consomment pas les c
   const r = await new Promise((ok) => import('node:child_process').then(({ execFile }) => execFile('node', ['-e', "import('./src/lanceur.mjs').then(m=>console.log(JSON.stringify(m.depenseTotale('2026-01-01'))))"], { cwd: RACINE, env: { ...process.env, PILOTE_DATA: path.join(dir, 'd'), PILOTE_HOME: path.join(dir, 'h') } }, (e, so) => ok(JSON.parse(so)))))
   assert.equal(r.par['anthropic/claude-haiku-5.5'].ok, 1); assert.ok(Math.abs(r.usd - 0.3) < 1e-9)
 })
+
+test('US-9 : serveur Copilote réel en lecture seule : recherche possible, ingest refusé, base inchangée octet pour octet', { timeout: 120000 }, async () => {
+  const { execFileSync, spawn } = await import('node:child_process')
+  const depot = path.resolve(RACINE, '..')
+  const db = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ro-')), 'c.sqlite')
+  const note = path.join(path.dirname(db), 'n.md'); fs.writeFileSync(note, '# Note\nLe valideur des flux est Dupont.\n')
+  const env = { ...process.env, COPILOTE_DB: db }
+  const appel = (extra, nom, args) => new Promise((ok, ko) => {
+    const p = spawn('npx', ['tsx', 'scripts/copilote-mcp.ts'], { cwd: depot, env: { ...env, ...extra }, stdio: ['pipe', 'pipe', 'pipe'] })
+    let b = '', e = ''; p.stderr.on('data', (d) => (e += d))
+    const t = setTimeout(() => { p.kill(); ko(new Error('délai ' + e)) }, 60000)
+    p.stdout.on('data', (d) => { b += d; for (const l of b.split('\n')) { try { const m = JSON.parse(l); if (m.id === 2) { clearTimeout(t); p.kill(); ok(m) } } catch {} } })
+    p.on('exit', () => {})
+    const w = (o) => p.stdin.write(JSON.stringify(o) + '\n')
+    w({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }); w({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: nom, arguments: args } })
+  })
+  try { execFileSync('npx', ['tsx', '--version'], { cwd: depot, stdio: 'ignore' }) } catch { return } // sans tsx : ignoré
+  const m1 = await appel({}, 'ingest', { paths: [note] })
+  assert.match(JSON.stringify(m1.result.content), /ajoutés/)
+  const avant = fs.readFileSync(db)
+  const r = await appel({ COPILOTE_LECTURE_SEULE: '1' }, 'search', { query: 'valideur flux' })
+  assert.match(JSON.stringify(r.result.content), /Dupont/)
+  const i = await appel({ COPILOTE_LECTURE_SEULE: '1' }, 'ingest', { paths: [note] })
+  assert.equal(i.result.isError, true); assert.match(JSON.stringify(i.result.content), /lecture seule/)
+  assert.ok(avant.equals(fs.readFileSync(db)), 'fichier de base inchangé')
+})

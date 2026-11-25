@@ -5,7 +5,7 @@
 ### Écarts entre la spec et le développement (à connaître)
 - **Boucle d'outils** : la conversation a sa propre boucle (`src/conversation.mjs`), qui réutilise les mêmes `DEFINITIONS`/`IMPL` ; `passage()` n'a pas été refactoré pour partager la boucle (risque pour les passages planifiés). Duplication connue ; refactor à décider.
 - **Historique** : seuls le texte des questions et des réponses est rejoué (pas les résultats d'outils), plafonné à 6 échanges.
-- **Lecture seule du Copilote (US-9)** : la recherche passe par le serveur MCP local avec une liste blanche (`search`, `read_around`, testée) ; ce serveur ouvre la base en lecture-écriture, il n'y a donc pas de connexion SQLite en lecture seule au sens strict du critère 1 de US-9.
+- **Lecture seule du Copilote (US-9)** : corrigé le 25/11. Le serveur MCP (`scripts/copilote-mcp.ts`) accepte `COPILOTE_LECTURE_SEULE=1` : base ouverte en lecture seule, outil `ingest` retiré. La recherche l'active et garde sa liste blanche (`search`, `read_around`). Test sur le vrai serveur : recherche possible, `ingest` refusé, fichier de base identique octet pour octet. Sans ce réglage, le serveur se comporte comme avant.
 - **Brouillons** : forcés en vrais brouillons Gmail pour la conversation (réglage `conversation.brouillons_gmail`), indépendamment du mode global ; le modèle de secours (Sonnet, `ref`) n'est pas dans `ecriture_gmail.modeles` : il produit une copie locale seulement.
 
 ## Besoin

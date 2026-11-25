@@ -1,5 +1,5 @@
 // US-9 : recherche directe (sans modèle, sans coût) dans la base Copilote et dans les mails. LECTURE SEULE.
-// Copilote : seuls les outils `search` et `read_around` du serveur MCP local sont appelés (liste blanche).
+// Copilote : seuls `search` et `read_around` sont appelés (liste blanche) ET la base est ouverte en lecture seule (COPILOTE_LECTURE_SEULE=1).
 // Mails : API Gmail en lecture (le même consentement que le pilote). Rien n'est écrit, rien n'est envoyé.
 import { api } from './google.mjs'
 import { disponibleLocal, appelLocal } from './copilote.mjs'
@@ -19,7 +19,7 @@ export function analyserCopilote(texte) {
 
 export async function appelCopilote(nom, args) {
   if (!OUTILS_COPILOTE.has(nom)) throw new Error('Copilote : outil non autorisé en recherche')
-  return appelLocal(nom, args)
+  return appelLocal(nom, args, 60000, { lectureSeule: true })
 }
 
 async function chercherCopilote(requete, kind) {

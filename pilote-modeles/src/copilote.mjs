@@ -19,12 +19,12 @@ export function disponibleLocal() {
   return Boolean(env.PILOTE_COPILOTE_CMD || baseDonnees(env))
 }
 
-export function appelLocal(nom, args, delaiMs = 60000) {
+export function appelLocal(nom, args, delaiMs = 60000, { lectureSeule = false } = {}) {
   const env = { ...lireEnv(), ...process.env }
   const commande = env.PILOTE_COPILOTE_CMD ? JSON.parse(env.PILOTE_COPILOTE_CMD) : ['npx', 'tsx', 'scripts/copilote-mcp.ts']
   const db = baseDonnees(env)
   return new Promise((resolve, reject) => {
-    const p = spawn(commande[0], commande.slice(1), { cwd: DEPOT, env: { ...process.env, ...(db ? { COPILOTE_DB: db } : {}) }, stdio: ['pipe', 'pipe', 'ignore'] })
+    const p = spawn(commande[0], commande.slice(1), { cwd: DEPOT, env: { ...process.env, ...(db ? { COPILOTE_DB: db } : {}), ...(lectureSeule ? { COPILOTE_LECTURE_SEULE: '1' } : {}) }, stdio: ['pipe', 'pipe', 'ignore'] })
     const fin = (err, val) => { clearTimeout(t); p.kill(); err ? reject(err) : resolve(val) }
     const t = setTimeout(() => fin(new Error('Copilote local : délai dépassé')), delaiMs)
     let tampon = ''
