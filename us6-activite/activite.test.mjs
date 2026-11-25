@@ -317,3 +317,7 @@ test('format réel écrit par la Veille (25/11 15h13) : fuseau en suffixe, jamai
   assert.match(row(d, 'Formateur').notes.join(), /photo partielle/);
   assert.ok(d.afaire.some((a) => /incomplète/.test(a.texte) && a.source === 'agents/runs.erreur'));
 });
+test('journal au format réel de la Veille (date + heure, titre) : lu, avec anomalie douce', () => {
+  const d = D({ agents: [{ id: 'jr-20261125-1513-veille-coach', data: { type: 'journal', agent: 'Veille et Coach', date: '2026-11-25', heure: '15:13', titre: 'ZZ-TEST passage 15h05', texte: 'détail' } }] });
+  assert.match(row(d, 'Veille et Coach').quoi, /ZZ-TEST passage 15h05/); assert.match(d.anomalies[0].cause, /champ at absent/); assert.equal(d.anomalies[0].soft, true);
+});

@@ -96,9 +96,12 @@
   function normJournal(id, raw) {
     var soft = [];
     if (!isObj(raw)) return { ok: false, id: id, cause: 'document mal formé (ce n\'est pas un objet)' };
-    var p = parseWhen(raw.at);
+    var quand = raw.at;
+    if (!quand && isStr(raw.date) && /^\d{2}:\d{2}$/.test(raw.heure || '')) { quand = raw.date + 'T' + raw.heure + ':00Z'; soft.push('champ at absent : heure lue de « date » et « heure »'); }
+    var p = parseWhen(quand);
     if (!p.ok || p.hm === null) return { ok: false, id: id, cause: 'champ at invalide : ' + (p.ok ? 'heure absente' : p.why) };
-    var texte = isStr(raw.quoi) ? raw.quoi.trim() : (isStr(raw.contenu) ? raw.contenu.trim() : null);
+    var texte = [raw.quoi, raw.contenu, raw.titre, raw.texte].filter(isStr)[0];
+    texte = texte ? texte.trim() : null;
     var agent = isStr(raw.agent) ? raw.agent.trim() : null;
     if (!agent) {
       /* US-18 : un passage sans champ agent n'est plus masqué. Rattaché à la Veille et Coach quand l'id le dit, sinon listé à part. */
