@@ -355,3 +355,13 @@ test('le prochain passage n\'est jamais antérieur à la dernière trace', () =>
   const r = D({ now: Date.parse('2026-11-25T17:30:00Z'), agents: ag }).routines.find((x) => /Observateur et Profil/.test(x.nom));
   assert.equal(r.etat, 'journal'); assert.ok(r.prochain.ms > r.dernier.ms, r.prochain.label);
 });
+test('statut « succès » sans rien d\'écrit pour ce passage : jamais vert, et le produit d\'hier n\'est pas repris', () => {
+  const ag = [runsDoc([run(PLAN, '0 8 * * 1-5', { at: '2026-11-26T08:07:00Z', statut: 'succès' })], '2026-11-26T08:20:00Z'), jr('j', '2026-11-25T17:15:00Z', { agent: 'Coach', passage: 'bilan', quoi: 'ZZ bilan hier' })];
+  const d = D({ now: Date.parse('2026-11-26T08:33:00Z'), agents: ag }), r = row(d, PLAN);
+  assert.equal(r.etat, 'sanstrace'); assert.equal(r.quoi, null); assert.match(r.trace, /26\/11 08:07/);
+  assert.ok(d.afaire.some((a) => /Passage à vérifier/.test(a.texte)));
+});
+test('une routine qui n\'écrit jamais au journal n\'est pas signalée « sans trace »', () => {
+  const ag = [runsDoc([run('Phénix · Formateur', '25 7 * * 1', { at: '2026-11-23T07:26:00Z', statut: 'succès' })], '2026-11-25T08:20:00Z')];
+  assert.equal(row(D({ now: Date.parse('2026-11-25T08:33:00Z'), agents: ag }), 'Phénix · Formateur').etat, 'ok');
+});

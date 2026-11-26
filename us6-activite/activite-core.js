@@ -431,7 +431,17 @@
       if (r.statut === 'encours' && f && photo.par && nkey(photo.par) === nkey(f.id) && r.dernier && p && /^agents\//.test(p.src) && p.ms >= r.dernier.ms) {
         r = Object.assign({}, r, { statut: 'ok' }); o.statut = 'ok'; o.statutBrut = 'terminé, journal écrit à ' + fmtDM(p.ms) + ' (la photo a été prise pendant le passage)';
       }
-      o.etat = !r.enabled ? 'desactivee' : o.absent ? 'absent' : o.echec ? 'echec' : o.inactif ? 'inactif' : !r.dernier ? 'attente' : r.statut === 'encours' ? 'encours' : 'ok';
+      /* passage terminé « succès » côté claude.ai mais rien d'écrit pour lui, alors que cette fiche écrit d'habitude : un statut de session ne prouve pas que le travail est fait */
+      var sansTrace = false;
+      if (r.enabled && r.dernier && r.statut !== 'encours' && f && (offres[f.id] || []).length) {
+        var ecrit = (offres[f.id] || []).some(function (x) { return x.ms >= r.dernier.ms - PROD_AVANT; });
+        if (!ecrit) {
+          sansTrace = true;
+          o.trace = 'rien d\'écrit dans le Suivi pour le passage de ' + o.dernier.label;
+          if (p) { o.notes.push('dernière trace de cette fiche, antérieure au passage : ' + p.src + ' (' + p.lbl + ')'); o.quoi = null; o.quoiSrc = null; o.quoiAt = null; }
+        }
+      }
+      o.etat = !r.enabled ? 'desactivee' : o.absent ? 'absent' : o.echec ? 'echec' : o.inactif ? 'inactif' : !r.dernier ? 'attente' : r.statut === 'encours' ? 'encours' : sansTrace ? 'sanstrace' : 'ok';
       if (!r.enabled) { o.prochain = null; o.prochainSrc = null; } // une routine désactivée n'a pas de prochain passage
       else if (!(f && partage[f.id] > 1)) vuAuJournal(o, f, c, ref);
       if (p && p.echec && o.etat === 'ok') { o.echec = true; o.etat = 'echec'; o.notes.push('échec écrit au journal : ' + cut(p.echec, 160)); }
@@ -460,6 +470,7 @@
     rows.forEach(function (r) {
       if (r.etat === 'absent') afaire.push({ kind: 'observer', texte: 'Passage à observer : ' + r.nom + ' ' + r.absent, source: 'agents/runs' });
       else if (r.etat === 'echec') afaire.push({ kind: 'observer', texte: 'Passage en échec à regarder : ' + r.nom + ' (' + (r.statutBrut || '—') + ', ' + (r.dernier ? r.dernier.label : '—') + ')', source: 'agents/runs' });
+      else if (r.etat === 'sanstrace') afaire.push({ kind: 'observer', texte: 'Passage à vérifier : ' + r.nom + ', ' + r.trace + ' (statut claude.ai : ' + (r.statutBrut || '—') + ')', source: 'agents/runs' });
       else if (r.etat === 'inactif') afaire.push({ kind: 'observer', texte: 'Passage à observer : ' + r.nom + ' ' + r.inactif, source: 'agents/runs' });
     });
     if (photo.etat === 'ok' && photo.stale) afaire.push({ kind: 'observer', texte: 'Photo des routines ancienne (' + photo.label + ', ' + photo.age + ') : vérifier que la Veille tourne', source: 'agents/runs' });

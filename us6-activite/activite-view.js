@@ -5,7 +5,7 @@
   function h(doc, tag, cls, txt) { var e = doc.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
   function td(doc, tr, cls, txt) { var c = h(doc, 'td', cls, txt); tr.appendChild(c); return c; }
   var ETAT = {
-    ok: ['ok', 'Réussi'], journal: ['ok', 'Vu au journal'], encours: ['wait', 'En cours'], echec: ['ko', 'Échec'], absent: ['ko', 'Passage absent'], inactif: ['ko', 'Inactif'], attente: ['wait', 'Aucun passage connu'],
+    ok: ['ok', 'Réussi'], journal: ['ok', 'Vu au journal'], sanstrace: ['ko', 'Aucune trace écrite'], encours: ['wait', 'En cours'], echec: ['ko', 'Échec'], absent: ['ko', 'Passage absent'], inactif: ['ko', 'Inactif'], attente: ['wait', 'Aucun passage connu'],
     desactivee: ['off', 'Désactivée'], 'non-lisible': ['off', 'Non lisible'], 'absente-photo': ['wait', 'Absente de la photo'], 'photo-absente': ['off', '—']
   };
   var KIND = { valider: 'À valider', perime: 'À décider', prompt: 'À coller', observer: 'À observer' };
@@ -79,11 +79,12 @@
       if (r.absent) st.appendChild(h(doc, 'div', 'ac-why ko', r.absent));
       if (r.echec && r.etat !== 'absent') st.appendChild(h(doc, 'div', 'ac-why ko', 'statut : ' + (r.statutBrut || '—')));
       else if (r.statutBrut && (r.etat === 'ok' || r.etat === 'attente')) st.appendChild(h(doc, 'div', 'ac-why', 'statut : ' + r.statutBrut));
+      if (r.etat === 'sanstrace') st.appendChild(h(doc, 'div', 'ac-why ko', r.trace + (r.statutBrut ? ' · statut claude.ai : ' + r.statutBrut : '')));
       if (r.inactif) st.appendChild(h(doc, 'div', 'ac-why ko', r.inactif));
       td(doc, tr, '', r.dernier ? r.dernier.label + ' UTC · ' + r.dernier.age + (r.dernier.duJournal ? ' (journal)' : '') : '—');
       td(doc, tr, '', r.prochain ? r.prochain.label + ' UTC (' + r.prochainSrc + ')' : '—');
       td(doc, tr, '', r.seuilTxt || '—');
-      td(doc, tr, 'ac-prod', r.quoi ? r.quoi + ' · ' + r.quoiAt + ' · source : ' + r.quoiSrc : '— (rien d\'écrit au journal)');
+      td(doc, tr, 'ac-prod', r.quoi ? r.quoi + ' · ' + r.quoiAt + ' · source : ' + r.quoiSrc : r.trace ? '— (' + r.trace + ')' : '— (rien d\'écrit au journal)');
       var fr = ficheRow(doc, r, byId[r.fiche], 6), key = r.fiche || r.nom;
       if (ctx.open && ctx.open[key]) { fr.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
       function toggle() { fr.hidden = !fr.hidden; btn.setAttribute('aria-expanded', fr.hidden ? 'false' : 'true'); if (ctx.onToggle) ctx.onToggle(key, !fr.hidden); }
