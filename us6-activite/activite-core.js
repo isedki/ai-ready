@@ -311,6 +311,7 @@
     return null;
   }
 
+  function isDash(v) { return typeof v === 'string' && /^\s*(—|-)\s*$/.test(v); }
   function normRuns(doc, anomalies, now) {
     if (!doc) return { etat: 'absente', source: 'agents/runs' };
     if (!isObj(doc)) { anomalies.push({ where: 'agents/runs', cause: 'document mal formé (ce n\'est pas un objet)', soft: false }); return { etat: 'illisible', source: 'agents/runs', cause: 'document mal formé' }; }
@@ -331,13 +332,13 @@
       var w = 'agents/runs routines[' + i + ']';
       if (!isObj(r) || !isStr(r.nom)) { anomalies.push({ where: w, cause: 'routine sans nom : ignorée', soft: false }); return; }
       var d = null, st = null;
-      if (isObj(r.dernier) && (r.dernier.at === null || r.dernier.at === undefined)) st = r.dernier.statut; // « jamais lancé », « pas de trace »
+      if (isObj(r.dernier) && (r.dernier.at === null || r.dernier.at === undefined || isDash(r.dernier.at))) st = isDash(r.dernier.statut) ? null : r.dernier.statut; // « jamais lancé », « pas de trace » (la Veille écrit aussi « — »)
       else if (r.dernier !== undefined && r.dernier !== null) {
         var pd = isObj(r.dernier) ? parseWhen(r.dernier.at) : { ok: false, why: 'dernier n\'est pas un objet' };
         if (pd.ok && pd.hm !== null) { d = pd; st = r.dernier.statut; } else anomalies.push({ where: w + ' (' + r.nom + ')', cause: 'dernier.at invalide : ' + (pd.ok ? 'heure absente' : pd.why) + ' : traité comme « aucun passage connu »', soft: true });
       }
       var pr = null;
-      if (isStr(r.prochain) && !/^d[ée]sactiv/i.test(r.prochain.trim())) { var pp = parseWhen(r.prochain); if (pp.ok && pp.hm !== null) pr = pp; else anomalies.push({ where: w + ' (' + r.nom + ')', cause: 'prochain invalide : ' + (pp.ok ? 'heure absente' : pp.why) + ' : calculé du cron', soft: true }); }
+      if (isStr(r.prochain) && !isDash(r.prochain) && !/^d[ée]sactiv/i.test(r.prochain.trim())) { var pp = parseWhen(r.prochain); if (pp.ok && pp.hm !== null) pr = pp; else anomalies.push({ where: w + ' (' + r.nom + ')', cause: 'prochain invalide : ' + (pp.ok ? 'heure absente' : pp.why) + ' : calculé du cron', soft: true }); }
       out.routines.push({ id: isStr(r.id) ? r.id.trim() : null, nom: r.nom.trim(), cron: isStr(r.cron) ? r.cron.trim() : null, enabled: r.enabled === false ? false : true, modele: isStr(r.modele) ? r.modele.trim() : null, dernier: d, statutBrut: isStr(st) ? st.trim() : null, statut: isStr(st) ? statutNorm(st) : null, prochain: pr });
     });
     return out;

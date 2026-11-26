@@ -1,0 +1,121 @@
+<!-- @nav -->
+  <nav class="nav-top" aria-label="Sections">
+    <button type="button" id="navJ" data-g="J" aria-current="true">Aujourd'hui</button>
+    <button type="button" id="navA" data-g="A" aria-current="false">Actions</button>
+    <button type="button" id="navG" data-g="G" aria-current="false">Agents<span class="nav-badge" id="navBadge" hidden></span></button>
+  </nav>
+  <div class="tabs sub-tabs" role="tablist" aria-label="Vues" id="subTabs">
+    <button class="tab" role="tab" id="tabJ" aria-controls="viewJ" aria-selected="true" type="button" hidden>Aujourd'hui</button>
+    <button class="tab" role="tab" id="tabA" aria-controls="viewA" aria-selected="false" type="button" hidden>Liste</button>
+    <button class="tab" role="tab" id="tabP" aria-controls="viewP" aria-selected="false" type="button" hidden>Chemin critique</button>
+    <button class="tab" role="tab" id="tabV" aria-controls="viewV" aria-selected="false" type="button" hidden>Vigilance</button>
+    <button class="tab" role="tab" id="tabS" aria-controls="viewS" aria-selected="false" type="button" hidden>Statut global</button>
+    <button class="tab" role="tab" id="tabL" aria-controls="viewL" aria-selected="false" type="button" hidden>En direct</button>
+    <button class="tab" role="tab" id="tabE" aria-controls="viewE" aria-selected="false" type="button" hidden>Sprint, mesures, journal</button>
+  </div>
+
+<!-- @fin -->
+<!-- @today -->
+  <section id="viewJ" role="tabpanel" aria-labelledby="tabJ">
+    <div class="jhead">
+      <div class="jday" id="jDay">Chargement de la journée…</div>
+      <div class="mode"><span>Mode</span><span class="chip" id="jMode">normal</span><details class="mini"><summary>réglage</summary><div id="jModeTxt"></div></details></div>
+    </div>
+    <div class="sv-pulse" id="svPulse"><div class="jempty">Lecture des agents…</div></div>
+    <div class="today">
+      <div>
+        <article class="jcard" aria-labelledby="cCoachT">
+          <div class="geste" id="cDay">Conseil du jour</div>
+          <h2 id="cCoachT">Quoi faire maintenant <span class="n" id="cCoachN"></span></h2>
+          <div id="cCoach"></div>
+        </article>
+        <article class="jcard" id="jObjCard">
+          <h2>Objectifs du jour <span class="n" id="jObjN"></span></h2>
+          <div id="jObj"></div>
+          <div id="jObjOk"></div>
+        </article>
+        <article class="jcard" aria-labelledby="cQT">
+          <h2 id="cQT">Questions du jour <span class="n" id="cQN"></span></h2>
+          <div id="cQ"></div>
+          <details class="mini" id="consFold"><summary>Donner une consigne sur un mail, sans question <span id="cnCount"></span></summary>
+            <div class="cons" id="cons">
+              <div class="hint">Écris ce que l'agent doit faire de ce mail : une consigne précise, pas le texte du mail. À son prochain passage il rédige lui-même la réponse dans le fil et la laisse en brouillon, sans l'envoyer.</div>
+              <div class="field"><label for="cnDraft">Mail concerné</label><select id="cnDraft"></select></div>
+              <div class="field" id="cnMailF"><label for="cnMail">Décris le mail (expéditeur, objet, heure)</label><input id="cnMail" maxlength="300" placeholder="{{ph:cnMail}}"></div>
+              <div class="field"><label for="cnText">Ta consigne</label><textarea id="cnText" maxlength="2000" placeholder="{{ph:cnText}}"></textarea></div>
+              <div class="acts"><button class="btn small primary" id="cnSave" type="button">Enregistrer la consigne</button></div>
+              <div id="cnList"></div>
+            </div>
+          </details>
+        </article>
+      </div>
+      <div>
+        <article class="jcard">
+          <h2>Brouillons à envoyer <span class="n" id="jDrN"></span></h2>
+          <div id="jDr"></div>
+          <details class="mini"><summary>Où les trouver</summary><div>Ils sont dans Gmail (Brouillons) : ouvre-les dans Apple Mail, compte Exchange, pour les envoyer. Ton avis ici est lu par la tâche suivante.</div></details>
+        </article>
+        <article class="jcard">
+          <h2>À relancer aujourd'hui <span class="n" id="jFuN"></span></h2>
+          <div id="jFu"></div>
+        </article>
+        <details class="fold" id="foldPer"><summary>Brouillons périmés, à supprimer <span class="n" id="jPerN"></span></summary>
+          <div class="jcard"><div id="jPer"></div><div class="note">Coche quand tu l'as supprimé dans Gmail.</div></div>
+        </details>
+        <details class="fold" id="plCard"><summary id="plTitle">Plan du jour (8h) <span class="n" id="plN"></span></summary>
+          <div class="jcard"><div id="plMount" aria-live="polite"><div class="jempty">Lecture du plan…</div></div>
+          <div class="note">Écrit par le Coach (US-15), aussi envoyé par mail à toi seul. Ton verdict (bonne, mauvaise, manquante + une phrase) est enregistré tel quel, comme celui de ta réponse au mail.</div></div>
+        </details>
+        <details class="fold" id="foldSujet"><summary id="sqTitle">Chercher un sujet et demander à Claude <span class="n" id="sqN"></span></summary>
+          <div class="jcard">
+            <div class="sq"><input id="sqInput" type="search" placeholder="{{ph:sqInput}}" aria-label="Chercher un sujet"><button class="btn" id="sqClear" type="button">Effacer</button></div>
+            <div class="hits" id="sqHits"></div>
+            <div id="sqTl"></div>
+            <div class="ask" id="sqAsk" hidden>
+              <label class="sect" for="sqQ">Demander à Claude sur ce sujet</label>
+              <div class="row"><textarea id="sqQ" placeholder="{{ph:sqQ}}"></textarea><button class="btn primary" id="sqGo" type="button">Demander</button></div>
+              <div class="answer" id="sqAns" hidden></div>
+              <div class="note">Réponse du modèle léger, à partir des seuls faits datés affichés ci-dessus. Vérifie la source avant de la reprendre dans un email.</div>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+<!-- @fin -->
+<!-- @agents -->
+  <section id="viewE" role="tabpanel" aria-labelledby="tabE" hidden>
+    <div class="gs-head"><div class="jday" id="agHead">Équipe d'agents</div><div class="jday">En direct · tu choisis les histoires à lancer</div></div>
+    <div class="gs-tiles" id="agTiles"></div>
+    <h2 class="gs-sec">Sprint</h2>
+    <div id="agSprint" class="ag-box"></div>
+    <h2 class="gs-sec">Mesures d'efficacité <span class="n" id="kpiWhen"></span></h2>
+    <div id="kpiCards"></div>
+    <details class="fold kp-more"><summary>Tableau complet (avant, cible, tendance, source) et commentaire</summary>
+      <div class="list gs"><table class="keep"><thead><tr><th>Mesure</th><th class="num">Avant</th><th class="num">Maintenant</th><th class="num">Cible</th><th>Tendance</th><th>Source</th></tr></thead><tbody id="kpiRows"></tbody></table></div>
+      <div class="jday" id="kpiNote"></div>
+    </details>
+    <details class="fold kp-more"><summary id="cUT">Usage des livrables, 7 jours <span class="n" id="cUN"></span></summary>
+      <div id="cU"></div>
+      <div class="note">On compte une ouverture d'onglet ou un clic sur un bouton (date et nom du livrable). Aucun contenu de mail ni donnée personnelle n'est enregistré.</div>
+    </details>
+    <details class="fold kp-more"><summary>L'équipe et son focus</summary>
+      <div class="list gs"><table><thead><tr><th>Agent</th><th>Rôle</th><th>Quand</th><th>Focus actuel</th><th>Dernier passage écrit</th></tr></thead><tbody id="agTeam"></tbody></table></div>
+    </details>
+    <details class="fold kp-more"><summary>Journal <span class="n" id="agLogN"></span></summary>
+      <div class="list gs"><table><thead><tr><th>Quand</th><th>Agent</th><th>Ce qui a été fait</th><th>Pourquoi (source)</th></tr></thead><tbody id="agLog"></tbody></table></div>
+    </details>
+  </section>
+
+<!-- @fin -->
+<!-- @live -->
+  <section id="viewL" role="tabpanel" aria-labelledby="tabL" hidden>
+    <div id="svTodo"></div>
+    <div id="svBeat" aria-live="polite"><div class="jday">Lecture des données…</div></div>
+    <details class="fold kp-more" id="foldDetail"><summary>Détail technique : tableau par routine, sources lues, anomalies, index Drive</summary>
+      <div id="acMount"><div class="jday">Lecture des données…</div></div>
+    </details>
+  </section>
+
+<!-- @fin -->
