@@ -187,7 +187,7 @@ test('passage attendu et absent : rouge, avec l\'heure attendue ; la tolérance 
   // la photo date de 08:40 : le passage de 09:00 n'est pas encore attendu, pas de faux rouge
   const tot = D({ agents: [runsDoc([run('Phénix · Terrain et PO', '0 9 * * 3', { at: '2026-11-18T09:03:00Z', statut: 'SUCCEEDED' })], '2026-11-25T08:40:00Z')] });
   assert.notEqual(row(tot, 'Phénix · Terrain et PO').etat, 'absent');
-  const jamais = row(photo(null), 'Phénix · Terrain et PO'); assert.equal(jamais.etat, 'absent'); assert.match(jamais.absent, /aucun passage connu/);
+  const jamais = row(photo(null), 'Phénix · Terrain et PO'); assert.equal(jamais.etat, 'attente'); assert.equal(jamais.absent, null); assert.match(jamais.notes.join(), /aucun passage connu/); // pas de faux rouge sur une routine neuve
   const off = row(D({ agents: [runsDoc([run('Phénix · Terrain et PO', '0 9 * * 3', null, { enabled: false })])] }), 'Phénix · Terrain et PO'); assert.equal(off.etat, 'desactivee'); assert.equal(off.absent, null);
   const wk = D({ now: Date.parse('2026-11-28T14:30:00Z'), agents: [runsDoc([run('Phénix · Coach plan du jour', '0 8 * * 1-5', { at: '2026-11-27T08:05:00Z', statut: 'SUCCEEDED' })], '2026-11-28T14:20:00Z')] });
   assert.equal(row(wk, 'Phénix · Coach plan du jour').etat, 'ok'); // samedi : rien n'est attendu
@@ -297,4 +297,71 @@ test('build-page : si une ancre manque, le script refuse et n\'écrit rien', asy
   let r; try { execFileSync('node', [here + 'build-page.mjs', join(dir, 'pub.html'), join(dir, 'out.html')], { stdio: 'pipe' }); r = 'ok'; } catch (e) { r = String(e.stderr); }
   assert.match(r, /ok|ancre/); // la page factice n'a pas toutes les ancres : le script doit refuser net, jamais écrire à moitié
   if (r !== 'ok') assert.ok(!(() => { try { readFileSync(join(dir, 'out.html')); return true; } catch (e) { return false; } })(), 'rien n\'est écrit si une ancre manque');
+});
+test('format réel écrit par la Veille (25/11 15h13) : fuseau en suffixe, jamais lancé, en cours, désactivée, photo partielle', () => {
+  assert.equal(ACT.parseCron('0 15 * * * (Africa/Casablanca)').ok, true);
+  assert.equal(ACT.parseCron('0 15 * * * (Europe/Paris)').ok, false);
+  const r = (nom, cron, at, statut, extra = {}) => ({ id: 't', nom, cron: cron + ' (Africa/Casablanca)', enabled: true, modele: 'm', dernier: { at, statut }, ...extra });
+  const d = D({ now: Date.parse('2026-11-25T15:20:00Z'), agents: [{ id: 'runs', data: { at: '2026-11-25T15:13:00Z', par: 'veille-coach', erreur: 'list_triggers : 3e page non lue', routines: [
+    r('Phénix · Agent Veille et Coach 15h00', '0 15 * * *', '2026-11-25T15:09:32Z', 'en cours'),
+    r('Phénix · Agent Veille et Coach 11h40', '40 11 * * *', null, 'jamais lancé'),
+    r('Phénix · Matin (objectifs et brouillons, 8h00)', '0 8 * * 1-5', '2026-11-25T08:15:14Z', 'SUCCEEDED', { enabled: false, prochain: 'désactivée' }),
+    r('Phénix · Point hebdomadaire SI (vendredi)', '20 14 * * 5', null, 'jamais lancé')] } }] });
+  assert.equal(row(d, 'Phénix · Agent Veille et Coach 15h00').etat, 'encours');
+  assert.match(row(d, 'Phénix · Agent Veille et Coach 15h00').seuilTxt, /déduit du cron/);
+  assert.equal(row(d, 'Phénix · Agent Veille et Coach 11h40').etat, 'attente');
+  assert.equal(row(d, 'Phénix · Matin (objectifs et brouillons, 8h00)').etat, 'desactivee');
+  assert.equal(row(d, 'Phénix · Matin (objectifs et brouillons, 8h00)').prochain, null);
+  assert.equal(row(d, 'Phénix · Point hebdomadaire SI (vendredi)').fiche, 'bilan-hebdo');
+  assert.equal(d.anomalies.length, 0);
+  assert.match(row(d, 'Formateur').notes.join(), /photo partielle/);
+  assert.ok(d.afaire.some((a) => /incomplète/.test(a.texte) && a.source === 'agents/runs.erreur'));
+});
+test('journal au format réel de la Veille (date + heure, titre) : lu, avec anomalie douce', () => {
+  const d = D({ agents: [{ id: 'jr-20261125-1513-veille-coach', data: { type: 'journal', agent: 'Veille et Coach', date: '2026-11-25', heure: '15:13', titre: 'ZZ-TEST passage 15h05', texte: 'détail' } }] });
+  assert.match(row(d, 'Veille et Coach').quoi, /ZZ-TEST passage 15h05/); assert.match(d.anomalies[0].cause, /champ at absent/); assert.equal(d.anomalies[0].soft, true);
+});
+
+const trois = (at) => runsDoc([run('Phénix · Agent Veille et Coach 15h00', '0 15 * * 1-5', { at: '2026-11-25T15:09:00Z', statut: 'en cours' }), run('Phénix · Agent Veille et Coach 11h40', '40 11 * * 1-5', null), run('Phénix · Coach, plan du jour', '0 8 * * 1-5', null)], at);
+const jr = (id, at, extra) => ({ id, data: { type: 'journal', at, ...extra } });
+const V15 = 'Phénix · Agent Veille et Coach 15h00', PLAN = 'Phénix · Coach, plan du jour';
+const A = (extra, now = '2026-11-25T17:30:00Z', at = '2026-11-25T15:13:00Z') => D({ now: Date.parse(now), agents: [trois(at), ...extra] });
+test('le bilan du « Coach » n\'est jamais attribué à la Veille ; il va au Coach plan du jour', () => {
+  const d = A([jr('jr-20261125-1513-veille-coach', '2026-11-25T15:13:00Z', { agent: 'Veille et Coach', quoi: 'ZZ veille 15h' }), jr('jr-20261125-1715-coach-bilan', '2026-11-25T17:25:00Z', { agent: 'Coach', passage: 'bilan', quoi: 'ZZ bilan coach' })]);
+  assert.match(row(d, V15).quoi, /ZZ veille 15h/);
+  assert.equal(row(d, 'Phénix · Agent Veille et Coach 11h40').quoi, null);
+  const c = row(d, PLAN); assert.match(c.quoi, /ZZ bilan coach/); assert.equal(c.etat, 'journal'); assert.equal(c.dernier.duJournal, true);
+});
+test('« Coach » sans passage plan ni bilan reste la Veille', () => {
+  const d = A([jr('jr-20261125-1512-coach', '2026-11-25T15:12:00Z', { agent: 'Coach', passage: 'veille', quoi: 'ZZ ancienne forme' })], '2026-11-25T15:30:00Z');
+  assert.match(row(d, V15).quoi, /ZZ ancienne forme/);
+});
+test('photo prise pendant le passage : « en cours » devient terminé seulement si un journal le prouve', () => {
+  assert.equal(row(A([]), V15).etat, 'encours');
+  const r = row(A([jr('j', '2026-11-25T15:13:00Z', { agent: 'Veille et Coach', quoi: 'x' })]), V15); assert.equal(r.etat, 'ok'); assert.match(r.statutBrut, /terminé, journal écrit/);
+});
+test('un échec écrit au journal ne s\'affiche jamais en vert', () => {
+  const e = { agent: 'Coach', passage: 'plan', quoi: 'raté', echec: 'connecteur Gmail refusé' };
+  assert.equal(row(A([jr('j1', '2026-11-25T08:16:00Z', e)]), PLAN).etat, 'echec');
+  assert.equal(row(A([jr('j2', '2026-11-25T08:16:00Z', { ...e, echec: 'aucun' })]), PLAN).etat, 'journal');
+  assert.equal(row(A([jr('j3', '2026-11-25T15:13:00Z', { agent: 'Veille et Coach', quoi: 'x', echec: 'Drive illisible' })]), V15).etat, 'echec');
+});
+test('une trace de la veille n\'efface pas un passage manqué aujourd\'hui', () => {
+  const r = row(A([jr('j', '2026-11-24T08:16:00Z', { agent: 'Coach', passage: 'plan', quoi: 'hier' })]), PLAN);
+  assert.equal(r.etat, 'absent'); assert.match(r.absent, /dernière trace au journal/);
+});
+test('le prochain passage n\'est jamais antérieur à la dernière trace', () => {
+  const ag = [runsDoc([run('Phénix · Agent Observateur et Profil', '5 17 * * *', { at: '2026-11-22T17:05:00Z', statut: 'SUCCEEDED' }, { prochain: '2026-11-25T17:05:00Z' })], '2026-11-25T15:13:00Z'), jr('journal-20261125-profil', '2026-11-25T17:10:00Z', { agent: 'Profil', quoi: 'constats' })];
+  const r = D({ now: Date.parse('2026-11-25T17:30:00Z'), agents: ag }).routines.find((x) => /Observateur et Profil/.test(x.nom));
+  assert.equal(r.etat, 'journal'); assert.ok(r.prochain.ms > r.dernier.ms, r.prochain.label);
+});
+test('statut « succès » sans rien d\'écrit pour ce passage : jamais vert, et le produit d\'hier n\'est pas repris', () => {
+  const ag = [runsDoc([run(PLAN, '0 8 * * 1-5', { at: '2026-11-26T08:07:00Z', statut: 'succès' })], '2026-11-26T08:20:00Z'), jr('j', '2026-11-25T17:15:00Z', { agent: 'Coach', passage: 'bilan', quoi: 'ZZ bilan hier' })];
+  const d = D({ now: Date.parse('2026-11-26T08:33:00Z'), agents: ag }), r = row(d, PLAN);
+  assert.equal(r.etat, 'sanstrace'); assert.equal(r.quoi, null); assert.match(r.trace, /26\/11 08:07/);
+  assert.ok(d.afaire.some((a) => /Passage à vérifier/.test(a.texte)));
+});
+test('une routine qui n\'écrit jamais au journal n\'est pas signalée « sans trace »', () => {
+  const ag = [runsDoc([run('Phénix · Formateur', '25 7 * * 1', { at: '2026-11-23T07:26:00Z', statut: 'succès' })], '2026-11-25T08:20:00Z')];
+  assert.equal(row(D({ now: Date.parse('2026-11-25T08:33:00Z'), agents: ag }), 'Phénix · Formateur').etat, 'ok');
 });

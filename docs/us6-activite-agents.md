@@ -22,7 +22,9 @@ De haut en bas :
 | **Seuil** | plus long intervalle entre deux passages du cron (62 jours de part et d'autre) + 30 min : 72 h 30 pour lun-ven, 7 j 30 min pour un hebdomadaire. Jamais un seuil unique |
 | **Désactivée / Non lisible / Absente de la photo** | gris ou orange, sans alerte |
 
-Cron : 5 champs, préfixe `CRON_TZ=Africa/Casablanca` (ou UTC/GMT) accepté, Maroc = UTC (décision d'Issam, 25/11). Un autre fuseau ou un cron illisible : seuil et passage attendu « — » avec la cause, rien n'est deviné.
+Un dernier passage inconnu (`dernier.at` vide : jamais lancé, pas de trace) reste « Aucun passage connu », sans rouge : la photo ne donne pas la date de création. Une photo avec `erreur` et des routines est traitée comme partielle.
+
+Cron : 5 champs, fuseau Africa/Casablanca (ou UTC/GMT) accepté en préfixe `CRON_TZ=` ou en suffixe `(Africa/Casablanca)`, Maroc = UTC (décision d'Issam, 25/11). Un autre fuseau ou un cron illisible : seuil et passage attendu « — » avec la cause, rien n'est deviné.
 
 ### Passages sans champ agent
 Un passage de journal sans `agent` n'est plus masqué : rattaché à « Veille et Coach » si l'id contient `coach-veille` (anomalie affichée « rattaché »), sinon listé dans « passages sans agent ». La cause reste corrigée à la source : la Veille écrit toujours `agent: "Veille et Coach"`.

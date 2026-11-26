@@ -30,7 +30,12 @@ between('  <section id="viewL"', '  <section id="viewS"', `  <section id="viewL"
 `);
 between('<script id="us6-core">', '<script id="us6-view">', '<script id="us6-core">\n' + rd('activite-core.js') + '\n</script>\n');
 between('<script id="us6-view">', '<script>\n(function(){', '<script id="us6-view">\n' + rd('activite-view.js') + '\n</script>\n<script id="us18-fiches" type="application/json">\n' + JSON.stringify(JSON.parse(rd('routines-fiches.json'))).replace(/</g, '\\u003c') + '\n</script>\n');
-between('  /* ---------- US-6 : onglet Activité', '  /* ---------- US-15 : bloc « Plan du jour »', rd('page-wiring.js'));
-once('jour=d?Object.assign({date:d.id},d.data()||{}):null;renderJ();renderConseil()}', 'jour=d?Object.assign({date:d.id},d.data()||{}):null;renderJ();renderConseil();renderActivite()}');
+/* page déjà passée par l'US-18 : le branchement est en place ; il doit être identique à celui du dépôt, sinon on s'arrête */
+if (h.includes('renderConseil();renderActivite()}')) {
+  if (count(h, rd('page-wiring.js').trim()) !== 1) fail('le branchement US-18 publié diffère de page-wiring.js : à comparer à la main avant de publier');
+} else {
+  between('  /* ---------- US-6 : onglet Activité', '  /* ---------- US-15 : bloc « Plan du jour »', rd('page-wiring.js'));
+  once('jour=d?Object.assign({date:d.id},d.data()||{}):null;renderJ();renderConseil()}', 'jour=d?Object.assign({date:d.id},d.data()||{}):null;renderJ();renderConseil();renderActivite()}');
+}
 writeFileSync(out, h);
 console.log('ok : ' + out + ' (' + h.length + ' octets)');
